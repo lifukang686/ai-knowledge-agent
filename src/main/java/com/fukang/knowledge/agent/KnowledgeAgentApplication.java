@@ -1,13 +1,13 @@
-package com.bluesword.ai;
+package com.fukang.knowledge.agent;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class AiApplication {
+public class KnowledgeAgentApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(AiApplication.class, args);
+        SpringApplication.run(KnowledgeAgentApplication.class, args);
     }
 
 }
