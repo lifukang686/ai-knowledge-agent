@@ -1,0 +1,85 @@
+-- 企业知识库 AI Agent 平台 MVP 数据库初始化脚本
+-- 数据库: PostgreSQL (或兼容语法)
+-- 字符集: UTF8
+
+-- 1. 用户表
+CREATE TABLE IF NOT EXISTS sys_user (
+    id BIGINT PRIMARY KEY,
+    username VARCHAR(64) UNIQUE NOT NULL,
+    password_hash VARCHAR(128) NOT NULL,
+    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted SMALLINT NOT NULL DEFAULT 0
+);
+COMMENT ON TABLE sys_user IS '用户表';
+COMMENT ON COLUMN sys_user.id IS '主键(雪花算法)';
+COMMENT ON COLUMN sys_user.username IS '登录用户名';
+COMMENT ON COLUMN sys_user.password_hash IS '密码哈希值';
+COMMENT ON COLUMN sys_user.create_time IS '创建时间';
+COMMENT ON COLUMN sys_user.update_time IS '更新时间';
+COMMENT ON COLUMN sys_user.deleted IS '逻辑删除 (0-正常, 1-删除)';
+
+-- 2. 模型提供商表
+CREATE TABLE IF NOT EXISTS model_provider (
+    id BIGINT PRIMARY KEY,
+    name VARCHAR(64) UNIQUE NOT NULL,
+    api_base_url VARCHAR(255),
+    api_key VARCHAR(255),
+    description VARCHAR(500),
+    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted SMALLINT NOT NULL DEFAULT 0
+);
+COMMENT ON TABLE model_provider IS '模型提供商表';
+COMMENT ON COLUMN model_provider.id IS '主键(雪花算法)';
+COMMENT ON COLUMN model_provider.name IS '提供商名称 (如 openai, anthropic)';
+COMMENT ON COLUMN model_provider.api_base_url IS 'API 基础地址';
+COMMENT ON COLUMN model_provider.api_key IS '访问密钥';
+COMMENT ON COLUMN model_provider.description IS '描述信息';
+COMMENT ON COLUMN model_provider.create_time IS '创建时间';
+COMMENT ON COLUMN model_provider.update_time IS '更新时间';
+COMMENT ON COLUMN model_provider.deleted IS '逻辑删除 (0-正常, 1-删除)';
+
+-- 3. 模型配置表
+CREATE TABLE IF NOT EXISTS model_config (
+    id BIGINT PRIMARY KEY,
+    provider_id BIGINT NOT NULL,
+    model_name VARCHAR(64) NOT NULL,
+    default_params JSON,
+    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted SMALLINT NOT NULL DEFAULT 0
+);
+CREATE INDEX idx_model_config_provider_id ON model_config(provider_id);
+COMMENT ON TABLE model_config IS '模型配置表';
+COMMENT ON COLUMN model_config.id IS '主键(雪花算法)';
+COMMENT ON COLUMN model_config.provider_id IS '关联的提供商 ID';
+COMMENT ON COLUMN model_config.model_name IS '模型名称 (如 gpt-4o)';
+COMMENT ON COLUMN model_config.default_params IS '默认参数 (如 temperature, max_tokens)';
+COMMENT ON COLUMN model_config.create_time IS '创建时间';
+COMMENT ON COLUMN model_config.update_time IS '更新时间';
+COMMENT ON COLUMN model_config.deleted IS '逻辑删除 (0-正常, 1-删除)';
+
+-- 4. AI 调用日志表
+CREATE TABLE IF NOT EXISTS ai_call_log (
+    id BIGINT PRIMARY KEY,
+    model_id BIGINT NOT NULL,
+    prompt TEXT,
+    response TEXT,
+    token_usage INT NOT NULL DEFAULT 0,
+    latency_ms INT NOT NULL DEFAULT 0,
+    create_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted SMALLINT NOT NULL DEFAULT 0
+);
+CREATE INDEX idx_ai_call_log_model_id ON ai_call_log(model_id);
+COMMENT ON TABLE ai_call_log IS 'AI 调用日志表';
+COMMENT ON COLUMN ai_call_log.id IS '主键(雪花算法)';
+COMMENT ON COLUMN ai_call_log.model_id IS '调用的模型配置 ID';
+COMMENT ON COLUMN ai_call_log.prompt IS '请求提示词';
+COMMENT ON COLUMN ai_call_log.response IS '模型返回内容';
+COMMENT ON COLUMN ai_call_log.token_usage IS '消耗的总 Token 数';
+COMMENT ON COLUMN ai_call_log.latency_ms IS '接口调用耗时(毫秒)';
+COMMENT ON COLUMN ai_call_log.create_time IS '创建时间(调用时间)';
+COMMENT ON COLUMN ai_call_log.update_time IS '更新时间';
+COMMENT ON COLUMN ai_call_log.deleted IS '逻辑删除 (0-正常, 1-删除)';
