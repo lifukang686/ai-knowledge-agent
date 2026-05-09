@@ -2,6 +2,7 @@ package com.fukang.knowledge.agent;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 
 /**
  * 企业知识库 AI Agent 平台启动类
@@ -9,6 +10,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * 提供用户认证、AI 模型管理和调用等核心能力</p>
  */
 @SpringBootApplication
+@EnableJpaAuditing
 public class KnowledgeAgentApplication {
 
     public static void main(String[] args) {

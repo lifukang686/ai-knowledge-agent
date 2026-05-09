@@ -1,6 +1,9 @@
 package com.fukang.knowledge.agent.infrastructure.persistence.entity;
 
 import com.baomidou.mybatisplus.annotation.TableName;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
@@ -11,15 +14,20 @@ import lombok.EqualsAndHashCode;
  */
 @Data
 @EqualsAndHashCode(callSuper = true)
+@Entity
+@Table(name = "model_config")
 @TableName("model_config")
 public class ModelConfigDO extends BaseEntity {
 
     /** 所属提供商ID，关联 model_provider 表 */
+    @Column(name = "provider_id", nullable = false)
     private Long providerId;
 
     /** 模型名称（如 gpt-3.5-turbo、gpt-4） */
+    @Column(name = "model_name", nullable = false, length = 64)
     private String modelName;
 
     /** 默认调用参数，JSON 格式字符串（如 temperature、max_tokens 等） */
+    @Column(name = "default_params", columnDefinition = "json")
     private String defaultParams;
 }
