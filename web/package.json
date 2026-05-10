@@ -1,22 +1,39 @@
 {
-  "name": "knowledge-agent-web",
+  "name": "enterprise-knowledge-base-frontend",
   "private": true,
-  "version": "1.0.0",
+  "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+    "build": "tsc && vite build",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "preview": "vite preview",
+    "check": "tsc --noEmit"
   },
   "dependencies": {
-    "vue": "^3.4.0",
-    "element-plus": "^2.5.0",
-    "@element-plus/icons-vue": "^2.3.1",
-    "marked": "^12.0.0"
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.8.1",
+    "zustand": "^4.3.6",
+    "axios": "^1.3.4",
+    "lucide-react": "^0.263.1",
+    "sonner": "^0.4.0",
+    "date-fns": "^2.29.3",
+    "clsx": "^1.2.1"
   },
   "devDependencies": {
-    "@vitejs/plugin-vue": "^5.0.0",
-    "vite": "^5.0.0",
-    "sass": "^1.69.0"
+    "@types/react": "^18.0.27",
+    "@types/react-dom": "^18.0.10",
+    "@typescript-eslint/eslint-plugin": "^5.54.0",
+    "@typescript-eslint/parser": "^5.54.0",
+    "@vitejs/plugin-react": "^3.1.0",
+    "autoprefixer": "^10.4.13",
+    "eslint": "^8.35.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.3.4",
+    "postcss": "^8.4.21",
+    "tailwindcss": "^3.2.7",
+    "typescript": "^4.9.3",
+    "vite": "^4.1.0"
   }
 }
