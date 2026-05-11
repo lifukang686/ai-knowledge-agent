@@ -2,6 +2,7 @@ package com.fukang.knowledge.agent.application.model;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fukang.knowledge.agent.api.model.dto.ModelConfigReq;
+import com.fukang.knowledge.agent.api.model.dto.ModelConfigUpdateReq;
 import com.fukang.knowledge.agent.api.model.dto.ProviderReq;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
@@ -91,5 +92,49 @@ public class ModelAppService {
                 new LambdaQueryWrapper<ModelConfigDO>()
                         .eq(ModelConfigDO::getProviderId, providerId)
         );
+    }
+
+    /**
+     * 根据ID删除模型配置
+     * <p>删除前校验模型配置是否存在，不存在则抛出异常。
+     * MyBatis-Plus 的 @TableLogic 注解实现软删除，不会物理删除数据</p>
+     *
+     * @param id 模型配置ID
+     * @throws BaseException 模型配置不存在时抛出 MODEL_NOT_EXIST
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteModelConfig(Long id) {
+        ModelConfigDO config = modelConfigMapper.selectById(id);
+        if (config == null) {
+            throw new BaseException(ErrorCodeEnum.MODEL_NOT_EXIST);
+        }
+        modelConfigMapper.deleteById(id);
+    }
+
+    /**
+     * 根据ID更新模型配置
+     * <p>更新前校验模型配置是否存在，不存在则抛出异常。
+     * 仅更新请求中非空的字段，未传的字段保持原值不变。</p>
+     *
+     * @param id  模型配置ID
+     * @param req 模型配置更新请求参数
+     * @throws BaseException 模型配置不存在时抛出 MODEL_NOT_EXIST
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void updateModelConfig(Long id, ModelConfigUpdateReq req) {
+        ModelConfigDO config = modelConfigMapper.selectById(id);
+        if (config == null) {
+            throw new BaseException(ErrorCodeEnum.MODEL_NOT_EXIST);
+        }
+        if (req.providerId() != null) {
+            config.setProviderId(req.providerId());
+        }
+        if (req.modelName() != null && !req.modelName().isBlank()) {
+            config.setModelName(req.modelName());
+        }
+        if (req.defaultParams() != null && !req.defaultParams().isBlank()) {
+            config.setDefaultParams(req.defaultParams());
+        }
+        modelConfigMapper.updateById(config);
     }
 }
