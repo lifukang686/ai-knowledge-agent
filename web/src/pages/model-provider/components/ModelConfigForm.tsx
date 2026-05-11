@@ -5,16 +5,20 @@ interface ModelConfigFormProps {
   onSubmit: (values: { modelName: string; defaultParams?: string }) => Promise<void>;
   onCancel?: () => void;
   submitting?: boolean;
+  initialData?: { modelName?: string; defaultParams?: string };
+  isEdit?: boolean;
 }
 
 const ModelConfigForm: React.FC<ModelConfigFormProps> = ({
   onSubmit,
   onCancel,
-  submitting = false
+  submitting = false,
+  initialData,
+  isEdit = false
 }) => {
   const [formData, setFormData] = useState({
-    modelName: '',
-    defaultParams: ''
+    modelName: initialData?.modelName || '',
+    defaultParams: initialData?.defaultParams || ''
   });
   
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -128,7 +132,7 @@ const ModelConfigForm: React.FC<ModelConfigFormProps> = ({
               保存中...
             </>
           ) : (
-            '添加'
+            isEdit ? '更新' : '添加'
           )}
         </button>
       </div>

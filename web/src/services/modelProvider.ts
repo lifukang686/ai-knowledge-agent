@@ -1,4 +1,4 @@
-import { ModelProvider, ModelConfig, CreateModelProviderRequest, UpdateModelProviderRequest, ModelProviderQuery, CreateModelConfigRequest } from '@/types/modelProvider';
+import { ModelProvider, ModelConfig, CreateModelProviderRequest, UpdateModelProviderRequest, ModelProviderQuery, CreateModelConfigRequest, UpdateModelConfigRequest } from '@/types/modelProvider';
 import { PaginatedResponse } from '@/types/common';
 import { request } from '@/utils/request';
 
@@ -96,5 +96,28 @@ export const modelProviderService = {
     console.log('  - 后端返回的 id:', id, '类型:', typeof id);
     
     return { id: id };
+  },
+
+  // 更新模型配置
+  async updateModelConfig(id: string, data: UpdateModelConfigRequest): Promise<void> {
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] === modelProviderService.updateModelConfig 调用 ===`);
+    console.log('  - 模型配置 id:', id, '类型:', typeof id);
+    console.log('  - 更新数据:', data);
+    
+    await request.put(`/models/configs/${id}`, data);
+    
+    console.log('  - 模型配置更新成功');
+  },
+
+  // 删除模型配置
+  async deleteModelConfig(id: string): Promise<void> {
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] === modelProviderService.deleteModelConfig 调用 ===`);
+    console.log('  - 模型配置 id:', id, '类型:', typeof id);
+    
+    await request.delete(`/models/configs/${id}`);
+    
+    console.log('  - 模型配置删除成功');
   }
 };

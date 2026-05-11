@@ -37,6 +37,11 @@ export interface CreateModelConfigRequest {
   defaultParams?: string;
 }
 
+export interface UpdateModelConfigRequest {
+  modelName?: string;
+  defaultParams?: string;
+}
+
 export interface ModelProviderQuery {
   name?: string;
   status?: string;

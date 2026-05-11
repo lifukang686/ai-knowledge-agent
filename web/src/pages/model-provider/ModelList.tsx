@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Database } from 'lucide-react';
+import { ArrowLeft, Plus, Database, Edit, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { ModelConfig, ModelProvider } from '@/types/modelProvider';
@@ -20,6 +20,7 @@ const ModelList: React.FC = () => {
   
   const [modalVisible, setModalVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [editingModel, setEditingModel] = useState<ModelConfig | null>(null);
   
   // 使用ref来跟踪是否已加载过数据，防止重复调用
   const hasLoadedRef = useRef(false);
@@ -96,7 +97,32 @@ const ModelList: React.FC = () => {
   // 添加模型处理
   const handleCreate = () => {
     console.log('打开添加模型弹窗，当前id:', id);
+    setEditingModel(null);
     setModalVisible(true);
+  };
+
+  // 编辑模型处理
+  const handleEdit = (model: ModelConfig) => {
+    console.log('打开编辑模型弹窗，模型数据:', model);
+    setEditingModel(model);
+    setModalVisible(true);
+  };
+
+  // 删除模型处理
+  const handleDelete = async (modelId: string) => {
+    if (!window.confirm('确定要删除这个模型吗？此操作不可恢复。')) {
+      return;
+    }
+
+    try {
+      await modelProviderService.deleteModelConfig(modelId);
+      toast.success('模型删除成功');
+      // 删除成功后强制刷新数据
+      loadData(true);
+    } catch (error) {
+      console.error('删除模型失败:', error);
+      toast.error('删除模型失败');
+    }
   };
 
   // 表单提交处理
@@ -107,28 +133,38 @@ const ModelList: React.FC = () => {
     }
     
     console.log('=== 提交模型配置 ===');
+    console.log('是否编辑模式:', !!editingModel);
     console.log('使用路由参数providerId:', id, '类型:', typeof id);
     console.log('表单数据:', values);
     
     setSubmitting(true);
     try {
-      const requestData = {
-        providerId: id,  // 直接传递字符串，不转换为数字
-        modelName: values.modelName,
-        defaultParams: values.defaultParams
-      };
-      console.log('发送到后端的请求数据:', requestData);
-      console.log('请求数据类型检查:', typeof requestData.providerId);
+      if (editingModel) {
+        // 编辑模式
+        await modelProviderService.updateModelConfig(editingModel.id, values);
+        toast.success('模型更新成功');
+      } else {
+        // 新建模式
+        const requestData = {
+          providerId: id,  // 直接传递字符串，不转换为数字
+          modelName: values.modelName,
+          defaultParams: values.defaultParams
+        };
+        console.log('发送到后端的请求数据:', requestData);
+        console.log('请求数据类型检查:', typeof requestData.providerId);
+        
+        await modelProviderService.createModelConfig(requestData);
+        toast.success('模型添加成功');
+      }
       
-      await modelProviderService.createModelConfig(requestData);
-      toast.success('模型添加成功');
       setModalVisible(false);
+      setEditingModel(null);
       
-      // 创建成功后强制刷新数据
+      // 成功后强制刷新数据
       loadData(true);
     } catch (error) {
-      console.error('添加模型失败:', error);
-      toast.error('添加模型失败');
+      console.error('操作失败:', error);
+      toast.error(editingModel ? '更新模型失败' : '添加模型失败');
       throw error;
     } finally {
       setSubmitting(false);
@@ -172,6 +208,31 @@ const ModelList: React.FC = () => {
         <span className="text-gray-600 text-sm">
           {formatDateTime(value)}
         </span>
+      )
+    },
+    {
+      key: 'actions',
+      title: '操作',
+      width: '150px',
+      render: (_: any, record: ModelConfig) => (
+        <div className="flex space-x-3">
+          <button
+            onClick={() => handleEdit(record)}
+            className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center"
+            title="编辑"
+          >
+            <Edit className="h-4 w-4 mr-1" />
+            编辑
+          </button>
+          <button
+            onClick={() => handleDelete(record.id)}
+            className="text-red-600 hover:text-red-800 text-sm font-medium flex items-center"
+            title="删除"
+          >
+            <Trash2 className="h-4 w-4 mr-1" />
+            删除
+          </button>
+        </div>
       )
     }
   ];
@@ -223,16 +284,27 @@ const ModelList: React.FC = () => {
         />
       </div>
 
-      {/* 添加模型弹窗 */}
+      {/* 添加/编辑模型弹窗 */}
       <FormModal
         isOpen={modalVisible}
-        title="添加模型"
-        onCancel={() => setModalVisible(false)}
+        title={editingModel ? "编辑模型" : "添加模型"}
+        onCancel={() => {
+          setModalVisible(false);
+          setEditingModel(null);
+        }}
       >
         <ModelConfigForm
           onSubmit={handleFormSubmit}
-          onCancel={() => setModalVisible(false)}
+          onCancel={() => {
+            setModalVisible(false);
+            setEditingModel(null);
+          }}
           submitting={submitting}
+          initialData={editingModel ? {
+            modelName: editingModel.modelName,
+            defaultParams: editingModel.defaultParams
+          } : undefined}
+          isEdit={!!editingModel}
         />
       </FormModal>
     </div>
