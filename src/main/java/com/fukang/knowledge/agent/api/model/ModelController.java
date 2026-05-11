@@ -15,6 +15,7 @@ import java.util.List;
 /**
  * 模型管理控制器
  * <p>提供 AI 模型提供商和模型配置的增删查接口</p>
+ * @author lfk68
  */
 @RestController
 @RequestMapping("/api/models")
@@ -47,7 +48,7 @@ public class ModelController {
     /**
      * 创建模型配置
      *
-     * @param req 模型配置创建请求参数
+     *      * @param req 模型配置创建请求参数
      * @return 新创建的模型配置ID
      */
     @PostMapping("/configs")
@@ -62,7 +63,7 @@ public class ModelController {
      * @return 该提供商下的模型配置列表
      */
     @GetMapping("/configs")
-    public Result<List<ModelConfigDO>> listModelConfigs(@RequestParam Long providerId) {
-        return Result.success(modelAppService.listModelConfigs(providerId));
+    public Result<List<ModelConfigDO>> listModelConfigs(@RequestParam("providerId") String providerId) {
+        return Result.success(modelAppService.listModelConfigs(Long.valueOf(providerId)));
     }
 }

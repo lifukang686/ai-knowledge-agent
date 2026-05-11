@@ -73,7 +73,9 @@ public class ModelAppService {
         ModelConfigDO config = new ModelConfigDO();
         config.setProviderId(req.providerId());
         config.setModelName(req.modelName());
-        config.setDefaultParams(req.defaultParams());
+        if (req.defaultParams() != null && !req.defaultParams().isBlank()) {
+            config.setDefaultParams(req.defaultParams());
+        }
         modelConfigMapper.insert(config);
         return config.getId();
     }

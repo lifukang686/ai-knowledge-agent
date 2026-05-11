@@ -1,6 +1,8 @@
 package com.fukang.knowledge.agent.infrastructure.persistence.entity;
 
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.fukang.knowledge.agent.infrastructure.persistence.handler.JsonTypeHandler;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
@@ -16,7 +18,7 @@ import lombok.EqualsAndHashCode;
 @EqualsAndHashCode(callSuper = true)
 @Entity
 @Table(name = "model_config")
-@TableName("model_config")
+@TableName(value = "model_config", autoResultMap = true)
 public class ModelConfigDO extends BaseEntity {
 
     /** 所属提供商ID，关联 model_provider 表 */
@@ -29,5 +31,6 @@ public class ModelConfigDO extends BaseEntity {
 
     /** 默认调用参数，JSON 格式字符串（如 temperature、max_tokens 等） */
     @Column(name = "default_params", columnDefinition = "json")
+    @TableField(typeHandler = JsonTypeHandler.class)
     private String defaultParams;
 }
