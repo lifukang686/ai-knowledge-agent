@@ -1,36 +1,40 @@
-export interface ModelProvider extends BaseEntity {
+export interface ModelProvider {
+  id: string;
   name: string;
-  apiUrl: string;
-  apiKey: string;
+  apiBaseUrl?: string;
+  apiKey?: string;
   description?: string;
-  defaultParams?: Record<string, any>;
-  status: 'active' | 'inactive';
+  createTime?: string;
+  updateTime?: string;
 }
 
-export interface Model extends BaseEntity {
+export interface ModelConfig {
+  id: string;
   providerId: string;
-  name: string;
-  modelType: 'chat' | 'embedding' | 'completion';
-  description?: string;
-  maxTokens?: number;
-  status: 'active' | 'inactive';
+  modelName: string;
+  defaultParams?: string;
+  createTime?: string;
+  updateTime?: string;
 }
 
 export interface CreateModelProviderRequest {
   name: string;
-  apiUrl: string;
-  apiKey: string;
+  apiBaseUrl?: string;
+  apiKey?: string;
   description?: string;
-  defaultParams?: Record<string, any>;
 }
 
 export interface UpdateModelProviderRequest {
   name?: string;
-  apiUrl?: string;
+  apiBaseUrl?: string;
   apiKey?: string;
   description?: string;
-  defaultParams?: Record<string, any>;
-  status?: 'active' | 'inactive';
+}
+
+export interface CreateModelConfigRequest {
+  providerId: string;
+  modelName: string;
+  defaultParams?: string;
 }
 
 export interface ModelProviderQuery {

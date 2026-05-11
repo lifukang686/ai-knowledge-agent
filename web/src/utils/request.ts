@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { ApiResponse } from '@/types/common';
+import { useAuthStore } from '@/stores/authStore';
 
 class Request {
   private instance: AxiosInstance;
@@ -20,7 +21,10 @@ class Request {
     // 请求拦截器
     this.instance.interceptors.request.use(
       (config) => {
-        // 可以在这里添加认证token等
+        const token = useAuthStore.getState().token;
+        if (token && config.headers) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
         return config;
       },
       (error) => {
@@ -44,6 +48,10 @@ class Request {
         // 网络错误处理
         if (error.response) {
           console.error('HTTP Error:', error.response.status);
+          // 如果是401未授权，清除认证信息
+          if (error.response.status === 401) {
+            useAuthStore.getState().clearAuth();
+          }
         } else if (error.request) {
           console.error('Network Error:', error.message);
         }

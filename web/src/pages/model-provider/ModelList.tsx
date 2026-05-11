@@ -1,53 +1,146 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Edit, Database } from 'lucide-react';
+import { ArrowLeft, Plus, Database } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { Model } from '@/types/modelProvider';
+import { ModelConfig, ModelProvider } from '@/types/modelProvider';
 import { modelProviderService } from '@/services/modelProvider';
 import { DataTable } from '@/components/common/DataTable';
-import { StatusTag } from '@/components/common/StatusTag';
+import { FormModal } from '@/components/common/FormModal';
 import { formatDateTime } from '@/utils/format';
+import ModelConfigForm from './components/ModelConfigForm';
 
 const ModelList: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   
   const [loading, setLoading] = useState(false);
-  const [models, setModels] = useState<Model[]>([]);
+  const [models, setModels] = useState<ModelConfig[]>([]);
   const [providerName, setProviderName] = useState('');
+  
+  const [modalVisible, setModalVisible] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  
+  // 使用ref来跟踪是否已加载过数据，防止重复调用
+  const hasLoadedRef = useRef(false);
+  const isLoadingRef = useRef(false);
 
-  // 加载模型列表
-  const loadModels = async () => {
+  // 加载数据 - 使用useCallback避免不必要的重新渲染
+  const loadData = useCallback(async (forceReload: boolean = false) => {
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] === ModelList.loadData 调用 ===`);
+    console.log('  - forceReload:', forceReload);
+    console.log('  - 路由参数id:', id, '类型:', typeof id);
+    console.log('  - isLoadingRef:', isLoadingRef.current);
+    console.log('  - hasLoadedRef:', hasLoadedRef.current);
+    
     if (!id) return;
     
+    // 防止重复加载 - 除非是强制刷新
+    if (!forceReload && isLoadingRef.current) {
+      console.log('  - 正在加载中，跳过此次调用');
+      return;
+    }
+    if (!forceReload && hasLoadedRef.current) {
+      console.log('  - 已加载过，跳过此次调用');
+      return;
+    }
+    
+    isLoadingRef.current = true;
     setLoading(true);
+    
     try {
-      // 获取提供商信息
-      const provider = await modelProviderService.getModelProvider(id);
-      setProviderName(provider.name);
+      console.log('  - 开始调用 API: getModelsByProvider');
       
-      // 获取模型列表
-      const data = await modelProviderService.getModelsByProvider(id);
-      setModels(data);
+      // 直接从路由参数获取providerId，不需要额外查询
+      // 直接获取模型列表
+      const modelsData = await modelProviderService.getModelsByProvider(id);
+      
+      console.log('  - 获取到的模型列表:', modelsData);
+      console.log('  - 模型数量:', modelsData.length);
+      
+      setModels(modelsData);
+      
+      // 提供商名称暂时先不获取，避免重复请求
+      setProviderName('模型配置');
+      
+      hasLoadedRef.current = true;
+      console.log('  - 数据加载完成');
     } catch (error) {
       console.error('加载模型列表失败:', error);
       toast.error('加载模型列表失败');
     } finally {
       setLoading(false);
+      isLoadingRef.current = false;
     }
-  };
+  }, [id]);
 
   useEffect(() => {
-    loadModels();
-  }, [id]);
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] === ModelList useEffect 执行 ===`);
+    console.log('  - hasLoadedRef:', hasLoadedRef.current);
+    
+    // 当id变化时，重置加载状态并重新加载
+    if (id) {
+      hasLoadedRef.current = false;
+      loadData();
+    }
+    
+    // 组件卸载时重置
+    return () => {
+      console.log('=== ModelList 组件卸载 ===');
+      hasLoadedRef.current = false;
+    };
+  }, [loadData, id]);
+
+  // 添加模型处理
+  const handleCreate = () => {
+    console.log('打开添加模型弹窗，当前id:', id);
+    setModalVisible(true);
+  };
+
+  // 表单提交处理
+  const handleFormSubmit = async (values: { modelName: string; defaultParams?: string }) => {
+    if (!id) {
+      toast.error('提供商信息缺失，请刷新页面');
+      return;
+    }
+    
+    console.log('=== 提交模型配置 ===');
+    console.log('使用路由参数providerId:', id, '类型:', typeof id);
+    console.log('表单数据:', values);
+    
+    setSubmitting(true);
+    try {
+      const requestData = {
+        providerId: id,  // 直接传递字符串，不转换为数字
+        modelName: values.modelName,
+        defaultParams: values.defaultParams
+      };
+      console.log('发送到后端的请求数据:', requestData);
+      console.log('请求数据类型检查:', typeof requestData.providerId);
+      
+      await modelProviderService.createModelConfig(requestData);
+      toast.success('模型添加成功');
+      setModalVisible(false);
+      
+      // 创建成功后强制刷新数据
+      loadData(true);
+    } catch (error) {
+      console.error('添加模型失败:', error);
+      toast.error('添加模型失败');
+      throw error;
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   // 表格列配置
   const columns = [
     {
-      key: 'name',
+      key: 'modelName',
       title: '模型名称',
-      render: (value: string, record: Model) => (
+      render: (value: string, record: ModelConfig) => (
         <div className="flex items-center">
           <Database className="h-4 w-4 text-gray-400 mr-2" />
           <span className="font-medium text-gray-900">{value}</span>
@@ -55,51 +148,26 @@ const ModelList: React.FC = () => {
       )
     },
     {
-      key: 'modelType',
-      title: '模型类型',
-      width: '120px',
+      key: 'defaultParams',
+      title: '默认参数',
       render: (value: string) => {
-        const typeMap = {
-          chat: '对话',
-          embedding: '嵌入',
-          completion: '补全'
-        };
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-            {typeMap[value as keyof typeof typeMap] || value}
-          </span>
-        );
+        if (!value) return '-';
+        try {
+          const parsed = JSON.parse(value);
+          return (
+            <span className="text-xs text-gray-600 font-mono">
+              {JSON.stringify(parsed, null, 2)}
+            </span>
+          );
+        } catch {
+          return <span className="text-xs text-gray-600">{value}</span>;
+        }
       }
     },
     {
-      key: 'description',
-      title: '描述',
-      render: (value: string) => (
-        <span className="text-gray-600 text-sm">
-          {value || '-'}
-        </span>
-      )
-    },
-    {
-      key: 'maxTokens',
-      title: '最大Token',
-      width: '120px',
-      render: (value: number) => (
-        <span className="text-gray-600 text-sm">
-          {value ? value.toLocaleString() : '-'}
-        </span>
-      )
-    },
-    {
-      key: 'status',
-      title: '状态',
-      width: '100px',
-      render: (value: string) => <StatusTag status={value} />
-    },
-    {
-      key: 'created_at',
+      key: 'createTime',
       title: '创建时间',
-      width: '150px',
+      width: '180px',
       render: (value: string) => (
         <span className="text-gray-600 text-sm">
           {formatDateTime(value)}
@@ -107,6 +175,8 @@ const ModelList: React.FC = () => {
       )
     }
   ];
+
+  console.log('=== ModelList 组件渲染 ===');
 
   return (
     <div className="space-y-6">
@@ -127,6 +197,7 @@ const ModelList: React.FC = () => {
         
         <div className="flex items-center space-x-3">
           <button
+            onClick={handleCreate}
             className="btn-primary"
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -148,26 +219,22 @@ const ModelList: React.FC = () => {
           columns={columns}
           data={models}
           loading={loading}
-          emptyText="暂无模型"
+          emptyText="暂无模型，点击上方按钮添加"
         />
       </div>
 
-      {/* 待确认提示 */}
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-        <div className="flex">
-          <div className="flex-shrink-0">
-            <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-            </svg>
-          </div>
-          <div className="ml-3">
-            <h3 className="text-sm font-medium text-yellow-800">待确认功能</h3>
-            <div className="mt-2 text-sm text-yellow-700">
-              <p>模型管理功能（添加、编辑、删除模型）待后端接口确认后实现</p>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* 添加模型弹窗 */}
+      <FormModal
+        isOpen={modalVisible}
+        title="添加模型"
+        onCancel={() => setModalVisible(false)}
+      >
+        <ModelConfigForm
+          onSubmit={handleFormSubmit}
+          onCancel={() => setModalVisible(false)}
+          submitting={submitting}
+        />
+      </FormModal>
     </div>
   );
 };

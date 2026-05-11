@@ -1,6 +1,9 @@
 // Common types
 export * from './common';
 
+// Auth types
+export * from './auth';
+
 // Knowledge base types
 export * from './knowledgeBase';
 

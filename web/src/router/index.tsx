@@ -1,6 +1,10 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
+import { useAuthStore } from '@/stores/authStore';
+
+// 认证页面
+import LoginPage from '@/pages/auth/LoginPage';
 
 // 知识库管理
 import KnowledgeBaseList from '@/pages/knowledge-base/KnowledgeBaseList';
@@ -32,10 +36,43 @@ import QAPage from '@/pages/qa/QAPage';
 import JobList from '@/pages/jobs/JobList';
 import JobDetail from '@/pages/jobs/JobDetail';
 
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const location = useLocation();
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  return <>{children}</>;
+};
+
+const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+
+  if (isAuthenticated) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
+};
+
 export const AppRouter: React.FC = () => {
   return (
     <Routes>
-      <Route path="/" element={<Layout />}>
+      {/* 登录页面 - 公开路由 */}
+      <Route path="/login" element={
+        <PublicRoute>
+          <LoginPage />
+        </PublicRoute>
+      } />
+
+      {/* 受保护的路由 */}
+      <Route path="/" element={
+        <ProtectedRoute>
+          <Layout />
+        </ProtectedRoute>
+      }>
         {/* 知识库管理 */}
         <Route path="knowledge-bases" element={<KnowledgeBaseList />} />
         <Route path="knowledge-bases/:id" element={<KnowledgeBaseDetail />} />
@@ -67,6 +104,9 @@ export const AppRouter: React.FC = () => {
         {/* 默认重定向到知识库管理 */}
         <Route index element={<KnowledgeBaseList />} />
       </Route>
+
+      {/* 404 重定向到首页 */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 };

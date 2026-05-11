@@ -1,16 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Edit, Trash2, Eye } from 'lucide-react';
+import { Plus, Search, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { ModelProvider, ModelProviderQuery } from '@/types/modelProvider';
 import { modelProviderService } from '@/services/modelProvider';
 import { DataTable } from '@/components/common/DataTable';
 import { FormModal } from '@/components/common/FormModal';
-import { Pagination } from '@/components/common/Pagination';
-import { StatusTag } from '@/components/common/StatusTag';
+import { SearchBar } from '@/components/common/SearchBar';
 import { formatDateTime } from '@/utils/format';
-import { DEFAULT_PAGE_SIZE } from '@/utils/constants';
 import ModelProviderForm from './components/ModelProviderForm';
 
 const ModelProviderList: React.FC = () => {
@@ -18,63 +16,90 @@ const ModelProviderList: React.FC = () => {
   
   const [loading, setLoading] = useState(false);
   const [providers, setProviders] = useState<ModelProvider[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [searchName, setSearchName] = useState('');
-  const [searchStatus, setSearchStatus] = useState<string>('');
+  const [searchInput, setSearchInput] = useState('');
   
   const [modalVisible, setModalVisible] = useState(false);
-  const [editingProvider, setEditingProvider] = useState<ModelProvider | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  
+  // 使用ref来跟踪是否已加载过数据，防止重复调用
+  const hasLoadedRef = useRef(false);
+  const isLoadingRef = useRef(false);
 
-  // 加载数据
-  const loadProviders = async () => {
+  // 加载数据 - 使用useCallback避免不必要的重新渲染
+  const loadProviders = useCallback(async (keyword: string = '') => {
+    console.log('=== ModelProviderList.loadProviders 调用 ===');
+    console.log('  - keyword:', keyword);
+    console.log('  - isLoadingRef:', isLoadingRef.current);
+    console.log('  - hasLoadedRef:', hasLoadedRef.current);
+    
+    // 防止重复加载
+    if (isLoadingRef.current) {
+      console.log('  - 正在加载中，跳过此次调用');
+      return;
+    }
+    
+    isLoadingRef.current = true;
     setLoading(true);
+    
     try {
+      console.log('  - 开始调用API: /api/models/providers');
       const query: ModelProviderQuery = {
-        name: searchName || undefined,
-        status: searchStatus || undefined,
-        page,
-        pageSize
+        name: keyword || undefined
       };
       
       const result = await modelProviderService.getModelProviders(query);
-      setProviders(result.items);
-      setTotal(result.total);
+      console.log('  - API返回数据:', result);
+      
+      // 根据搜索名称过滤（因为后端还不支持分页搜索）
+      let filteredItems = result.items;
+      if (keyword) {
+        filteredItems = filteredItems.filter(p => 
+          p.name.toLowerCase().includes(keyword.toLowerCase())
+        );
+      }
+      setProviders(filteredItems);
+      hasLoadedRef.current = true;
+      console.log('  - 数据加载完成，provider数量:', filteredItems.length);
     } catch (error) {
       console.error('加载模型提供商失败:', error);
       toast.error('加载模型提供商失败');
     } finally {
       setLoading(false);
+      isLoadingRef.current = false;
     }
-  };
+  }, []);
 
+  // 初始加载 - 只在组件挂载时执行一次
   useEffect(() => {
-    loadProviders();
-  }, [page, pageSize, searchName, searchStatus]);
+    console.log('=== ModelProviderList useEffect 执行 ===');
+    console.log('  - hasLoadedRef:', hasLoadedRef.current);
+    
+    // 只在首次加载时调用
+    if (!hasLoadedRef.current) {
+      console.log('  - 执行初始加载');
+      loadProviders();
+    } else {
+      console.log('  - 已加载过，跳过');
+    }
+    
+    // 组件卸载时重置
+    return () => {
+      console.log('=== ModelProviderList 组件卸载 ===');
+      hasLoadedRef.current = false;
+    };
+  }, [loadProviders]);
 
   // 搜索处理
-  const handleSearch = () => {
-    setPage(1);
-    loadProviders();
+  const handleSearch = (keyword: string) => {
+    console.log('=== ModelProviderList.handleSearch ===');
+    console.log('  - 搜索关键词:', keyword);
+    setSearchName(keyword);
+    loadProviders(keyword);
   };
 
-  // 重置搜索
-  const handleReset = () => {
-    setSearchName('');
-    setSearchStatus('');
-    setPage(1);
-  };
-
-  // 创建/编辑处理
+  // 创建处理
   const handleCreate = () => {
-    setEditingProvider(null);
-    setModalVisible(true);
-  };
-
-  const handleEdit = (provider: ModelProvider) => {
-    setEditingProvider(provider);
     setModalVisible(true);
   };
 
@@ -82,35 +107,15 @@ const ModelProviderList: React.FC = () => {
     navigate(`/model-providers/${providerId}/models`);
   };
 
-  // 删除处理
-  const handleDelete = async (provider: ModelProvider) => {
-    if (!window.confirm(`确定要删除模型提供商 "${provider.name}" 吗？`)) {
-      return;
-    }
-
-    try {
-      await modelProviderService.deleteModelProvider(provider.id);
-      toast.success('删除成功');
-      loadProviders();
-    } catch (error) {
-      console.error('删除失败:', error);
-      toast.error('删除失败');
-    }
-  };
-
   // 表单提交处理
   const handleFormSubmit = async (values: any) => {
+    console.log('提交表单数据:', values);
     setSubmitting(true);
     try {
-      if (editingProvider) {
-        await modelProviderService.updateModelProvider(editingProvider.id, values);
-        toast.success('更新成功');
-      } else {
-        await modelProviderService.createModelProvider(values);
-        toast.success('创建成功');
-      }
+      await modelProviderService.createModelProvider(values);
+      toast.success('创建成功');
       setModalVisible(false);
-      loadProviders();
+      loadProviders(searchName);
     } catch (error) {
       console.error('提交失败:', error);
       toast.error('提交失败');
@@ -135,22 +140,16 @@ const ModelProviderList: React.FC = () => {
       )
     },
     {
-      key: 'apiUrl',
-      title: 'API 地址',
+      key: 'apiBaseUrl',
+      title: 'API地址',
       render: (value: string) => (
-        <span className="text-sm text-gray-600 font-mono">{value}</span>
+        <span className="text-sm text-gray-600 font-mono">{value || '-'}</span>
       )
     },
     {
-      key: 'status',
-      title: '状态',
-      width: '100px',
-      render: (value: string) => <StatusTag status={value} />
-    },
-    {
-      key: 'created_at',
+      key: 'createTime',
       title: '创建时间',
-      width: '150px',
+      width: '180px',
       render: (value: string) => (
         <span className="text-sm text-gray-600">
           {formatDateTime(value)}
@@ -160,7 +159,7 @@ const ModelProviderList: React.FC = () => {
     {
       key: 'actions',
       title: '操作',
-      width: '200px',
+      width: '120px',
       render: (_: any, record: ModelProvider) => (
         <div className="flex items-center space-x-2">
           <button
@@ -170,24 +169,12 @@ const ModelProviderList: React.FC = () => {
             <Eye className="h-4 w-4 inline mr-1" />
             模型
           </button>
-          <button
-            onClick={() => handleEdit(record)}
-            className="text-primary-600 hover:text-primary-800 text-sm font-medium"
-          >
-            <Edit className="h-4 w-4 inline mr-1" />
-            编辑
-          </button>
-          <button
-            onClick={() => handleDelete(record)}
-            className="text-red-600 hover:text-red-800 text-sm font-medium"
-          >
-            <Trash2 className="h-4 w-4 inline mr-1" />
-            删除
-          </button>
         </div>
       )
     }
   ];
+
+  console.log('=== ModelProviderList 组件渲染 ===');
 
   return (
     <div className="space-y-6">
@@ -208,51 +195,12 @@ const ModelProviderList: React.FC = () => {
 
       {/* 搜索区域 */}
       <div className="card">
-        <div className="flex flex-wrap items-end gap-4">
-          <div className="flex-1 min-w-64">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              名称搜索
-            </label>
-            <input
-              type="text"
-              value={searchName}
-              onChange={(e) => setSearchName(e.target.value)}
-              placeholder="请输入提供商名称"
-              className="form-input"
-            />
-          </div>
-          
-          <div className="w-32">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              状态
-            </label>
-            <select
-              value={searchStatus}
-              onChange={(e) => setSearchStatus(e.target.value)}
-              className="form-input"
-            >
-              <option value="">全部</option>
-              <option value="active">启用</option>
-              <option value="inactive">禁用</option>
-            </select>
-          </div>
-          
-          <div className="flex space-x-3">
-            <button
-              onClick={handleSearch}
-              className="btn-primary"
-            >
-              <Search className="h-4 w-4 mr-2" />
-              搜索
-            </button>
-            <button
-              onClick={handleReset}
-              className="btn-secondary"
-            >
-              重置
-            </button>
-          </div>
-        </div>
+        <SearchBar
+          placeholder="搜索提供商名称"
+          value={searchInput}
+          onChange={setSearchInput}
+          onSearch={() => handleSearch(searchInput)}
+        />
       </div>
 
       {/* 数据表格 */}
@@ -263,32 +211,18 @@ const ModelProviderList: React.FC = () => {
           loading={loading}
           emptyText="暂无模型提供商"
         />
-        
-        {total > 0 && (
-          <div className="mt-6">
-            <Pagination
-              current={page}
-              total={total}
-              pageSize={pageSize}
-              onChange={setPage}
-              showSizeChanger
-              onShowSizeChange={setPageSize}
-            />
-          </div>
-        )}
       </div>
 
-      {/* 创建/编辑弹窗 */}
+      {/* 创建弹窗 */}
       <FormModal
-        visible={modalVisible}
-        title={editingProvider ? '编辑模型提供商' : '创建模型提供商'}
+        isOpen={modalVisible}
+        title="创建模型提供商"
         onCancel={() => setModalVisible(false)}
-        onSubmit={handleFormSubmit}
-        submitting={submitting}
       >
         <ModelProviderForm
-          initialValues={editingProvider}
-          isEdit={!!editingProvider}
+          onSubmit={handleFormSubmit}
+          onCancel={() => setModalVisible(false)}
+          submitting={submitting}
         />
       </FormModal>
     </div>
