@@ -4,7 +4,6 @@ import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
@@ -23,7 +22,7 @@ import java.time.LocalDateTime;
 
 /**
  * 基础实体类
- * <p>所有数据库实体的公共基类，定义主键、创建时间、更新时间和逻辑删除标志。
+ * <p>所有数据库实体的公共基类，定义主键、创建时间和更新时间。
  * 同时兼容 MyBatis-Plus 和 JPA 注解：MyBatis-Plus 负责查询，JPA 负责自动建表。
  */
 @Data
@@ -51,10 +50,4 @@ public abstract class BaseEntity {
     @TableField(fill = FieldFill.INSERT_UPDATE)
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
     private LocalDateTime updateTime;
-
-    /** 逻辑删除标志（0-未删除，1-已删除），插入时自动填充为 0 */
-    @Column(name = "deleted", nullable = false)
-    @TableLogic
-    @TableField(fill = FieldFill.INSERT)
-    private Integer deleted;
 }

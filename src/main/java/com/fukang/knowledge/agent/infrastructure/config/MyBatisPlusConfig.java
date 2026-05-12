@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 
 /**
  * MyBatis-Plus 配置
- * <p>配置分页插件、Mapper 扫描路径以及公共字段的自动填充策略（创建时间、更新时间、逻辑删除标志）</p>
+ * <p>配置分页插件、Mapper 扫描路径以及公共字段的自动填充策略（创建时间、更新时间）</p>
  */
 @Configuration
 @MapperScan("com.fukang.knowledge.agent.infrastructure.persistence.mapper")
@@ -34,7 +34,7 @@ public class MyBatisPlusConfig implements MetaObjectHandler {
 
     /**
      * 插入时的自动填充策略
-     * <p>自动填充 createTime、updateTime 为当前时间，deleted 为 0（未删除）</p>
+     * <p>自动填充 createTime、updateTime 为当前时间</p>
      *
      * @param metaObject MyBatis-Plus 元对象
      */
@@ -42,7 +42,6 @@ public class MyBatisPlusConfig implements MetaObjectHandler {
     public void insertFill(MetaObject metaObject) {
         this.strictInsertFill(metaObject, "createTime", LocalDateTime.class, LocalDateTime.now());
         this.strictInsertFill(metaObject, "updateTime", LocalDateTime.class, LocalDateTime.now());
-        this.strictInsertFill(metaObject, "deleted", Integer.class, 0);
     }
 
     /**

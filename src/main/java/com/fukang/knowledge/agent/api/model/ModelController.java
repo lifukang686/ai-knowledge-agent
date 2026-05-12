@@ -86,7 +86,7 @@ public class ModelController {
 
     /**
      * 删除模型配置
-     * <p>根据ID软删除模型配置，不支持批量删除</p>
+     * <p>根据ID物理删除模型配置，不支持批量删除</p>
      *
      * @param id 模型配置ID
      * @return 空成功响应

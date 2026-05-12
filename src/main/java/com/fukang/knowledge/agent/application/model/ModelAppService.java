@@ -97,7 +97,7 @@ public class ModelAppService {
     /**
      * 根据ID删除模型配置
      * <p>删除前校验模型配置是否存在，不存在则抛出异常。
-     * MyBatis-Plus 的 @TableLogic 注解实现软删除，不会物理删除数据</p>
+     * 执行物理删除，从数据库中移除数据。</p>
      *
      * @param id 模型配置ID
      * @throws BaseException 模型配置不存在时抛出 MODEL_NOT_EXIST
