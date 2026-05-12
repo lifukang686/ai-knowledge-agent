@@ -54,17 +54,28 @@ export const modelProviderService = {
     return { id: id };
   },
 
-  // 更新模型提供商 - 目前后端没有更新接口，暂时注释
-  // async updateModelProvider(id: string, data: UpdateModelProviderRequest): Promise<void> {
-  //   console.log('更新模型提供商:', id, data);
-  //   await request.put(`/models/providers/${id}`, data);
-  // },
+  // 更新模型提供商
+  async updateModelProvider(id: string, data: UpdateModelProviderRequest): Promise<void> {
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] === modelProviderService.updateModelProvider 调用 ===`);
+    console.log('  - id:', id, '类型:', typeof id);
+    console.log('  - 更新数据:', data);
+    
+    await request.put(`/models/providers/${id}`, data);
+    
+    console.log('  - 模型提供商更新成功');
+  },
 
-  // 删除模型提供商 - 目前后端没有删除接口，暂时注释
-  // async deleteModelProvider(id: string): Promise<void> {
-  //   console.log('删除模型提供商:', id);
-  //   await request.delete(`/models/providers/${id}`);
-  // },
+  // 删除模型提供商
+  async deleteModelProvider(id: string): Promise<void> {
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] === modelProviderService.deleteModelProvider 调用 ===`);
+    console.log('  - id:', id, '类型:', typeof id);
+    
+    await request.delete(`/models/providers/${id}`);
+    
+    console.log('  - 模型提供商删除成功');
+  },
 
   // 获取提供商下的模型列表
   async getModelsByProvider(providerId: string): Promise<ModelConfig[]> {

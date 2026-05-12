@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Eye } from 'lucide-react';
+import { Plus, Search, Eye, Edit, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { ModelProvider, ModelProviderQuery } from '@/types/modelProvider';
 import { modelProviderService } from '@/services/modelProvider';
 import { DataTable } from '@/components/common/DataTable';
 import { FormModal } from '@/components/common/FormModal';
+import { ConfirmModal } from '@/components/common/ConfirmModal';
 import { SearchBar } from '@/components/common/SearchBar';
 import { formatDateTime } from '@/utils/format';
 import ModelProviderForm from './components/ModelProviderForm';
@@ -21,6 +22,9 @@ const ModelProviderList: React.FC = () => {
   
   const [modalVisible, setModalVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [editingProvider, setEditingProvider] = useState<ModelProvider | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ModelProvider | null>(null);
+  const [deleting, setDeleting] = useState(false);
   
   // 使用ref来跟踪是否已加载过数据，防止重复调用
   const hasLoadedRef = useRef(false);
@@ -100,7 +104,37 @@ const ModelProviderList: React.FC = () => {
 
   // 创建处理
   const handleCreate = () => {
+    setEditingProvider(null);
     setModalVisible(true);
+  };
+
+  // 编辑处理
+  const handleEdit = (provider: ModelProvider) => {
+    console.log('编辑模型提供商:', provider);
+    setEditingProvider(provider);
+    setModalVisible(true);
+  };
+
+  // 删除处理
+  const handleDeleteClick = (provider: ModelProvider) => {
+    setDeleteTarget(provider);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+
+    setDeleting(true);
+    try {
+      await modelProviderService.deleteModelProvider(deleteTarget.id);
+      toast.success('删除成功');
+      setDeleteTarget(null);
+      loadProviders(searchName);
+    } catch (error) {
+      console.error('删除模型提供商失败:', error);
+      toast.error('删除模型提供商失败');
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const handleViewModels = (providerId: string) => {
@@ -109,16 +143,22 @@ const ModelProviderList: React.FC = () => {
 
   // 表单提交处理
   const handleFormSubmit = async (values: any) => {
-    console.log('提交表单数据:', values);
+    console.log('提交表单数据:', values, '编辑模式:', !!editingProvider);
     setSubmitting(true);
     try {
-      await modelProviderService.createModelProvider(values);
-      toast.success('创建成功');
+      if (editingProvider) {
+        await modelProviderService.updateModelProvider(editingProvider.id, values);
+        toast.success('更新成功');
+      } else {
+        await modelProviderService.createModelProvider(values);
+        toast.success('创建成功');
+      }
       setModalVisible(false);
+      setEditingProvider(null);
       loadProviders(searchName);
     } catch (error) {
       console.error('提交失败:', error);
-      toast.error('提交失败');
+      toast.error(editingProvider ? '更新失败' : '创建失败');
       throw error;
     } finally {
       setSubmitting(false);
@@ -159,15 +199,31 @@ const ModelProviderList: React.FC = () => {
     {
       key: 'actions',
       title: '操作',
-      width: '120px',
+      width: '200px',
       render: (_: any, record: ModelProvider) => (
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={() => handleEdit(record)}
+            className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center"
+            title="编辑"
+          >
+            <Edit className="h-4 w-4 mr-1" />
+            编辑
+          </button>
           <button
             onClick={() => handleViewModels(record.id)}
-            className="text-primary-600 hover:text-primary-800 text-sm font-medium"
+            className="text-primary-600 hover:text-primary-800 text-sm font-medium flex items-center"
           >
-            <Eye className="h-4 w-4 inline mr-1" />
+            <Eye className="h-4 w-4 mr-1" />
             模型
+          </button>
+          <button
+            onClick={() => handleDeleteClick(record)}
+            className="text-red-600 hover:text-red-800 text-sm font-medium flex items-center"
+            title="删除"
+          >
+            <Trash2 className="h-4 w-4 mr-1" />
+            删除
           </button>
         </div>
       )
@@ -213,18 +269,43 @@ const ModelProviderList: React.FC = () => {
         />
       </div>
 
-      {/* 创建弹窗 */}
+      {/* 创建/编辑弹窗 */}
       <FormModal
         isOpen={modalVisible}
-        title="创建模型提供商"
-        onCancel={() => setModalVisible(false)}
+        title={editingProvider ? "编辑模型提供商" : "创建模型提供商"}
+        onCancel={() => {
+          setModalVisible(false);
+          setEditingProvider(null);
+        }}
       >
         <ModelProviderForm
+          initialValues={editingProvider ? {
+            name: editingProvider.name,
+            apiBaseUrl: editingProvider.apiBaseUrl || '',
+            apiKey: editingProvider.apiKey || '',
+            description: editingProvider.description || ''
+          } : undefined}
+          isEdit={!!editingProvider}
           onSubmit={handleFormSubmit}
-          onCancel={() => setModalVisible(false)}
+          onCancel={() => {
+            setModalVisible(false);
+            setEditingProvider(null);
+          }}
           submitting={submitting}
         />
       </FormModal>
+
+      {/* 删除确认弹窗 */}
+      <ConfirmModal
+        isOpen={!!deleteTarget}
+        title="删除模型提供商"
+        message="该操作会删除其供应商的模型配置，确定要删除吗？"
+        confirmText="确定删除"
+        danger
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setDeleteTarget(null)}
+        loading={deleting}
+      />
     </div>
   );
 };
