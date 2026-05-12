@@ -137,4 +137,56 @@ public class ModelAppService {
         }
         modelConfigMapper.updateById(config);
     }
+
+    /**
+     * 根据ID删除模型提供商
+     * <p>删除前校验模型提供商是否存在，不存在则抛出异常。
+     * 同时级联删除该提供商下的所有模型配置数据。</p>
+     *
+     * @param id 模型提供商ID
+     * @throws BaseException 模型提供商不存在时抛出 PROVIDER_NOT_EXIST
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteProvider(Long id) {
+        ModelProviderDO provider = providerMapper.selectById(id);
+        if (provider == null) {
+            throw new BaseException(ErrorCodeEnum.PROVIDER_NOT_EXIST);
+        }
+
+        LambdaQueryWrapper<ModelConfigDO> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(ModelConfigDO::getProviderId, id);
+        modelConfigMapper.delete(wrapper);
+
+        providerMapper.deleteById(id);
+    }
+
+    /**
+     * 根据ID更新模型提供商
+     * <p>更新前校验模型提供商是否存在，不存在则抛出异常。
+     * 仅更新请求中非空的字段，未传的字段保持原值不变。</p>
+     *
+     * @param id  模型提供商ID
+     * @param req 模型提供商更新请求参数
+     * @throws BaseException 模型提供商不存在时抛出 PROVIDER_NOT_EXIST
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void updateProvider(Long id, com.fukang.knowledge.agent.api.model.dto.ProviderUpdateReq req) {
+        ModelProviderDO provider = providerMapper.selectById(id);
+        if (provider == null) {
+            throw new BaseException(ErrorCodeEnum.PROVIDER_NOT_EXIST);
+        }
+        if (req.name() != null && !req.name().isBlank()) {
+            provider.setName(req.name());
+        }
+        if (req.apiBaseUrl() != null && !req.apiBaseUrl().isBlank()) {
+            provider.setApiBaseUrl(req.apiBaseUrl());
+        }
+        if (req.apiKey() != null && !req.apiKey().isBlank()) {
+            provider.setApiKey(req.apiKey());
+        }
+        if (req.description() != null && !req.description().isBlank()) {
+            provider.setDescription(req.description());
+        }
+        providerMapper.updateById(provider);
+    }
 }

@@ -3,6 +3,7 @@ package com.fukang.knowledge.agent.api.model;
 import com.fukang.knowledge.agent.api.model.dto.ModelConfigReq;
 import com.fukang.knowledge.agent.api.model.dto.ModelConfigUpdateReq;
 import com.fukang.knowledge.agent.api.model.dto.ProviderReq;
+import com.fukang.knowledge.agent.api.model.dto.ProviderUpdateReq;
 import com.fukang.knowledge.agent.application.model.ModelAppService;
 import com.fukang.knowledge.agent.common.result.Result;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.ModelConfigDO;
@@ -44,6 +45,33 @@ public class ModelController {
     @GetMapping("/providers")
     public Result<List<ModelProviderDO>> listProviders() {
         return Result.success(modelAppService.listProviders());
+    }
+
+    /**
+     * 删除模型提供商
+     * <p>根据ID删除模型提供商，同时级联删除该提供商下的所有模型配置数据</p>
+     *
+     * @param id 模型提供商ID
+     * @return 空成功响应
+     */
+    @DeleteMapping("/providers/{id}")
+    public Result<Void> deleteProvider(@PathVariable("id") Long id) {
+        modelAppService.deleteProvider(id);
+        return Result.success();
+    }
+
+    /**
+     * 更新模型提供商
+     * <p>根据ID更新模型提供商的字段，仅更新请求中非空的字段</p>
+     *
+     * @param id  模型提供商ID
+     * @param req 模型提供商更新请求参数
+     * @return 空成功响应
+     */
+    @PutMapping("/providers/{id}")
+    public Result<Void> updateProvider(@PathVariable("id") Long id, @RequestBody @Validated ProviderUpdateReq req) {
+        modelAppService.updateProvider(id, req);
+        return Result.success();
     }
 
     /**
