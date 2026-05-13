@@ -7,6 +7,7 @@ import io.minio.BucketExistsArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
+import io.minio.RemoveObjectArgs;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -79,6 +80,31 @@ public class MinioStorageService {
         if (!exists) {
             minioClient.makeBucket(MakeBucketArgs.builder().bucket(bucketName).build());
             log.info("已创建 MinIO 桶: {}", bucketName);
+        }
+    }
+
+    /**
+     * 删除 MinIO 中的文件
+     * <p>根据文件存储路径从 MinIO 中删除指定文件，删除失败时记录日志但不中断业务</p>
+     *
+     * @param objectName 文件在 MinIO 中的存储路径
+     */
+    public void deleteFile(String objectName) {
+        if (objectName == null || objectName.isBlank()) {
+            log.warn("删除文件跳过: 文件路径为空");
+            return;
+        }
+        String bucketName = minioConfig.getBucketName();
+        try {
+            minioClient.removeObject(
+                    RemoveObjectArgs.builder()
+                            .bucket(bucketName)
+                            .object(objectName)
+                            .build()
+            );
+            log.info("已从 MinIO 删除文件: bucket={}, object={}", bucketName, objectName);
+        } catch (Exception e) {
+            log.error("从 MinIO 删除文件失败: bucket={}, object={}", bucketName, objectName, e);
         }
     }
 

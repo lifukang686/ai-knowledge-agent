@@ -1,9 +1,13 @@
 package com.fukang.knowledge.agent.api.document;
 
+import com.fukang.knowledge.agent.api.document.dto.DocumentStatusResp;
 import com.fukang.knowledge.agent.api.document.dto.DocumentUploadResp;
 import com.fukang.knowledge.agent.application.knowledge.KnowledgeBaseAppService;
 import com.fukang.knowledge.agent.common.result.Result;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -37,5 +41,31 @@ public class DocumentController {
             @RequestPart("file") MultipartFile file) {
         DocumentUploadResp resp = knowledgeBaseAppService.uploadDocument(knowledgeBaseId, file);
         return Result.success(resp);
+    }
+
+    /**
+     * 查询文档处理状态
+     * <p>根据文档ID查询文档当前的入库处理阶段，前端可用于轮询展示上传进度。
+     *
+     * @param id 文档ID
+     * @return 文档状态响应，包含状态标识（如 pending、uploaded、processing、completed、failed）
+     */
+    @GetMapping("/{id}/status")
+    public Result<DocumentStatusResp> getDocumentStatus(@PathVariable("id") Long id) {
+        DocumentStatusResp resp = knowledgeBaseAppService.getDocumentStatus(id);
+        return Result.success(resp);
+    }
+
+    /**
+     * 删除文档
+     * <p>根据文档ID删除文档记录，同时清理 MinIO 中存储的原始文件。
+     *
+     * @param id 文档ID
+     * @return 空成功响应
+     */
+    @DeleteMapping("/{id}")
+    public Result<Void> deleteDocument(@PathVariable("id") Long id) {
+        knowledgeBaseAppService.deleteDocument(id);
+        return Result.success();
     }
 }

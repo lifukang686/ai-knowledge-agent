@@ -45,7 +45,11 @@ public enum ErrorCodeEnum {
     /** 文件上传失败 */
     FILE_UPLOAD_FAILED(3004, "文件上传失败"),
     /** 知识库不存在 */
-    KNOWLEDGE_BASE_NOT_EXIST(3005, "知识库不存在");
+    KNOWLEDGE_BASE_NOT_EXIST(3005, "知识库不存在"),
+    /** 文档不存在 */
+    DOCUMENT_NOT_EXIST(3006, "文档不存在"),
+    /** 文件删除失败 */
+    FILE_DELETE_FAILED(3007, "文件删除失败");
 
     /** 错误码 */
     private final int code;

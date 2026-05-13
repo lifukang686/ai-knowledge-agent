@@ -1,5 +1,6 @@
 package com.fukang.knowledge.agent.application.knowledge;
 
+import com.fukang.knowledge.agent.api.document.dto.DocumentStatusResp;
 import com.fukang.knowledge.agent.api.document.dto.DocumentUploadResp;
 import com.fukang.knowledge.agent.common.context.UserContextHolder;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
@@ -176,5 +177,64 @@ class KnowledgeBaseAppServiceTest {
                 "data".getBytes());
         resp = knowledgeBaseAppService.uploadDocument(knowledgeBaseId, docxFile);
         assertEquals("uploaded", resp.status());
+    }
+
+    @Test
+    void testGetDocumentStatus_Success() {
+        Long documentId = 1L;
+        DocumentDO document = new DocumentDO();
+        document.setId(documentId);
+        document.setKnowledgeBaseId(100L);
+        document.setTitle("test.pdf");
+        document.setFilePath("documents/2026/05/13/abc123.pdf");
+
+        when(documentMapper.selectById(documentId)).thenReturn(document);
+
+        DocumentStatusResp resp = knowledgeBaseAppService.getDocumentStatus(documentId);
+
+        assertNotNull(resp);
+        assertEquals("uploaded", resp.status());
+        verify(documentMapper).selectById(documentId);
+    }
+
+    @Test
+    void testGetDocumentStatus_NotFound() {
+        Long documentId = 999L;
+        when(documentMapper.selectById(documentId)).thenReturn(null);
+
+        BaseException ex = assertThrows(BaseException.class,
+                () -> knowledgeBaseAppService.getDocumentStatus(documentId));
+        assertEquals(ErrorCodeEnum.DOCUMENT_NOT_EXIST.getCode(), ex.getCode());
+    }
+
+    @Test
+    void testDeleteDocument_Success() {
+        Long documentId = 1L;
+        DocumentDO document = new DocumentDO();
+        document.setId(documentId);
+        document.setKnowledgeBaseId(100L);
+        document.setTitle("test.pdf");
+        document.setFilePath("documents/2026/05/13/abc123.pdf");
+
+        when(documentMapper.selectById(documentId)).thenReturn(document);
+        when(documentMapper.deleteById(documentId)).thenReturn(1);
+
+        assertDoesNotThrow(() -> knowledgeBaseAppService.deleteDocument(documentId));
+
+        verify(documentMapper).deleteById(documentId);
+        verify(minioStorageService).deleteFile(document.getFilePath());
+    }
+
+    @Test
+    void testDeleteDocument_NotFound() {
+        Long documentId = 999L;
+        when(documentMapper.selectById(documentId)).thenReturn(null);
+
+        BaseException ex = assertThrows(BaseException.class,
+                () -> knowledgeBaseAppService.deleteDocument(documentId));
+        assertEquals(ErrorCodeEnum.DOCUMENT_NOT_EXIST.getCode(), ex.getCode());
+
+        verify(documentMapper, never()).deleteById(anyLong());
+        verifyNoInteractions(minioStorageService);
     }
 }

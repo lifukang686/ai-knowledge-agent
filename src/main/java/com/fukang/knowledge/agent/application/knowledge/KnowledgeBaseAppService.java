@@ -1,5 +1,6 @@
 package com.fukang.knowledge.agent.application.knowledge;
 
+import com.fukang.knowledge.agent.api.document.dto.DocumentStatusResp;
 import com.fukang.knowledge.agent.api.document.dto.DocumentUploadResp;
 import com.fukang.knowledge.agent.common.context.UserContextHolder;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
@@ -78,6 +79,56 @@ public class KnowledgeBaseAppService {
                 document.getId(), originalFileName, knowledgeBaseId, filePath);
 
         return new DocumentUploadResp(document.getId(), "uploaded");
+    }
+
+    /**
+     * 查询文档处理状态
+     * <p>根据文档ID查询文档的当前处理阶段状态，用于前端轮询文档入库进度</p>
+     *
+     * @param documentId 文档ID
+     * @return 文档状态响应，包含状态标识
+     * @throws BaseException 文档不存在时抛出 DOCUMENT_NOT_EXIST
+     */
+    public DocumentStatusResp getDocumentStatus(Long documentId) {
+        DocumentDO document = findDocumentById(documentId);
+        String status = document.getFilePath() != null ? "uploaded" : "pending";
+        return new DocumentStatusResp(status);
+    }
+
+    /**
+     * 删除文档
+     * <p>删除文档时同步清理 MinIO 中存储的原始文件，确保不产生孤立文件。
+     * MinIO 文件删除失败不影响数据库记录删除，仅在日志中记录异常。</p>
+     *
+     * @param documentId 文档ID
+     * @throws BaseException 文档不存在时抛出 DOCUMENT_NOT_EXIST
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteDocument(Long documentId) {
+        DocumentDO document = findDocumentById(documentId);
+
+        documentMapper.deleteById(documentId);
+        log.info("文档已删除: id={}, title={}, knowledgeBaseId={}",
+                documentId, document.getTitle(), document.getKnowledgeBaseId());
+
+        // MinIO 文件删除放在数据库删除之后，避免文件删除失败阻塞业务
+        minioStorageService.deleteFile(document.getFilePath());
+    }
+
+    /**
+     * 根据ID查询文档，不存在时抛出异常
+     *
+     * @param documentId 文档ID
+     * @return 文档实体
+     * @throws BaseException 文档不存在时抛出 DOCUMENT_NOT_EXIST
+     */
+    private DocumentDO findDocumentById(Long documentId) {
+        DocumentDO document = documentMapper.selectById(documentId);
+        if (document == null) {
+            log.warn("文档不存在: id={}", documentId);
+            throw new BaseException(ErrorCodeEnum.DOCUMENT_NOT_EXIST);
+        }
+        return document;
     }
 
     /**
