@@ -33,7 +33,19 @@ public enum ErrorCodeEnum {
     /** 模型配置不存在 */
     MODEL_NOT_EXIST(2002, "模型配置不存在"),
     /** AI 模型调用失败 */
-    AI_CALL_FAILED(2003, "AI 模型调用失败");
+    AI_CALL_FAILED(2003, "AI 模型调用失败"),
+
+    // ---- 知识库模块业务错误码 (3xxx) ----
+    /** 上传文件不能为空 */
+    FILE_EMPTY(3001, "上传文件不能为空"),
+    /** 文件名不能为空 */
+    FILE_NAME_EMPTY(3002, "文件名不能为空"),
+    /** 不支持的文件类型 */
+    FILE_TYPE_NOT_SUPPORTED(3003, "不支持的文件类型"),
+    /** 文件上传失败 */
+    FILE_UPLOAD_FAILED(3004, "文件上传失败"),
+    /** 知识库不存在 */
+    KNOWLEDGE_BASE_NOT_EXIST(3005, "知识库不存在");
 
     /** 错误码 */
     private final int code;
