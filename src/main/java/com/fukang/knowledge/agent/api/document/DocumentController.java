@@ -1,8 +1,10 @@
 package com.fukang.knowledge.agent.api.document;
 
+import com.fukang.knowledge.agent.api.document.dto.DocumentResp;
 import com.fukang.knowledge.agent.api.document.dto.DocumentStatusResp;
 import com.fukang.knowledge.agent.api.document.dto.DocumentUploadResp;
 import com.fukang.knowledge.agent.application.knowledge.KnowledgeBaseAppService;
+import com.fukang.knowledge.agent.common.result.PageResponse;
 import com.fukang.knowledge.agent.common.result.Result;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -41,6 +43,29 @@ public class DocumentController {
             @RequestPart("file") MultipartFile file) {
         DocumentUploadResp resp = knowledgeBaseAppService.uploadDocument(knowledgeBaseId, file);
         return Result.success(resp);
+    }
+
+    /**
+     * 分页查询文档列表
+     * <p>支持按知识库ID过滤，用于知识库详情页的文档列表展示。
+     * 后续扩展方向：
+     * <ul>
+     *   <li>新增关键字搜索、状态筛选等查询条件</li>
+     *   <li>新增 {@code GET /api/documents/{id}/preview} 文档预览接口</li>
+     *   <li>新增 {@code GET /api/documents/{id}/download} 文档下载接口</li>
+     * </ul>
+     *
+     * @param knowledgeBaseId 知识库ID，可选；传入时仅返回该知识库下的文档
+     * @param page            页码，从 1 开始，默认 1
+     * @param pageSize        每页条数，默认 20
+     * @return 分页响应，包含文档列表
+     */
+    @GetMapping
+    public Result<PageResponse<DocumentResp>> listDocuments(
+            @RequestParam(value = "knowledgeBaseId", required = false) Long knowledgeBaseId,
+            @RequestParam(value = "page", defaultValue = "1") long page,
+            @RequestParam(value = "pageSize", defaultValue = "20") long pageSize) {
+        return Result.success(knowledgeBaseAppService.listDocuments(knowledgeBaseId, page, pageSize));
     }
 
     /**

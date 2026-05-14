@@ -3,6 +3,7 @@ package com.fukang.knowledge.agent.application.knowledge;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.fukang.knowledge.agent.api.document.dto.DocumentResp;
 import com.fukang.knowledge.agent.api.document.dto.DocumentStatusResp;
 import com.fukang.knowledge.agent.api.document.dto.DocumentUploadResp;
 import com.fukang.knowledge.agent.api.knowledgebase.dto.CreateKnowledgeBaseReq;
@@ -240,6 +241,32 @@ public class KnowledgeBaseAppService {
     // ======================== 文档管理 ========================
 
     /**
+     * 分页查询文档列表
+     * <p>支持按知识库ID过滤，返回分页结果。后续可扩展支持关键字搜索、
+     * 状态过滤等查询条件。响应 DTO 中已预留 preview/download 相关字段</p>
+     *
+     * @param knowledgeBaseId 知识库ID，可选；传入时仅返回该知识库下的文档
+     * @param page            当前页码，从 1 开始
+     * @param pageSize        每页记录数
+     * @return 分页响应，包含文档列表
+     */
+    public PageResponse<DocumentResp> listDocuments(Long knowledgeBaseId, long page, long pageSize) {
+        LambdaQueryWrapper<DocumentDO> wrapper = new LambdaQueryWrapper<>();
+        if (knowledgeBaseId != null) {
+            wrapper.eq(DocumentDO::getKnowledgeBaseId, knowledgeBaseId);
+        }
+        wrapper.orderByDesc(DocumentDO::getCreateTime);
+
+        IPage<DocumentDO> resultPage = documentMapper.selectPage(new Page<>(page, pageSize), wrapper);
+
+        List<DocumentResp> items = resultPage.getRecords().stream()
+                .map(this::toDocumentResp)
+                .collect(Collectors.toList());
+
+        return new PageResponse<>(items, resultPage.getTotal(), resultPage.getCurrent(), resultPage.getSize());
+    }
+
+    /**
      * 查询文档处理状态
      * <p>根据文档ID查询文档的当前处理阶段状态，用于前端轮询文档入库进度</p>
      *
@@ -287,6 +314,27 @@ public class KnowledgeBaseAppService {
             throw new BaseException(ErrorCodeEnum.DOCUMENT_NOT_EXIST);
         }
         return document;
+    }
+
+    /**
+     * 将 DocumentDO 转换为 DocumentResp
+     * <p>未来可在此方法中追加预览链接、下载链接等信息</p>
+     */
+    private DocumentResp toDocumentResp(DocumentDO doc) {
+        String status = doc.getFilePath() != null ? "uploaded" : "pending";
+        String uploadedBy = doc.getUploaderId() != null ? doc.getUploaderId().toString() : "";
+        return new DocumentResp(
+                doc.getId(),
+                doc.getTitle(),
+                doc.getFilePath(),
+                doc.getKnowledgeBaseId(),
+                status,
+                uploadedBy,
+                0L,
+                0L,
+                doc.getCreateTime(),
+                doc.getUpdateTime()
+        );
     }
 
     /**

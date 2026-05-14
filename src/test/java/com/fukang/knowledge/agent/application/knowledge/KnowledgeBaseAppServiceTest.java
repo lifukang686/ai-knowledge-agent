@@ -1,5 +1,8 @@
 package com.fukang.knowledge.agent.application.knowledge;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.fukang.knowledge.agent.api.document.dto.DocumentResp;
 import com.fukang.knowledge.agent.api.document.dto.DocumentStatusResp;
 import com.fukang.knowledge.agent.api.document.dto.DocumentUploadResp;
 import com.fukang.knowledge.agent.api.knowledgebase.dto.CreateKnowledgeBaseReq;
@@ -248,6 +251,69 @@ class KnowledgeBaseAppServiceTest {
 
         verify(documentMapper, never()).deleteById(anyLong());
         verifyNoInteractions(minioStorageService);
+    }
+
+    @Test
+    void testListDocuments_ByKnowledgeBaseId() {
+        Long kbId = 100L;
+        DocumentDO doc1 = buildDocumentDoc(1L, kbId, "doc1.pdf", "uploads/doc1.pdf");
+        DocumentDO doc2 = buildDocumentDoc(2L, kbId, "doc2.pdf", "uploads/doc2.pdf");
+
+        when(documentMapper.selectPage(any(Page.class), any(LambdaQueryWrapper.class)))
+                .thenAnswer(inv -> {
+                    @SuppressWarnings("unchecked")
+                    Page<DocumentDO> page = inv.getArgument(0);
+                    page.setRecords(List.of(doc1, doc2));
+                    page.setTotal(2);
+                    return page;
+                });
+
+        PageResponse<DocumentResp> resp = knowledgeBaseAppService.listDocuments(kbId, 1, 20);
+
+        assertNotNull(resp);
+        assertEquals(1, resp.getPage());
+        assertEquals(20, resp.getPageSize());
+        assertEquals(2, resp.getTotal());
+        assertEquals(2, resp.getItems().size());
+
+        DocumentResp first = resp.getItems().get(0);
+        assertEquals(1L, first.id());
+        assertEquals("doc1.pdf", first.name());
+        assertEquals("uploads/doc1.pdf", first.filePath());
+        assertEquals(kbId, first.knowledgeBaseId());
+        assertEquals("uploaded", first.status());
+        assertEquals("1", first.uploadedBy());
+    }
+
+    @Test
+    void testListDocuments_WithoutKnowledgeBaseId() {
+        DocumentDO doc = buildDocumentDoc(1L, 100L, "doc.pdf", "uploads/doc.pdf");
+
+        when(documentMapper.selectPage(any(Page.class), any(LambdaQueryWrapper.class)))
+                .thenAnswer(inv -> {
+                    @SuppressWarnings("unchecked")
+                    Page<DocumentDO> page = inv.getArgument(0);
+                    page.setRecords(List.of(doc));
+                    page.setTotal(1);
+                    return page;
+                });
+
+        PageResponse<DocumentResp> resp = knowledgeBaseAppService.listDocuments(null, 1, 10);
+
+        assertNotNull(resp);
+        assertEquals(1, resp.getItems().size());
+    }
+
+    private DocumentDO buildDocumentDoc(Long id, Long kbId, String title, String filePath) {
+        DocumentDO doc = new DocumentDO();
+        doc.setId(id);
+        doc.setKnowledgeBaseId(kbId);
+        doc.setTitle(title);
+        doc.setFilePath(filePath);
+        doc.setUploaderId(1L);
+        doc.setCreateTime(LocalDateTime.of(2026, 5, 13, 10, 0));
+        doc.setUpdateTime(LocalDateTime.of(2026, 5, 13, 12, 0));
+        return doc;
     }
 
     // ======================== 知识库管理测试 ========================
