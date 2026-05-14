@@ -49,4 +49,17 @@ export interface KnowledgeBaseApiResp {
   updateTime: string;
 }
 
+export interface DocumentApiResp {
+  id: string;
+  name: string;
+  filePath: string;
+  knowledgeBaseId: string;
+  status: string;
+  uploadedBy: string | null;
+  chunkCount: number;
+  fileSize: number;
+  createTime: string;
+  updateTime: string;
+}
+
 export interface KnowledgeBaseListResponse extends ListResponse<KnowledgeBase> {}

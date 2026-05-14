@@ -14,7 +14,6 @@ export const API_ENDPOINTS = {
   // 知识库相关
   KNOWLEDGE_BASES: '/knowledge-bases',
   KNOWLEDGE_BASE_DETAIL: (id: string) => `/knowledge-bases/${id}`,
-  KNOWLEDGE_BASE_DOCUMENTS: (id: string) => `/knowledge-bases/${id}/documents`,
   
   // 文档相关
   DOCUMENTS: '/documents',

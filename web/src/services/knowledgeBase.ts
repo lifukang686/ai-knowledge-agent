@@ -5,6 +5,7 @@ import {
   CreateKnowledgeBaseRequest,
   UpdateKnowledgeBaseRequest,
   KnowledgeBaseApiResp,
+  DocumentApiResp,
   KnowledgeBaseListResponse,
 } from '@/types/knowledgeBase';
 import { ListResponse } from '@/types/common';
@@ -17,6 +18,21 @@ function mapKnowledgeBaseFromApi(api: KnowledgeBaseApiResp): KnowledgeBase {
     description: api?.description ?? undefined,
     document_count: api?.documentCount ?? 0,
     status: api?.status ?? 'unknown',
+    created_at: api?.createTime ?? '',
+    updated_at: api?.updateTime ?? '',
+  };
+}
+
+function mapDocumentFromApi(api: DocumentApiResp): Document {
+  return {
+    id: api?.id != null ? String(api.id) : '',
+    name: api?.name ?? '',
+    file_path: api?.filePath ?? '',
+    knowledge_base_id: api?.knowledgeBaseId != null ? String(api.knowledgeBaseId) : '',
+    status: (api?.status as Document['status']) ?? 'unknown',
+    uploaded_by: api?.uploadedBy ?? undefined,
+    chunk_count: api?.chunkCount ?? 0,
+    file_size: api?.fileSize ?? 0,
     created_at: api?.createTime ?? '',
     updated_at: api?.updateTime ?? '',
   };
@@ -91,17 +107,28 @@ export const getKnowledgeBaseDocuments = async (
   params: { page?: number; pageSize?: number },
 ): Promise<ListResponse<Document>> => {
   const response = await request.get<{
-    items: Document[];
+    items: DocumentApiResp[];
     total: number;
     page: number;
     pageSize: number;
-  }>(API_ENDPOINTS.KNOWLEDGE_BASE_DOCUMENTS(knowledgeBaseId), {
+  }>(API_ENDPOINTS.DOCUMENTS, {
     params: {
-      page: params.page,
-      pageSize: params.pageSize,
+      knowledgeBaseId,
+      page: params.page || 1,
+      pageSize: params.pageSize || 20,
     },
   });
-  return response;
+
+  if (!response || !Array.isArray(response.items)) {
+    return { items: [], total: 0, page: params.page || 1, pageSize: params.pageSize || 20 };
+  }
+
+  return {
+    items: response.items.map(mapDocumentFromApi),
+    total: response.total ?? 0,
+    page: response.page ?? 1,
+    pageSize: response.pageSize ?? 20,
+  };
 };
 
 export const uploadDocument = async (

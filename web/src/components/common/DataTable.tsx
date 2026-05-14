@@ -3,7 +3,7 @@ import { LoadingSpinner } from './LoadingSpinner';
 
 interface Column<T> {
   key: keyof T | string;
-  title: string;
+  title: React.ReactNode;
   width?: string;
   render?: (value: any, record: T, index: number) => React.ReactNode;
 }
