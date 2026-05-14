@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Upload, RefreshCw, Eye, FileText, Database, Clock } from 'lucide-react';
 import { toast } from 'sonner';
+import axios from 'axios';
 
 import { KnowledgeBase, Document } from '@/types/knowledgeBase';
 import { getKnowledgeBase, getKnowledgeBaseDocuments, uploadDocument } from '@/services/knowledgeBase';
@@ -22,25 +23,10 @@ const KnowledgeBaseDetail: React.FC = () => {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [uploading, setUploading] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  // 加载知识库详情
-  const loadKnowledgeBase = async () => {
-    if (!id) return;
-    
-    setLoading(true);
-    try {
-      const data = await getKnowledgeBase(id);
-      setKnowledgeBase(data);
-    } catch (error) {
-      console.error('加载知识库详情失败:', error);
-      toast.error('加载知识库详情失败');
-      navigate('/knowledge-bases');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const fetchIdRef = useRef(0);
 
-  // 加载文档列表
   const loadDocuments = async () => {
     if (!id) return;
     
@@ -55,12 +41,31 @@ const KnowledgeBaseDetail: React.FC = () => {
   };
 
   useEffect(() => {
-    loadKnowledgeBase();
-  }, [id]);
+    const fetchId = ++fetchIdRef.current;
+    const controller = new AbortController();
 
-  useEffect(() => {
-    loadDocuments();
-  }, [id, page, pageSize]);
+    async function doLoad() {
+      setLoading(true);
+      try {
+        const data = await getKnowledgeBase(id!, controller.signal);
+        if (fetchId !== fetchIdRef.current) return;
+        setKnowledgeBase(data);
+      } catch (error: any) {
+        if (fetchId !== fetchIdRef.current) return;
+        if (axios.isCancel(error) || error?.code === 'ERR_CANCELED' || controller.signal.aborted) return;
+        console.error('加载知识库详情失败:', error);
+        toast.error('加载知识库详情失败');
+        navigate('/knowledge-bases');
+      } finally {
+        if (fetchId === fetchIdRef.current && !controller.signal.aborted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    if (id) doLoad();
+    return () => controller.abort();
+  }, [id, navigate, refreshKey]);
 
   // 文件上传处理
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -87,9 +92,8 @@ const KnowledgeBaseDetail: React.FC = () => {
     navigate(`/documents/${documentId}`);
   };
 
-  // 刷新状态
   const handleRefresh = () => {
-    loadKnowledgeBase();
+    setRefreshKey(k => k + 1);
     loadDocuments();
   };
 

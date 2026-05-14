@@ -34,7 +34,7 @@ export const getKnowledgeBases = async (params: {
   page?: number;
   pageSize?: number;
   keyword?: string;
-}): Promise<KnowledgeBaseListResponse> => {
+}, signal?: AbortSignal): Promise<KnowledgeBaseListResponse> => {
   const response = await request.get<{
     items: KnowledgeBaseApiResp[];
     total: number;
@@ -42,6 +42,7 @@ export const getKnowledgeBases = async (params: {
     pageSize: number;
   }>(API_ENDPOINTS.KNOWLEDGE_BASES, {
     params: buildKnowledgeBaseParams(params),
+    signal,
   });
 
   if (!response || !Array.isArray(response.items)) {
@@ -56,9 +57,10 @@ export const getKnowledgeBases = async (params: {
   };
 };
 
-export const getKnowledgeBase = async (id: string): Promise<KnowledgeBase> => {
+export const getKnowledgeBase = async (id: string, signal?: AbortSignal): Promise<KnowledgeBase> => {
   const response = await request.get<KnowledgeBaseApiResp>(
     API_ENDPOINTS.KNOWLEDGE_BASE_DETAIL(id),
+    signal ? { signal } : undefined,
   );
   if (!response) {
     throw new Error('知识库不存在');

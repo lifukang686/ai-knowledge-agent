@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, RefreshCw, Eye, Edit, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
+import axios from 'axios';
 
 import { KnowledgeBase } from '@/types/knowledgeBase';
 import { getKnowledgeBases, createKnowledgeBase, updateKnowledgeBase, deleteKnowledgeBase } from '@/services/knowledgeBase';
@@ -24,15 +25,16 @@ const KnowledgeBaseList: React.FC = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<KnowledgeBase | null>(null);
 
-  // 表单状态
   const [formData, setFormData] = useState({
     name: '',
     description: ''
   });
   const [submitting, setSubmitting] = useState(false);
 
-  // 加载数据
-  const loadData = async () => {
+  const fetchIdRef = useRef(0);
+
+  const loadData = useCallback(async () => {
+    const fetchId = ++fetchIdRef.current;
     console.log('开始加载知识库数据...', { page, pageSize, keyword });
     setLoading(true);
     try {
@@ -41,19 +43,47 @@ const KnowledgeBaseList: React.FC = () => {
         pageSize,
         keyword
       });
+      if (fetchId !== fetchIdRef.current) return;
       console.log('知识库数据加载成功:', result);
       setData(result.items);
       setTotal(result.total);
-    } catch (error) {
+    } catch (error: any) {
+      if (fetchId !== fetchIdRef.current) return;
+      if (axios.isCancel(error) || error?.code === 'ERR_CANCELED') return;
       console.error('加载知识库列表失败:', error);
       toast.error('加载知识库列表失败');
     } finally {
-      setLoading(false);
+      if (fetchId === fetchIdRef.current) {
+        setLoading(false);
+      }
     }
-  };
+  }, [page, pageSize, keyword]);
 
   useEffect(() => {
-    loadData();
+    const fetchId = ++fetchIdRef.current;
+    const controller = new AbortController();
+
+    async function doLoad() {
+      setLoading(true);
+      try {
+        const result = await getKnowledgeBases({ page, pageSize, keyword }, controller.signal);
+        if (fetchId !== fetchIdRef.current) return;
+        setData(result.items);
+        setTotal(result.total);
+      } catch (error: any) {
+        if (fetchId !== fetchIdRef.current) return;
+        if (axios.isCancel(error) || error?.code === 'ERR_CANCELED' || controller.signal.aborted) return;
+        console.error('加载知识库列表失败:', error);
+        toast.error('加载知识库列表失败');
+      } finally {
+        if (fetchId === fetchIdRef.current && !controller.signal.aborted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    doLoad();
+    return () => controller.abort();
   }, [page, pageSize, keyword]);
 
   // 搜索处理
