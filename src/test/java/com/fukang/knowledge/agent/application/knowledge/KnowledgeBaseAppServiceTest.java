@@ -2,11 +2,17 @@ package com.fukang.knowledge.agent.application.knowledge;
 
 import com.fukang.knowledge.agent.api.document.dto.DocumentStatusResp;
 import com.fukang.knowledge.agent.api.document.dto.DocumentUploadResp;
+import com.fukang.knowledge.agent.api.knowledgebase.dto.CreateKnowledgeBaseReq;
+import com.fukang.knowledge.agent.api.knowledgebase.dto.KnowledgeBaseResp;
+import com.fukang.knowledge.agent.api.knowledgebase.dto.UpdateKnowledgeBaseReq;
 import com.fukang.knowledge.agent.common.context.UserContextHolder;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
+import com.fukang.knowledge.agent.common.result.PageResponse;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.DocumentDO;
+import com.fukang.knowledge.agent.infrastructure.persistence.entity.KnowledgeBaseDO;
 import com.fukang.knowledge.agent.infrastructure.persistence.mapper.DocumentMapper;
+import com.fukang.knowledge.agent.infrastructure.persistence.mapper.KnowledgeBaseMapper;
 import com.fukang.knowledge.agent.infrastructure.storage.MinioStorageService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,6 +25,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -28,6 +37,9 @@ class KnowledgeBaseAppServiceTest {
 
     @Mock
     private DocumentMapper documentMapper;
+
+    @Mock
+    private KnowledgeBaseMapper knowledgeBaseMapper;
 
     @Mock
     private MinioStorageService minioStorageService;
@@ -236,5 +248,107 @@ class KnowledgeBaseAppServiceTest {
 
         verify(documentMapper, never()).deleteById(anyLong());
         verifyNoInteractions(minioStorageService);
+    }
+
+    // ======================== 知识库管理测试 ========================
+
+    @Test
+    void testCreateKnowledgeBase_Success() {
+        CreateKnowledgeBaseReq req = new CreateKnowledgeBaseReq("测试知识库", "测试描述");
+
+        when(knowledgeBaseMapper.insert(any(KnowledgeBaseDO.class))).thenAnswer(inv -> {
+            KnowledgeBaseDO kb = inv.getArgument(0);
+            kb.setId(1L);
+            return 1;
+        });
+
+        Long id = knowledgeBaseAppService.createKnowledgeBase(req);
+
+        assertEquals(1L, id);
+        ArgumentCaptor<KnowledgeBaseDO> captor = ArgumentCaptor.forClass(KnowledgeBaseDO.class);
+        verify(knowledgeBaseMapper).insert(captor.capture());
+        assertEquals("测试知识库", captor.getValue().getName());
+        assertEquals("测试描述", captor.getValue().getDescription());
+    }
+
+    @Test
+    void testGetKnowledgeBase_Success() {
+        Long kbId = 1L;
+        KnowledgeBaseDO kb = buildKnowledgeBase(kbId, "测试知识库", "描述");
+
+        when(knowledgeBaseMapper.selectById(kbId)).thenReturn(kb);
+        when(documentMapper.selectCount(any())).thenReturn(3L);
+
+        KnowledgeBaseResp resp = knowledgeBaseAppService.getKnowledgeBase(kbId);
+
+        assertNotNull(resp);
+        assertEquals(kbId, resp.id());
+        assertEquals("测试知识库", resp.name());
+        assertEquals(3L, resp.documentCount());
+    }
+
+    @Test
+    void testGetKnowledgeBase_NotFound() {
+        when(knowledgeBaseMapper.selectById(999L)).thenReturn(null);
+
+        BaseException ex = assertThrows(BaseException.class,
+                () -> knowledgeBaseAppService.getKnowledgeBase(999L));
+        assertEquals(ErrorCodeEnum.KNOWLEDGE_BASE_NOT_EXIST.getCode(), ex.getCode());
+    }
+
+    @Test
+    void testUpdateKnowledgeBase_Success() {
+        Long kbId = 1L;
+        KnowledgeBaseDO kb = buildKnowledgeBase(kbId, "旧名称", "旧描述");
+        UpdateKnowledgeBaseReq req = new UpdateKnowledgeBaseReq("新名称", null);
+
+        when(knowledgeBaseMapper.selectById(kbId)).thenReturn(kb);
+
+        assertDoesNotThrow(() -> knowledgeBaseAppService.updateKnowledgeBase(kbId, req));
+        assertEquals("新名称", kb.getName());
+        assertEquals("旧描述", kb.getDescription());
+        verify(knowledgeBaseMapper).updateById(kb);
+    }
+
+    @Test
+    void testUpdateKnowledgeBase_NotFound() {
+        when(knowledgeBaseMapper.selectById(999L)).thenReturn(null);
+
+        BaseException ex = assertThrows(BaseException.class,
+                () -> knowledgeBaseAppService.updateKnowledgeBase(999L,
+                        new UpdateKnowledgeBaseReq("新名称", "新描述")));
+        assertEquals(ErrorCodeEnum.KNOWLEDGE_BASE_NOT_EXIST.getCode(), ex.getCode());
+    }
+
+    @Test
+    void testDeleteKnowledgeBase_Success() {
+        Long kbId = 1L;
+        KnowledgeBaseDO kb = buildKnowledgeBase(kbId, "测试知识库", "描述");
+
+        when(knowledgeBaseMapper.selectById(kbId)).thenReturn(kb);
+        when(knowledgeBaseMapper.deleteById(kbId)).thenReturn(1);
+
+        assertDoesNotThrow(() -> knowledgeBaseAppService.deleteKnowledgeBase(kbId));
+        verify(knowledgeBaseMapper).deleteById(kbId);
+    }
+
+    @Test
+    void testDeleteKnowledgeBase_NotFound() {
+        when(knowledgeBaseMapper.selectById(999L)).thenReturn(null);
+
+        BaseException ex = assertThrows(BaseException.class,
+                () -> knowledgeBaseAppService.deleteKnowledgeBase(999L));
+        assertEquals(ErrorCodeEnum.KNOWLEDGE_BASE_NOT_EXIST.getCode(), ex.getCode());
+        verify(knowledgeBaseMapper, never()).deleteById(anyLong());
+    }
+
+    private KnowledgeBaseDO buildKnowledgeBase(Long id, String name, String description) {
+        KnowledgeBaseDO kb = new KnowledgeBaseDO();
+        kb.setId(id);
+        kb.setName(name);
+        kb.setDescription(description);
+        kb.setCreateTime(LocalDateTime.of(2026, 5, 13, 10, 0));
+        kb.setUpdateTime(LocalDateTime.of(2026, 5, 13, 12, 0));
+        return kb;
     }
 }

@@ -1,20 +1,32 @@
 package com.fukang.knowledge.agent.application.knowledge;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fukang.knowledge.agent.api.document.dto.DocumentStatusResp;
 import com.fukang.knowledge.agent.api.document.dto.DocumentUploadResp;
+import com.fukang.knowledge.agent.api.knowledgebase.dto.CreateKnowledgeBaseReq;
+import com.fukang.knowledge.agent.api.knowledgebase.dto.KnowledgeBaseResp;
+import com.fukang.knowledge.agent.api.knowledgebase.dto.UpdateKnowledgeBaseReq;
 import com.fukang.knowledge.agent.common.context.UserContextHolder;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
+import com.fukang.knowledge.agent.common.result.PageResponse;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.DocumentDO;
+import com.fukang.knowledge.agent.infrastructure.persistence.entity.KnowledgeBaseDO;
 import com.fukang.knowledge.agent.infrastructure.persistence.mapper.DocumentMapper;
+import com.fukang.knowledge.agent.infrastructure.persistence.mapper.KnowledgeBaseMapper;
 import com.fukang.knowledge.agent.infrastructure.storage.MinioStorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 知识库管理应用服务
@@ -32,6 +44,7 @@ public class KnowledgeBaseAppService {
     );
 
     private final DocumentMapper documentMapper;
+    private final KnowledgeBaseMapper knowledgeBaseMapper;
     private final MinioStorageService minioStorageService;
 
     /**
@@ -80,6 +93,151 @@ public class KnowledgeBaseAppService {
 
         return new DocumentUploadResp(document.getId(), "uploaded");
     }
+
+    // ======================== 知识库管理 ========================
+
+    /**
+     * 创建知识库
+     * <p>根据请求参数创建新的知识库记录，名称在系统内全局唯一</p>
+     *
+     * @param req 创建请求，包含名称和可选描述
+     * @return 新创建的知识库ID
+     * @throws BaseException 知识库名称已存在时抛出 KNOWLEDGE_BASE_NOT_EXIST
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public Long createKnowledgeBase(CreateKnowledgeBaseReq req) {
+        KnowledgeBaseDO kb = new KnowledgeBaseDO();
+        kb.setName(req.name());
+        kb.setDescription(req.description());
+        knowledgeBaseMapper.insert(kb);
+        log.info("知识库创建成功: id={}, name={}", kb.getId(), req.name());
+        return kb.getId();
+    }
+
+    /**
+     * 分页查询知识库列表
+     * <p>支持按关键字模糊搜索名称和描述，返回分页结果并附带各知识库的文档数量统计</p>
+     *
+     * @param page     当前页码，从 1 开始
+     * @param pageSize 每页记录数
+     * @param keyword  搜索关键字，可选，模糊匹配名称和描述
+     * @return 分页响应，包含知识库列表和文档数量
+     */
+    public PageResponse<KnowledgeBaseResp> listKnowledgeBases(long page, long pageSize, String keyword) {
+        LambdaQueryWrapper<KnowledgeBaseDO> wrapper = new LambdaQueryWrapper<>();
+        if (StringUtils.hasText(keyword)) {
+            wrapper.and(w -> w
+                    .like(KnowledgeBaseDO::getName, keyword)
+                    .or()
+                    .like(KnowledgeBaseDO::getDescription, keyword));
+        }
+        wrapper.orderByDesc(KnowledgeBaseDO::getCreateTime);
+
+        IPage<KnowledgeBaseDO> resultPage = knowledgeBaseMapper.selectPage(
+                new Page<>(page, pageSize), wrapper);
+
+        List<KnowledgeBaseDO> records = resultPage.getRecords();
+        // 批量查询各知识库的文档数量
+        Map<Long, Long> docCountMap = loadDocumentCounts(records);
+
+        List<KnowledgeBaseResp> items = records.stream()
+                .map(kb -> toKnowledgeBaseResp(kb, docCountMap.getOrDefault(kb.getId(), 0L)))
+                .collect(Collectors.toList());
+
+        return new PageResponse<>(items, resultPage.getTotal(), resultPage.getCurrent(), resultPage.getSize());
+    }
+
+    /**
+     * 查询单个知识库详情
+     *
+     * @param id 知识库ID
+     * @return 知识库响应 DTO，包含文档数量
+     * @throws BaseException 知识库不存在时抛出 KNOWLEDGE_BASE_NOT_EXIST
+     */
+    public KnowledgeBaseResp getKnowledgeBase(Long id) {
+        KnowledgeBaseDO kb = findKnowledgeBaseById(id);
+        long docCount = documentMapper.selectCount(
+                new LambdaQueryWrapper<DocumentDO>().eq(DocumentDO::getKnowledgeBaseId, id));
+        return toKnowledgeBaseResp(kb, docCount);
+    }
+
+    /**
+     * 更新知识库
+     * <p>仅更新请求中非空字段，未传字段保持原值不变</p>
+     *
+     * @param id  知识库ID
+     * @param req 更新请求，包含可选名称和描述
+     * @throws BaseException 知识库不存在时抛出 KNOWLEDGE_BASE_NOT_EXIST
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void updateKnowledgeBase(Long id, UpdateKnowledgeBaseReq req) {
+        KnowledgeBaseDO kb = findKnowledgeBaseById(id);
+        if (StringUtils.hasText(req.name())) {
+            kb.setName(req.name());
+        }
+        if (req.description() != null) {
+            kb.setDescription(req.description());
+        }
+        knowledgeBaseMapper.updateById(kb);
+        log.info("知识库已更新: id={}, name={}", id, kb.getName());
+    }
+
+    /**
+     * 删除知识库
+     * <p>删除知识库本身（当前不做级联删除文档处理，后续迭代可增加）</p>
+     *
+     * @param id 知识库ID
+     * @throws BaseException 知识库不存在时抛出 KNOWLEDGE_BASE_NOT_EXIST
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteKnowledgeBase(Long id) {
+        KnowledgeBaseDO kb = findKnowledgeBaseById(id);
+        knowledgeBaseMapper.deleteById(id);
+        log.info("知识库已删除: id={}, name={}", id, kb.getName());
+    }
+
+    /**
+     * 根据ID查询知识库，不存在时抛出异常
+     */
+    private KnowledgeBaseDO findKnowledgeBaseById(Long id) {
+        KnowledgeBaseDO kb = knowledgeBaseMapper.selectById(id);
+        if (kb == null) {
+            log.warn("知识库不存在: id={}", id);
+            throw new BaseException(ErrorCodeEnum.KNOWLEDGE_BASE_NOT_EXIST);
+        }
+        return kb;
+    }
+
+    /**
+     * 批量查询各知识库的文档数量
+     */
+    private Map<Long, Long> loadDocumentCounts(List<KnowledgeBaseDO> knowledgeBases) {
+        if (knowledgeBases.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> kbIds = knowledgeBases.stream().map(KnowledgeBaseDO::getId).toList();
+        List<DocumentDO> docs = documentMapper.selectList(
+                new LambdaQueryWrapper<DocumentDO>().in(DocumentDO::getKnowledgeBaseId, kbIds));
+        return docs.stream()
+                .collect(Collectors.groupingBy(DocumentDO::getKnowledgeBaseId, Collectors.counting()));
+    }
+
+    /**
+     * 将 DO 转换为响应 DTO
+     */
+    private KnowledgeBaseResp toKnowledgeBaseResp(KnowledgeBaseDO kb, long documentCount) {
+        return new KnowledgeBaseResp(
+                kb.getId(),
+                kb.getName(),
+                kb.getDescription(),
+                documentCount,
+                "completed",
+                kb.getCreateTime(),
+                kb.getUpdateTime()
+        );
+    }
+
+    // ======================== 文档管理 ========================
 
     /**
      * 查询文档处理状态
