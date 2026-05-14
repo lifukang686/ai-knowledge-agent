@@ -157,7 +157,7 @@ const ModelManagement: React.FC = () => {
       width: '80px',
       render: (value: string) => (
         <span className="text-xs text-gray-500 font-mono">
-          {value?.substring(0, 8)}
+          {String(value).substring(0, 8)}
         </span>
       )
     },

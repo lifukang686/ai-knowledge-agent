@@ -1,10 +1,13 @@
-import { BaseEntity, StatusType } from './common';
+import { BaseEntity, StatusType, ListResponse } from './common';
 
-export interface KnowledgeBase extends BaseEntity {
+export interface KnowledgeBase {
+  id: string;
   name: string;
   description?: string;
   document_count?: number;
   status?: StatusType;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Document extends BaseEntity {
@@ -35,3 +38,15 @@ export interface UpdateKnowledgeBaseRequest {
   name?: string;
   description?: string;
 }
+
+export interface KnowledgeBaseApiResp {
+  id: string;
+  name: string;
+  description: string | null;
+  documentCount: number;
+  status: string;
+  createTime: string;
+  updateTime: string;
+}
+
+export interface KnowledgeBaseListResponse extends ListResponse<KnowledgeBase> {}

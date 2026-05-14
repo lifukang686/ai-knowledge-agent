@@ -1,159 +1,132 @@
 import { request } from '@/utils/request';
-import { KnowledgeBase, Document, CreateKnowledgeBaseRequest, UpdateKnowledgeBaseRequest } from '@/types/knowledgeBase';
-import { ListResponse, SearchParams } from '@/types/common';
-import { mockKnowledgeBases, delay, generateMockList } from './mockData';
+import {
+  KnowledgeBase,
+  Document,
+  CreateKnowledgeBaseRequest,
+  UpdateKnowledgeBaseRequest,
+  KnowledgeBaseApiResp,
+  KnowledgeBaseListResponse,
+} from '@/types/knowledgeBase';
+import { ListResponse } from '@/types/common';
+import { API_ENDPOINTS } from '@/utils/constants';
 
-// 知识库列表
-export const getKnowledgeBases = async (params: SearchParams & { page?: number; pageSize?: number }): Promise<ListResponse<KnowledgeBase>> => {
-  // 待确认：后端联调时替换为真实API
-  console.log('getKnowledgeBases called with params:', params);
-  await delay(500);
-  
-  const { keyword, page = 1, pageSize = 20 } = params;
-  const result = generateMockList(mockKnowledgeBases, page, pageSize, keyword);
-  console.log('getKnowledgeBases returning:', result);
-  return result;
+function mapKnowledgeBaseFromApi(api: KnowledgeBaseApiResp): KnowledgeBase {
+  return {
+    id: api?.id != null ? String(api.id) : '',
+    name: api?.name ?? '',
+    description: api?.description ?? undefined,
+    document_count: api?.documentCount ?? 0,
+    status: api?.status ?? 'unknown',
+    created_at: api?.createTime ?? '',
+    updated_at: api?.updateTime ?? '',
+  };
+}
+
+function buildKnowledgeBaseParams(params: { page?: number; pageSize?: number; keyword?: string }) {
+  const query: Record<string, string | number> = {};
+  if (params.page) query.page = params.page;
+  if (params.pageSize) query.pageSize = params.pageSize;
+  if (params.keyword) query.keyword = params.keyword;
+  return query;
+}
+
+export const getKnowledgeBases = async (params: {
+  page?: number;
+  pageSize?: number;
+  keyword?: string;
+}): Promise<KnowledgeBaseListResponse> => {
+  const response = await request.get<{
+    items: KnowledgeBaseApiResp[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }>(API_ENDPOINTS.KNOWLEDGE_BASES, {
+    params: buildKnowledgeBaseParams(params),
+  });
+
+  if (!response || !Array.isArray(response.items)) {
+    return { items: [], total: 0, page: params.page || 1, pageSize: params.pageSize || 20 };
+  }
+
+  return {
+    items: response.items.map(mapKnowledgeBaseFromApi),
+    total: response.total ?? 0,
+    page: response.page ?? 1,
+    pageSize: response.pageSize ?? 20,
+  };
 };
 
-// 知识库详情
 export const getKnowledgeBase = async (id: string): Promise<KnowledgeBase> => {
-  // 待确认：后端联调时替换为真实API
-  await delay(300);
-  
-  const knowledgeBase = mockKnowledgeBases.find(item => item.id === id);
-  if (!knowledgeBase) {
+  const response = await request.get<KnowledgeBaseApiResp>(
+    API_ENDPOINTS.KNOWLEDGE_BASE_DETAIL(id),
+  );
+  if (!response) {
     throw new Error('知识库不存在');
   }
-  return knowledgeBase;
+  return mapKnowledgeBaseFromApi(response);
 };
 
-// 创建知识库
-export const createKnowledgeBase = async (data: CreateKnowledgeBaseRequest): Promise<{ id: string }> => {
-  // 待确认：后端联调时替换为真实API
-  await delay(500);
-  
-  const newKnowledgeBase: KnowledgeBase = {
-    id: Math.random().toString(36).substr(2, 9),
-    name: data.name,
-    description: data.description,
-    document_count: 0,
-    status: 'completed',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  };
-  
-  mockKnowledgeBases.unshift(newKnowledgeBase);
-  return { id: newKnowledgeBase.id };
+export const createKnowledgeBase = async (
+  data: CreateKnowledgeBaseRequest,
+): Promise<string> => {
+  const id = await request.post(API_ENDPOINTS.KNOWLEDGE_BASES, data);
+  return id != null ? String(id) : '';
 };
 
-// 更新知识库
-export const updateKnowledgeBase = async (id: string, data: UpdateKnowledgeBaseRequest): Promise<void> => {
-  // 待确认：后端联调时替换为真实API
-  await delay(500);
-  
-  const index = mockKnowledgeBases.findIndex(item => item.id === id);
-  if (index === -1) {
-    throw new Error('知识库不存在');
-  }
-  
-  mockKnowledgeBases[index] = {
-    ...mockKnowledgeBases[index],
-    ...data,
-    updated_at: new Date().toISOString(),
-  };
+export const updateKnowledgeBase = async (
+  id: string,
+  data: UpdateKnowledgeBaseRequest,
+): Promise<void> => {
+  await request.put(API_ENDPOINTS.KNOWLEDGE_BASE_DETAIL(id), data);
 };
 
-// 删除知识库
 export const deleteKnowledgeBase = async (id: string): Promise<void> => {
-  // 待确认：后端联调时替换为真实API
-  await delay(500);
-  
-  const index = mockKnowledgeBases.findIndex(item => item.id === id);
-  if (index === -1) {
-    throw new Error('知识库不存在');
-  }
-  
-  mockKnowledgeBases.splice(index, 1);
+  await request.delete(API_ENDPOINTS.KNOWLEDGE_BASE_DETAIL(id));
 };
 
-// 获取知识库下的文档列表
-export const getKnowledgeBaseDocuments = async (knowledgeBaseId: string, params: { page?: number; pageSize?: number }): Promise<ListResponse<Document>> => {
-  // 待确认：后端联调时替换为真实API
-  await delay(400);
-  
-  // 模拟文档数据
-  const mockDocuments: Document[] = [
-    {
-      id: Math.random().toString(36).substr(2, 9),
-      name: 'API设计文档.pdf',
-      file_path: '/documents/api-design.pdf',
-      knowledge_base_id: knowledgeBaseId,
-      status: 'completed',
-      uploaded_by: '张三',
-      chunk_count: 45,
-      file_size: 1024 * 1024 * 2.5,
-      created_at: new Date(Date.now() - 86400000).toISOString(),
-      updated_at: new Date(Date.now() - 86400000).toISOString(),
+export const getKnowledgeBaseDocuments = async (
+  knowledgeBaseId: string,
+  params: { page?: number; pageSize?: number },
+): Promise<ListResponse<Document>> => {
+  const response = await request.get<{
+    items: Document[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }>(API_ENDPOINTS.KNOWLEDGE_BASE_DOCUMENTS(knowledgeBaseId), {
+    params: {
+      page: params.page,
+      pageSize: params.pageSize,
     },
+  });
+  return response;
+};
+
+export const uploadDocument = async (
+  knowledgeBaseId: string,
+  file: File,
+): Promise<{ documentId: string; status: string }> => {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('knowledgeBaseId', knowledgeBaseId);
+
+  const response = await request.post<{ documentId: string; status: string }>(
+    API_ENDPOINTS.UPLOAD_DOCUMENT,
+    formData,
     {
-      id: Math.random().toString(36).substr(2, 9),
-      name: '用户手册.docx',
-      file_path: '/documents/user-manual.docx',
-      knowledge_base_id: knowledgeBaseId,
-      status: 'processing',
-      uploaded_by: '李四',
-      chunk_count: 0,
-      file_size: 1024 * 1024 * 1.8,
-      created_at: new Date(Date.now() - 172800000).toISOString(),
-      updated_at: new Date().toISOString(),
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 30000,
     },
-  ];
-  
-  const { page = 1, pageSize = 20 } = params;
-  return {
-    items: mockDocuments,
-    total: mockDocuments.length,
-    page,
-    pageSize,
-  };
+  );
+  return response;
 };
 
-// 上传文档
-export const uploadDocument = async (knowledgeBaseId: string, file: File): Promise<{ documentId: string; status: string }> => {
-  // 待确认：后端联调时替换为真实API，需要支持文件上传
-  await delay(1000);
-  
-  const documentId = Math.random().toString(36).substr(2, 9);
-  return {
-    documentId,
-    status: 'processing',
-  };
-};
-
-// 获取文档状态
 export const getDocumentStatus = async (documentId: string): Promise<{ status: string }> => {
-  // 待确认：后端联调时替换为真实API
-  await delay(300);
-  
-  return {
-    status: Math.random() > 0.5 ? 'completed' : 'processing',
-  };
+  return request.get<{ status: string }>(API_ENDPOINTS.DOCUMENT_STATUS(documentId));
 };
 
-// 获取单个知识库详情
-export const getKnowledgeBaseById = async (id: string): Promise<KnowledgeBase> => {
-  // 待确认：后端联调时替换为真实API
-  await delay(300);
-  
-  const knowledgeBase = mockKnowledgeBases.find(item => item.id === id);
-  if (!knowledgeBase) {
-    throw new Error('知识库不存在');
-  }
-  
-  return knowledgeBase;
-};
+export const getKnowledgeBaseById = getKnowledgeBase;
 
-// 知识库服务对象
 export const knowledgeBaseService = {
   getKnowledgeBases,
   createKnowledgeBase,

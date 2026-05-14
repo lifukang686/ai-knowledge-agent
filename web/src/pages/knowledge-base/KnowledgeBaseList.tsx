@@ -4,7 +4,7 @@ import { Plus, Search, RefreshCw, Eye, Edit, Trash2, Upload } from 'lucide-react
 import { toast } from 'sonner';
 
 import { KnowledgeBase } from '@/types/knowledgeBase';
-import { getKnowledgeBases, deleteKnowledgeBase } from '@/services/knowledgeBase';
+import { getKnowledgeBases, createKnowledgeBase, updateKnowledgeBase, deleteKnowledgeBase } from '@/services/knowledgeBase';
 import { DataTable } from '@/components/common/DataTable';
 import { SearchBar } from '@/components/common/SearchBar';
 import { FormModal } from '@/components/common/FormModal';
@@ -121,13 +121,19 @@ const KnowledgeBaseList: React.FC = () => {
     setSubmitting(true);
     try {
       if (editingItem) {
-        // 更新逻辑 - 待确认：后端联调时替换为真实API
+        await updateKnowledgeBase(editingItem.id, {
+          name: formData.name.trim(),
+          description: formData.description.trim() || undefined,
+        });
         toast.success('知识库更新成功');
       } else {
-        // 创建逻辑 - 待确认：后端联调时替换为真实API
+        await createKnowledgeBase({
+          name: formData.name.trim(),
+          description: formData.description.trim() || undefined,
+        });
         toast.success('知识库创建成功');
       }
-      
+
       setModalOpen(false);
       loadData();
     } catch (error) {
@@ -146,7 +152,7 @@ const KnowledgeBaseList: React.FC = () => {
       width: '80px',
       render: (value: string) => (
         <span className="text-xs text-gray-500 font-mono">
-          {value?.substring(0, 8)}
+          {String(value).substring(0, 8)}
         </span>
       )
     },
