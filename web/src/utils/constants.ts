@@ -18,6 +18,7 @@ export const API_ENDPOINTS = {
   // 文档相关
   DOCUMENTS: '/documents',
   DOCUMENT_DETAIL: (id: string) => `/documents/${id}`,
+  DOCUMENT_DETAIL_API: (id: string) => `/documents/${id}/detail`,
   DOCUMENT_STATUS: (id: string) => `/documents/${id}/status`,
   UPLOAD_DOCUMENT: '/documents/upload',
   

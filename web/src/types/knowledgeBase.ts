@@ -20,6 +20,20 @@ export interface Document extends BaseEntity {
   file_size?: number;
 }
 
+export interface DocumentDetail {
+  id: string;
+  title: string;
+  content: string;
+  file_path: string;
+  knowledge_base_id: string;
+  status: StatusType;
+  uploaded_by?: string;
+  chunk_count: number;
+  file_size: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface DocumentChunk {
   id: string;
   document_id: string;
@@ -52,6 +66,20 @@ export interface KnowledgeBaseApiResp {
 export interface DocumentApiResp {
   id: string;
   name: string;
+  filePath: string;
+  knowledgeBaseId: string;
+  status: string;
+  uploadedBy: string | null;
+  chunkCount: number;
+  fileSize: number;
+  createTime: string;
+  updateTime: string;
+}
+
+export interface DocumentDetailApiResp {
+  id: string;
+  title: string;
+  content: string;
   filePath: string;
   knowledgeBaseId: string;
   status: string;

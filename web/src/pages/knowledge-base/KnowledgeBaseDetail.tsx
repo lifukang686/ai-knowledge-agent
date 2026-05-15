@@ -1,15 +1,16 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Upload, RefreshCw, Eye, FileText, Database, Clock, AlertCircle, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowLeft, Upload, RefreshCw, Eye, Trash2, FileText, Database, Clock, AlertCircle, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from 'axios';
 
 import { KnowledgeBase, Document } from '@/types/knowledgeBase';
-import { getKnowledgeBase, getKnowledgeBaseDocuments, uploadDocument } from '@/services/knowledgeBase';
+import { getKnowledgeBase, getKnowledgeBaseDocuments, uploadDocument, deleteDocument } from '@/services/knowledgeBase';
 import { DataTable } from '@/components/common/DataTable';
 import { StatusTag } from '@/components/common/StatusTag';
 import { Pagination } from '@/components/common/Pagination';
-import { formatDateTime, formatFileSize, truncateText } from '@/utils/format';
+import { ConfirmModal } from '@/components/common/ConfirmModal';
+import { formatDateTime, formatFileSize } from '@/utils/format';
 import { DEFAULT_PAGE_SIZE } from '@/utils/constants';
 
 type SortField = 'name' | 'created_at';
@@ -38,6 +39,10 @@ const KnowledgeBaseDetail: React.FC = () => {
 
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
+
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Document | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchIdRef = useRef(0);
   const kbLoadedRef = useRef(false);
@@ -90,17 +95,27 @@ const KnowledgeBaseDetail: React.FC = () => {
       setLoading(true);
       try {
         const data = await getKnowledgeBase(id!, controller.signal);
-        if (fetchId !== fetchIdRef.current) return;
+        if (fetchId !== fetchIdRef.current) {
+          setLoading(false);
+          return;
+        }
         setKnowledgeBase(data);
         kbLoadedRef.current = true;
+        loadDocuments();
       } catch (error: any) {
-        if (fetchId !== fetchIdRef.current) return;
-        if (axios.isCancel(error) || error?.code === 'ERR_CANCELED' || controller.signal.aborted) return;
+        if (fetchId !== fetchIdRef.current) {
+          setLoading(false);
+          return;
+        }
+        if (axios.isCancel(error) || error?.code === 'ERR_CANCELED') {
+          setLoading(false);
+          return;
+        }
         console.error('加载知识库详情失败:', error);
         toast.error('加载知识库详情失败');
         navigate('/knowledge-bases');
       } finally {
-        if (fetchId === fetchIdRef.current && !controller.signal.aborted) {
+        if (fetchId === fetchIdRef.current) {
           setLoading(false);
         }
       }
@@ -209,9 +224,38 @@ const KnowledgeBaseDetail: React.FC = () => {
     navigate(`/documents/${documentId}`);
   };
 
+  const handleDeleteClick = (doc: Document) => {
+    setDeleteTarget(doc);
+    setConfirmOpen(true);
+  };
+
+  const handleDeleteCancel = () => {
+    if (deleting) return;
+    setConfirmOpen(false);
+    setDeleteTarget(null);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+
+    setDeleting(true);
+    try {
+      await deleteDocument(deleteTarget.id);
+      toast.success(`文档「${deleteTarget.name}」已删除`);
+      setConfirmOpen(false);
+      setDeleteTarget(null);
+      loadDocuments();
+    } catch (error: any) {
+      const message = error?.message || '删除文档失败';
+      console.error('删除文档失败:', error);
+      toast.error(message);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const handleRefresh = () => {
     setRefreshKey(k => k + 1);
-    loadDocuments();
   };
 
   const documentColumns = [
@@ -288,15 +332,24 @@ const KnowledgeBaseDetail: React.FC = () => {
     {
       key: 'actions',
       title: '操作',
-      width: '100px',
+      width: '130px',
       render: (_: any, record: Document) => (
-        <button
-          onClick={() => handleViewDocument(record.id)}
-          className="text-primary-600 hover:text-primary-800 text-sm font-medium"
-        >
-          <Eye className="h-4 w-4 inline mr-1" />
-          查看
-        </button>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => handleViewDocument(record.id)}
+            className="text-primary-600 hover:text-primary-800 text-sm font-medium"
+          >
+            <Eye className="h-4 w-4 inline mr-1" />
+            查看
+          </button>
+          <button
+            onClick={() => handleDeleteClick(record)}
+            className="text-red-600 hover:text-red-800 text-sm font-medium"
+          >
+            <Trash2 className="h-4 w-4 inline mr-1" />
+            删除
+          </button>
+        </div>
       )
     }
   ];
@@ -451,6 +504,18 @@ const KnowledgeBaseDetail: React.FC = () => {
           </>
         )}
       </div>
+
+      <ConfirmModal
+        isOpen={confirmOpen}
+        title="确认删除文档"
+        message={deleteTarget ? `确定要删除文档「${deleteTarget.name}」吗？删除后不可恢复。` : ''}
+        confirmText="确认删除"
+        cancelText="取消"
+        danger={true}
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+        loading={deleting}
+      />
     </div>
   );
 };

@@ -2,10 +2,12 @@ import { request } from '@/utils/request';
 import {
   KnowledgeBase,
   Document,
+  DocumentDetail,
   CreateKnowledgeBaseRequest,
   UpdateKnowledgeBaseRequest,
   KnowledgeBaseApiResp,
   DocumentApiResp,
+  DocumentDetailApiResp,
   KnowledgeBaseListResponse,
 } from '@/types/knowledgeBase';
 import { ListResponse } from '@/types/common';
@@ -30,6 +32,22 @@ function mapDocumentFromApi(api: DocumentApiResp): Document {
     file_path: api?.filePath ?? '',
     knowledge_base_id: api?.knowledgeBaseId != null ? String(api.knowledgeBaseId) : '',
     status: (api?.status as Document['status']) ?? 'unknown',
+    uploaded_by: api?.uploadedBy ?? undefined,
+    chunk_count: api?.chunkCount ?? 0,
+    file_size: api?.fileSize ?? 0,
+    created_at: api?.createTime ?? '',
+    updated_at: api?.updateTime ?? '',
+  };
+}
+
+function mapDocumentDetailFromApi(api: DocumentDetailApiResp): DocumentDetail {
+  return {
+    id: api?.id != null ? String(api.id) : '',
+    title: api?.title ?? '',
+    content: api?.content ?? '',
+    file_path: api?.filePath ?? '',
+    knowledge_base_id: api?.knowledgeBaseId != null ? String(api.knowledgeBaseId) : '',
+    status: (api?.status as DocumentDetail['status']) ?? 'unknown',
     uploaded_by: api?.uploadedBy ?? undefined,
     chunk_count: api?.chunkCount ?? 0,
     file_size: api?.fileSize ?? 0,
@@ -150,6 +168,20 @@ export const uploadDocument = async (
   return response;
 };
 
+export const getDocumentDetail = async (documentId: string): Promise<DocumentDetail> => {
+  const response = await request.get<DocumentDetailApiResp>(
+    API_ENDPOINTS.DOCUMENT_DETAIL_API(documentId),
+  );
+  if (!response) {
+    throw new Error('文档不存在');
+  }
+  return mapDocumentDetailFromApi(response);
+};
+
+export const deleteDocument = async (documentId: string): Promise<void> => {
+  await request.delete(API_ENDPOINTS.DOCUMENT_DETAIL(documentId));
+};
+
 export const getDocumentStatus = async (documentId: string): Promise<{ status: string }> => {
   return request.get<{ status: string }>(API_ENDPOINTS.DOCUMENT_STATUS(documentId));
 };
@@ -163,6 +195,8 @@ export const knowledgeBaseService = {
   deleteKnowledgeBase,
   getKnowledgeBaseDocuments,
   uploadDocument,
+  getDocumentDetail,
+  deleteDocument,
   getDocumentStatus,
   getKnowledgeBaseById,
 };
