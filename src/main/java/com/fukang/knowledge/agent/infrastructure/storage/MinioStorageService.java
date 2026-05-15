@@ -4,6 +4,7 @@ import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.infrastructure.config.MinioConfig;
 import io.minio.BucketExistsArgs;
+import io.minio.GetObjectArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
@@ -13,13 +14,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
 /**
  * MinIO 文件存储服务
- * <p>封装 MinIO 对象存储的上传操作，负责文件路径生成、桶存在性检查及异常处理，
+ * <p>封装 MinIO 对象存储的上传、下载、删除操作，负责文件路径生成、桶存在性检查及异常处理，
  * 为知识库管理模块提供可靠的文件持久化能力</p>
  */
 @Slf4j
@@ -62,6 +65,35 @@ public class MinioStorageService {
             throw e;
         } catch (Exception e) {
             log.error("文件上传到 MinIO 失败: bucket={}, fileName={}", bucketName, file.getOriginalFilename(), e);
+            throw new BaseException(ErrorCodeEnum.FILE_UPLOAD_FAILED);
+        }
+    }
+
+    /**
+     * 从 MinIO 读取文件内容
+     * <p>根据文件存储路径从 MinIO 中读取文件内容，以 UTF-8 编码返回字符串。
+     * 适用于文本类文档（txt、md 等）的内容浏览场景。对于二进制文件，
+     * 建议在后续版本中增加解析管道后再提供结构化内容浏览。</p>
+     *
+     * @param objectName 文件在 MinIO 中的存储路径
+     * @return UTF-8 编码的文件文本内容
+     * @throws BaseException 文件读取失败时抛出 FILE_UPLOAD_FAILED
+     */
+    public String readFileContent(String objectName) {
+        String bucketName = minioConfig.getBucketName();
+        try (InputStream stream = minioClient.getObject(
+                GetObjectArgs.builder()
+                        .bucket(bucketName)
+                        .object(objectName)
+                        .build())) {
+            String content = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+            log.info("已从 MinIO 读取文件内容: bucket={}, object={}, size={} bytes",
+                    bucketName, objectName, content.length());
+            return content;
+        } catch (BaseException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("从 MinIO 读取文件内容失败: bucket={}, object={}", bucketName, objectName, e);
             throw new BaseException(ErrorCodeEnum.FILE_UPLOAD_FAILED);
         }
     }

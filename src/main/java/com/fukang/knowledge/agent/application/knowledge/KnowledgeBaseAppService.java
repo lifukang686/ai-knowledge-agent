@@ -3,6 +3,7 @@ package com.fukang.knowledge.agent.application.knowledge;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.fukang.knowledge.agent.api.document.dto.DocumentDetailResp;
 import com.fukang.knowledge.agent.api.document.dto.DocumentResp;
 import com.fukang.knowledge.agent.api.document.dto.DocumentStatusResp;
 import com.fukang.knowledge.agent.api.document.dto.DocumentUploadResp;
@@ -264,6 +265,42 @@ public class KnowledgeBaseAppService {
                 .collect(Collectors.toList());
 
         return new PageResponse<>(items, resultPage.getTotal(), resultPage.getCurrent(), resultPage.getSize());
+    }
+
+    /**
+     * 查询文档详情（含文件内容）
+     * <p>根据文档ID查询文档元数据，同时从 MinIO 读取原始文件内容。
+     * 适用于文档内容浏览页面，返回文档标题、文本内容、创建时间等完整信息。
+     * 对于大文件或非文本文件，后续版本可增加分页读取和格式转换能力。</p>
+     *
+     * @param documentId 文档ID
+     * @return 文档详情响应，包含元数据和文本内容
+     * @throws BaseException 文档不存在时抛出 DOCUMENT_NOT_EXIST，文件读取失败时抛出 FILE_UPLOAD_FAILED
+     */
+    public DocumentDetailResp getDocumentDetail(Long documentId) {
+        DocumentDO document = findDocumentById(documentId);
+
+        String content = "";
+        if (document.getFilePath() != null && !document.getFilePath().isBlank()) {
+            content = minioStorageService.readFileContent(document.getFilePath());
+        }
+
+        String status = document.getFilePath() != null ? "uploaded" : "pending";
+        String uploadedBy = document.getUploaderId() != null ? document.getUploaderId().toString() : "";
+
+        return new DocumentDetailResp(
+                document.getId(),
+                document.getTitle(),
+                content,
+                document.getFilePath(),
+                document.getKnowledgeBaseId(),
+                status,
+                uploadedBy,
+                0L,
+                0L,
+                document.getCreateTime(),
+                document.getUpdateTime()
+        );
     }
 
     /**

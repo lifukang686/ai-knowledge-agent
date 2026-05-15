@@ -1,5 +1,6 @@
 package com.fukang.knowledge.agent.api.document;
 
+import com.fukang.knowledge.agent.api.document.dto.DocumentDetailResp;
 import com.fukang.knowledge.agent.api.document.dto.DocumentResp;
 import com.fukang.knowledge.agent.api.document.dto.DocumentStatusResp;
 import com.fukang.knowledge.agent.api.document.dto.DocumentUploadResp;
@@ -19,7 +20,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 /**
  * 文档管理控制器
- * <p>提供文档上传、状态查询等 REST API 接口</p>
+ * <p>提供文档上传、列表查询、详情浏览、状态查询、删除等 REST API 接口</p>
  */
 @RestController
 @RequestMapping("/api/documents")
@@ -66,6 +67,19 @@ public class DocumentController {
             @RequestParam(value = "page", defaultValue = "1") long page,
             @RequestParam(value = "pageSize", defaultValue = "20") long pageSize) {
         return Result.success(knowledgeBaseAppService.listDocuments(knowledgeBaseId, page, pageSize));
+    }
+
+    /**
+     * 查询文档详情（含内容）
+     * <p>根据文档ID查询文档完整信息，包括元数据和从 MinIO 读取的原始文件内容。
+     * 用于文档内容浏览页面，展示文档标题、文本内容、创建时间、更新时间等完整信息。</p>
+     *
+     * @param id 文档ID
+     * @return 文档详情响应，包含元数据和文本内容
+     */
+    @GetMapping("/{id}/detail")
+    public Result<DocumentDetailResp> getDocumentDetail(@PathVariable("id") Long id) {
+        return Result.success(knowledgeBaseAppService.getDocumentDetail(id));
     }
 
     /**
