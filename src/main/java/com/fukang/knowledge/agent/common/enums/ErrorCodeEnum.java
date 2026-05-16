@@ -49,7 +49,19 @@ public enum ErrorCodeEnum {
     /** 文档不存在 */
     DOCUMENT_NOT_EXIST(3006, "文档不存在"),
     /** 文件删除失败 */
-    FILE_DELETE_FAILED(3007, "文件删除失败");
+    FILE_DELETE_FAILED(3007, "文件删除失败"),
+    /** 文档解析失败 */
+    DOCUMENT_PARSE_FAILED(3008, "文档解析失败"),
+    /** 文档分块失败 */
+    DOCUMENT_CHUNK_FAILED(3009, "文档分块失败"),
+    /** 文档内容为空 */
+    DOCUMENT_CONTENT_EMPTY(3010, "文档内容为空"),
+    /** 文档块数据为空 */
+    CHUNK_DATA_EMPTY(3011, "文档块数据为空"),
+    /** 文档块存储失败 */
+    CHUNK_STORAGE_FAILED(3012, "文档块存储失败"),
+    /** 文档块数据校验失败 */
+    CHUNK_VALIDATION_FAILED(3013, "文档块数据校验失败");
 
     /** 错误码 */
     private final int code;
