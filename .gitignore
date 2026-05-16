@@ -43,3 +43,6 @@ lerna-debug.log*
 ### Frontend Build ###
 web/dist/
 web/.vite/
+
+### Test Code ###
+src/test/
