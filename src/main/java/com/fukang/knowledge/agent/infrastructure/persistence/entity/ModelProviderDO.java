@@ -35,6 +35,6 @@ public class ModelProviderDO extends BaseEntity {
     private String description;
 
     /** 是否为默认提供商，系统中只能存在一个默认提供商 */
-    @Column(name = "is_default", nullable = false)
+    @Column(name = "is_default")
     private Boolean isDefault = false;
 }

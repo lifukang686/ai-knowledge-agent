@@ -32,7 +32,7 @@ public class ModelConfigDO extends BaseEntity {
     private String modelName;
 
     /** 模型类型（CHAT-对话模型、EMBEDDING-嵌入模型、RERANK-重排序模型、STT-语音转文字） */
-    @Column(name = "model_type", nullable = false, length = 32)
+    @Column(name = "model_type", length = 32)
     private String modelType;
 
     /** 默认调用参数，JSON 格式字符串（如 temperature、max_tokens 等） */
