@@ -116,6 +116,34 @@ public class MinioStorageService {
     }
 
     /**
+     * 从 MinIO 读取文件原始字节
+     * <p>根据文件存储路径从 MinIO 中读取文件原始字节数据，
+     * 供文档解析器（PDFBox、POI 等）进行二进制解析</p>
+     *
+     * @param objectName 文件在 MinIO 中的存储路径
+     * @return 文件字节数组
+     * @throws BaseException 读取失败时抛出 FILE_UPLOAD_FAILED
+     */
+    public byte[] readFileBytes(String objectName) {
+        String bucketName = minioConfig.getBucketName();
+        try (InputStream stream = minioClient.getObject(
+                GetObjectArgs.builder()
+                        .bucket(bucketName)
+                        .object(objectName)
+                        .build())) {
+            byte[] bytes = stream.readAllBytes();
+            log.info("已从 MinIO 读取文件字节: bucket={}, object={}, size={} bytes",
+                    bucketName, objectName, bytes.length);
+            return bytes;
+        } catch (BaseException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("从 MinIO 读取文件字节失败: bucket={}, object={}", bucketName, objectName, e);
+            throw new BaseException(ErrorCodeEnum.FILE_UPLOAD_FAILED);
+        }
+    }
+
+    /**
      * 删除 MinIO 中的文件
      * <p>根据文件存储路径从 MinIO 中删除指定文件，删除失败时记录日志但不中断业务</p>
      *

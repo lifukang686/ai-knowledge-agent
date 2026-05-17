@@ -14,6 +14,7 @@ import com.fukang.knowledge.agent.common.context.UserContextHolder;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.common.result.PageResponse;
+import com.fukang.knowledge.agent.application.knowledge.event.DocumentUploadedEvent;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.DocumentDO;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.KnowledgeBaseDO;
 import com.fukang.knowledge.agent.infrastructure.persistence.mapper.DocumentMapper;
@@ -21,6 +22,7 @@ import com.fukang.knowledge.agent.infrastructure.persistence.mapper.KnowledgeBas
 import com.fukang.knowledge.agent.infrastructure.storage.MinioStorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -48,6 +50,7 @@ public class KnowledgeBaseAppService {
     private final DocumentMapper documentMapper;
     private final KnowledgeBaseMapper knowledgeBaseMapper;
     private final MinioStorageService minioStorageService;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * 上传文档
@@ -57,8 +60,9 @@ public class KnowledgeBaseAppService {
      *   <li>校验文件类型是否为支持的格式</li>
      *   <li>将文件存储到 MinIO 对象存储</li>
      *   <li>在 document 表中创建记录，保存文件路径和元数据</li>
+     *   <li>设置文档状态为 PENDING</li>
+     *   <li>发布 DocumentUploadedEvent，事务提交后由异步监听器触发处理管道</li>
      * </ol>
-     * 完成后返回文档ID和状态，后续由异步任务负责文档解析和向量化
      *
      * @param knowledgeBaseId 目标知识库ID
      * @param file            上传的文件
@@ -67,33 +71,34 @@ public class KnowledgeBaseAppService {
      */
     @Transactional(rollbackFor = Exception.class)
     public DocumentUploadResp uploadDocument(Long knowledgeBaseId, MultipartFile file) {
-        // 1. 校验文件非空
         if (file == null || file.isEmpty()) {
             throw new BaseException(ErrorCodeEnum.FILE_EMPTY);
         }
 
-        // 2. 校验文件名和类型
         String originalFileName = file.getOriginalFilename();
         if (originalFileName == null || originalFileName.isBlank()) {
             throw new BaseException(ErrorCodeEnum.FILE_NAME_EMPTY);
         }
         validateFileExtension(originalFileName);
 
-        // 3. 上传文件到 MinIO
         String filePath = minioStorageService.uploadFile(file);
 
-        // 4. 创建文档记录
         DocumentDO document = new DocumentDO();
         document.setKnowledgeBaseId(knowledgeBaseId);
         document.setTitle(originalFileName);
         document.setFilePath(filePath);
         document.setUploaderId(UserContextHolder.getUserId());
+        document.setStatus(DocumentStatus.PENDING.getCode());
         documentMapper.insert(document);
 
-        log.info("文档上传成功: id={}, title={}, knowledgeBaseId={}, path={}",
-                document.getId(), originalFileName, knowledgeBaseId, filePath);
+        log.info("文档上传成功: id={}, title={}, knowledgeBaseId={}, path={}, status={}",
+                document.getId(), originalFileName, knowledgeBaseId, filePath,
+                DocumentStatus.PENDING.getCode());
 
-        return new DocumentUploadResp(document.getId(), "uploaded");
+        eventPublisher.publishEvent(new DocumentUploadedEvent(
+                this, document.getId(), knowledgeBaseId, filePath, originalFileName));
+
+        return new DocumentUploadResp(document.getId(), DocumentStatus.PENDING.getCode());
     }
 
     // ======================== 知识库管理 ========================
@@ -285,7 +290,7 @@ public class KnowledgeBaseAppService {
             content = minioStorageService.readFileContent(document.getFilePath());
         }
 
-        String status = document.getFilePath() != null ? "uploaded" : "pending";
+        String status = resolveStatus(document);
         String uploadedBy = document.getUploaderId() != null ? document.getUploaderId().toString() : "";
 
         return new DocumentDetailResp(
@@ -296,8 +301,8 @@ public class KnowledgeBaseAppService {
                 document.getKnowledgeBaseId(),
                 status,
                 uploadedBy,
-                0L,
-                0L,
+                document.getChunkCount() != null ? document.getChunkCount().longValue() : 0L,
+                document.getProcessingDurationMs() != null ? document.getProcessingDurationMs() : 0L,
                 document.getCreateTime(),
                 document.getUpdateTime()
         );
@@ -313,8 +318,18 @@ public class KnowledgeBaseAppService {
      */
     public DocumentStatusResp getDocumentStatus(Long documentId) {
         DocumentDO document = findDocumentById(documentId);
-        String status = document.getFilePath() != null ? "uploaded" : "pending";
-        return new DocumentStatusResp(status);
+        return new DocumentStatusResp(resolveStatus(document));
+    }
+
+    /**
+     * 解析文档状态
+     * <p>兼容旧数据：若 status 字段为 null 或空，根据 filePath 是否存在回退判断</p>
+     */
+    private String resolveStatus(DocumentDO document) {
+        if (document.getStatus() != null && !document.getStatus().isBlank()) {
+            return document.getStatus();
+        }
+        return document.getFilePath() != null ? "uploaded" : "pending";
     }
 
     /**
@@ -358,7 +373,7 @@ public class KnowledgeBaseAppService {
      * <p>未来可在此方法中追加预览链接、下载链接等信息</p>
      */
     private DocumentResp toDocumentResp(DocumentDO doc) {
-        String status = doc.getFilePath() != null ? "uploaded" : "pending";
+        String status = resolveStatus(doc);
         String uploadedBy = doc.getUploaderId() != null ? doc.getUploaderId().toString() : "";
         return new DocumentResp(
                 doc.getId(),
@@ -367,8 +382,8 @@ public class KnowledgeBaseAppService {
                 doc.getKnowledgeBaseId(),
                 status,
                 uploadedBy,
-                0L,
-                0L,
+                doc.getChunkCount() != null ? doc.getChunkCount().longValue() : 0L,
+                doc.getProcessingDurationMs() != null ? doc.getProcessingDurationMs() : 0L,
                 doc.getCreateTime(),
                 doc.getUpdateTime()
         );

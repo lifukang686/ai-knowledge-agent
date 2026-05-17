@@ -33,6 +33,18 @@ knowledge-agent:
     cache-ttl-seconds: 300
     # 缓存最大容量，默认 50 个模型实例
     cache-max-size: 50
+  # 文档后处理管道配置
+  document-processing:
+    # 核心线程数：同时处理最多2个文档
+    core-pool-size: 2
+    # 最大线程数
+    max-pool-size: 4
+    # 队列容量
+    queue-capacity: 100
+    # 嵌入阶段最大重试次数
+    embed-retry-max: 3
+    # 嵌入阶段重试基础退避秒数
+    embed-retry-base-seconds: 2
 
 mybatis-plus:
   mapper-locations: classpath:mapper/**/*.xml

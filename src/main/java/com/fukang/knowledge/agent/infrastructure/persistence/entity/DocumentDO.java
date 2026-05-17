@@ -9,7 +9,7 @@ import lombok.EqualsAndHashCode;
 
 /**
  * 文档实体类
- * <p>对应数据库表 document，存储上传文档的基本信息和文件路径，
+ * <p>对应数据库表 document，存储上传文档的基本信息、文件路径和处理状态，
  * 每条记录代表一份已上传到 MinIO 的原始文档</p>
  */
 @Data
@@ -34,4 +34,20 @@ public class DocumentDO extends BaseEntity {
     /** 上传者用户ID，关联 sys_user 表 */
     @Column(name = "uploader_id")
     private Long uploaderId;
+
+    /** 文档处理状态：pending / parsing / chunking / embedding / completed / failed */
+    @Column(name = "status", length = 20)
+    private String status;
+
+    /** 处理错误信息，仅在 status=failed 时有值 */
+    @Column(name = "error_message", length = 2000)
+    private String errorMessage;
+
+    /** 处理的文档块总数，处理完成后填充 */
+    @Column(name = "chunk_count")
+    private Integer chunkCount;
+
+    /** 处理耗时（毫秒），处理完成后填充 */
+    @Column(name = "processing_duration_ms")
+    private Long processingDurationMs;
 }
