@@ -130,5 +130,19 @@ export const modelProviderService = {
     await request.delete(`/models/configs/${id}`);
     
     console.log('  - 模型配置删除成功');
+  },
+
+  // 设置默认模型提供商
+  async setDefaultProvider(id: string): Promise<void> {
+    console.log('设置默认提供商, id:', id);
+    await request.put(`/models/providers/${id}/default`);
+    console.log('默认提供商设置成功');
+  },
+
+  // 取消默认模型提供商
+  async cancelDefaultProvider(id: string): Promise<void> {
+    console.log('取消默认提供商, id:', id);
+    await request.delete(`/models/providers/${id}/default`);
+    console.log('默认提供商取消成功');
   }
 };

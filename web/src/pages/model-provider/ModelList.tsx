@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Plus, Database, Edit, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { ModelConfig, ModelProvider } from '@/types/modelProvider';
+import { ModelConfig, ModelProvider, MODEL_TYPE_LABELS } from '@/types/modelProvider';
 import { modelProviderService } from '@/services/modelProvider';
 import { DataTable } from '@/components/common/DataTable';
 import { FormModal } from '@/components/common/FormModal';
@@ -126,7 +126,7 @@ const ModelList: React.FC = () => {
   };
 
   // 表单提交处理
-  const handleFormSubmit = async (values: { modelName: string; defaultParams?: string }) => {
+  const handleFormSubmit = async (values: { modelName: string; modelType: string; defaultParams?: string }) => {
     if (!id) {
       toast.error('提供商信息缺失，请刷新页面');
       return;
@@ -146,8 +146,9 @@ const ModelList: React.FC = () => {
       } else {
         // 新建模式
         const requestData = {
-          providerId: id,  // 直接传递字符串，不转换为数字
+          providerId: id,
           modelName: values.modelName,
+          modelType: values.modelType,
           defaultParams: values.defaultParams
         };
         console.log('发送到后端的请求数据:', requestData);
@@ -182,6 +183,26 @@ const ModelList: React.FC = () => {
           <span className="font-medium text-gray-900">{value}</span>
         </div>
       )
+    },
+    {
+      key: 'modelType',
+      title: '模型分类',
+      width: '140px',
+      render: (value: string) => {
+        if (!value) return <span className="text-sm text-gray-400">-</span>;
+        const label = MODEL_TYPE_LABELS[value] || value;
+        const colorMap: Record<string, string> = {
+          CHAT: 'bg-blue-100 text-blue-800',
+          EMBEDDING: 'bg-green-100 text-green-800',
+          RERANK: 'bg-purple-100 text-purple-800',
+          STT: 'bg-orange-100 text-orange-800',
+        };
+        return (
+          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${colorMap[value] || 'bg-gray-100 text-gray-800'}`}>
+            {label}
+          </span>
+        );
+      }
     },
     {
       key: 'defaultParams',
@@ -302,6 +323,7 @@ const ModelList: React.FC = () => {
           submitting={submitting}
           initialData={editingModel ? {
             modelName: editingModel.modelName,
+            modelType: editingModel.modelType || 'CHAT',
             defaultParams: editingModel.defaultParams
           } : undefined}
           isEdit={!!editingModel}

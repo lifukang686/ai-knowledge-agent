@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Loader2 } from 'lucide-react';
+import { MODEL_TYPE_OPTIONS } from '@/types/modelProvider';
 
 interface ModelConfigFormProps {
-  onSubmit: (values: { modelName: string; defaultParams?: string }) => Promise<void>;
+  onSubmit: (values: { modelName: string; modelType: string; defaultParams?: string }) => Promise<void>;
   onCancel?: () => void;
   submitting?: boolean;
-  initialData?: { modelName?: string; defaultParams?: string };
+  initialData?: { modelName?: string; modelType?: string; defaultParams?: string };
   isEdit?: boolean;
 }
 
@@ -18,20 +19,23 @@ const ModelConfigForm: React.FC<ModelConfigFormProps> = ({
 }) => {
   const [formData, setFormData] = useState({
     modelName: initialData?.modelName || '',
+    modelType: initialData?.modelType || 'CHAT',
     defaultParams: initialData?.defaultParams || ''
   });
-  
+
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // 表单验证
   const validate = () => {
     const newErrors: Record<string, string> = {};
-    
+
     if (!formData.modelName.trim()) {
       newErrors.modelName = '请输入模型名称';
     }
-    
-    // 验证JSON格式（如果填写了）
+
+    if (!formData.modelType) {
+      newErrors.modelType = '请选择模型类型';
+    }
+
     if (formData.defaultParams.trim()) {
       try {
         JSON.parse(formData.defaultParams);
@@ -39,27 +43,24 @@ const ModelConfigForm: React.FC<ModelConfigFormProps> = ({
         newErrors.defaultParams = 'JSON格式不正确';
       }
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  // 提交处理
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validate() || submitting) {
       return;
     }
-    
+
     const values = { ...formData };
     await onSubmit(values);
   };
 
-  // 输入变更处理
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    // 清除对应字段的错误
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
@@ -68,7 +69,6 @@ const ModelConfigForm: React.FC<ModelConfigFormProps> = ({
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="grid grid-cols-1 gap-6">
-        {/* 模型名称 */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             模型名称 <span className="text-red-500">*</span>
@@ -86,7 +86,27 @@ const ModelConfigForm: React.FC<ModelConfigFormProps> = ({
           )}
         </div>
 
-        {/* 默认参数 */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            模型类型 <span className="text-red-500">*</span>
+          </label>
+          <select
+            value={formData.modelType}
+            onChange={(e) => handleChange('modelType', e.target.value)}
+            className={`form-input ${errors.modelType ? 'border-red-500' : ''}`}
+            disabled={submitting}
+          >
+            {MODEL_TYPE_OPTIONS.map(option => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          {errors.modelType && (
+            <p className="mt-1 text-sm text-red-600">{errors.modelType}</p>
+          )}
+        </div>
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             默认参数 (JSON)
@@ -111,7 +131,6 @@ const ModelConfigForm: React.FC<ModelConfigFormProps> = ({
         </div>
       </div>
 
-      {/* 表单底部按钮 */}
       <div className="flex justify-end space-x-3 pt-4 border-t">
         <button
           type="button"
