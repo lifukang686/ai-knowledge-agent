@@ -34,6 +34,10 @@ public enum ErrorCodeEnum {
     MODEL_NOT_EXIST(2002, "模型配置不存在"),
     /** AI 模型调用失败 */
     AI_CALL_FAILED(2003, "AI 模型调用失败"),
+    /** 无效的模型类型 */
+    MODEL_TYPE_INVALID(2004, "无效的模型类型"),
+    /** 已存在默认提供商，请先取消后再设置 */
+    DEFAULT_PROVIDER_EXISTS(2005, "已存在默认提供商，请先取消后再设置"),
 
     // ---- 知识库模块业务错误码 (3xxx) ----
     /** 上传文件不能为空 */

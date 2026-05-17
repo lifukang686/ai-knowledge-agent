@@ -6,8 +6,9 @@ import jakarta.validation.constraints.NotNull;
 /**
  * 模型配置创建请求 DTO
  *
- * @param providerId   所属提供商ID，不能为空
- * @param modelName    模型名称（如 gpt-3.5-turbo），不能为空
+ * @param providerId    所属提供商ID，不能为空
+ * @param modelName     模型名称（如 gpt-3.5-turbo），不能为空
+ * @param modelType     模型类型（CHAT/EMBEDDING/RERANK/STT），不能为空
  * @param defaultParams 默认调用参数，JSON 格式字符串，可选
  */
 public record ModelConfigReq(
@@ -16,6 +17,9 @@ public record ModelConfigReq(
 
         @NotBlank(message = "模型名称不能为空")
         String modelName,
+
+        @NotBlank(message = "模型类型不能为空")
+        String modelType,
 
         String defaultParams
 ) {}

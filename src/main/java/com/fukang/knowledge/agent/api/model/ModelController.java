@@ -120,4 +120,29 @@ public class ModelController {
     public Result<List<ModelConfigDO>> listModelConfigs(@RequestParam("providerId") String providerId) {
         return Result.success(modelAppService.listModelConfigs(Long.valueOf(providerId)));
     }
+
+    /**
+     * 设置默认模型提供商
+     * <p>系统中只能存在一个默认提供商，设置新的默认提供商会自动取消旧默认</p>
+     *
+     * @param id 模型提供商ID
+     * @return 空成功响应
+     */
+    @PutMapping("/providers/{id}/default")
+    public Result<Void> setDefaultProvider(@PathVariable("id") Long id) {
+        modelAppService.setDefaultProvider(id);
+        return Result.success();
+    }
+
+    /**
+     * 取消默认模型提供商
+     *
+     * @param id 模型提供商ID
+     * @return 空成功响应
+     */
+    @DeleteMapping("/providers/{id}/default")
+    public Result<Void> cancelDefaultProvider(@PathVariable("id") Long id) {
+        modelAppService.cancelDefaultProvider(id);
+        return Result.success();
+    }
 }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Eye, Edit, Trash2 } from 'lucide-react';
+import { Plus, Search, Eye, Edit, Trash2, Star } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { ModelProvider, ModelProviderQuery } from '@/types/modelProvider';
@@ -137,6 +137,22 @@ const ModelProviderList: React.FC = () => {
     }
   };
 
+  const handleSetDefault = async (provider: ModelProvider) => {
+    try {
+      if (provider.isDefault) {
+        await modelProviderService.cancelDefaultProvider(provider.id);
+        toast.success(`已取消 "${provider.name}" 的默认状态`);
+      } else {
+        await modelProviderService.setDefaultProvider(provider.id);
+        toast.success(`已将 "${provider.name}" 设为默认提供商`);
+      }
+      loadProviders(searchName);
+    } catch (error) {
+      console.error('设置默认提供商失败:', error);
+      toast.error('操作失败');
+    }
+  };
+
   const handleViewModels = (providerId: string) => {
     navigate(`/model-providers/${providerId}/models`);
   };
@@ -187,6 +203,21 @@ const ModelProviderList: React.FC = () => {
       )
     },
     {
+      key: 'isDefault',
+      title: '默认',
+      width: '80px',
+      render: (value: boolean) => (
+        value ? (
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+            <Star className="h-3 w-3 mr-1 fill-yellow-500 text-yellow-500" />
+            默认
+          </span>
+        ) : (
+          <span className="text-sm text-gray-400">-</span>
+        )
+      )
+    },
+    {
       key: 'createTime',
       title: '创建时间',
       width: '180px',
@@ -199,7 +230,7 @@ const ModelProviderList: React.FC = () => {
     {
       key: 'actions',
       title: '操作',
-      width: '200px',
+      width: '280px',
       render: (_: any, record: ModelProvider) => (
         <div className="flex items-center space-x-3">
           <button
@@ -216,6 +247,18 @@ const ModelProviderList: React.FC = () => {
           >
             <Eye className="h-4 w-4 mr-1" />
             模型
+          </button>
+          <button
+            onClick={() => handleSetDefault(record)}
+            className={`text-sm font-medium flex items-center ${
+              record.isDefault
+                ? 'text-yellow-600 hover:text-yellow-800'
+                : 'text-gray-600 hover:text-gray-800'
+            }`}
+            title={record.isDefault ? '取消默认' : '设为默认'}
+          >
+            <Star className={`h-4 w-4 mr-1 ${record.isDefault ? 'fill-yellow-500' : ''}`} />
+            {record.isDefault ? '取消默认' : '默认'}
           </button>
           <button
             onClick={() => handleDeleteClick(record)}

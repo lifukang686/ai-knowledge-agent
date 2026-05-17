@@ -9,6 +9,8 @@ import jakarta.persistence.Table;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import com.fukang.knowledge.agent.common.enums.ModelTypeEnum;
+
 /**
  * 模型配置实体类
  * <p>对应数据库表 model_config，存储具体 AI 模型的配置信息，
@@ -29,8 +31,20 @@ public class ModelConfigDO extends BaseEntity {
     @Column(name = "model_name", nullable = false, length = 64)
     private String modelName;
 
+    /** 模型类型（CHAT-对话模型、EMBEDDING-嵌入模型、RERANK-重排序模型、STT-语音转文字） */
+    @Column(name = "model_type", nullable = false, length = 32)
+    private String modelType;
+
     /** 默认调用参数，JSON 格式字符串（如 temperature、max_tokens 等） */
     @Column(name = "default_params", columnDefinition = "json")
     @TableField(typeHandler = JsonTypeHandler.class)
     private String defaultParams;
+
+    public ModelTypeEnum getModelTypeEnum() {
+        return modelType != null ? ModelTypeEnum.fromCode(modelType) : null;
+    }
+
+    public void setModelTypeEnum(ModelTypeEnum type) {
+        this.modelType = type != null ? type.getCode() : null;
+    }
 }
