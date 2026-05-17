@@ -100,6 +100,46 @@ public class ModelAppService {
     }
 
     /**
+     * 查询默认模型提供商
+     *
+     * @return 默认模型提供商，如果系统中未设置默认提供商则返回 null
+     */
+    public ModelProviderDO findDefaultProvider() {
+        return providerMapper.selectOne(
+                new LambdaQueryWrapper<ModelProviderDO>()
+                        .eq(ModelProviderDO::getIsDefault, true)
+        );
+    }
+
+    /**
+     * 根据模型类型查询模型配置列表
+     *
+     * @param modelType 模型类型枚举
+     * @return 指定类型的模型配置列表
+     */
+    public List<ModelConfigDO> findModelsByType(ModelTypeEnum modelType) {
+        return modelConfigMapper.selectList(
+                new LambdaQueryWrapper<ModelConfigDO>()
+                        .eq(ModelConfigDO::getModelType, modelType.getCode())
+        );
+    }
+
+    /**
+     * 根据提供商ID和模型类型查询模型配置列表
+     *
+     * @param providerId 提供商ID
+     * @param modelType  模型类型枚举
+     * @return 指定提供商下指定类型的模型配置列表
+     */
+    public List<ModelConfigDO> findModelsByProviderAndType(Long providerId, ModelTypeEnum modelType) {
+        return modelConfigMapper.selectList(
+                new LambdaQueryWrapper<ModelConfigDO>()
+                        .eq(ModelConfigDO::getProviderId, providerId)
+                        .eq(ModelConfigDO::getModelType, modelType.getCode())
+        );
+    }
+
+    /**
      * 根据ID删除模型配置
      * <p>删除前校验模型配置是否存在</p>
      *

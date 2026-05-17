@@ -1,6 +1,9 @@
 spring:
   application:
     name: knowledge-agent
+  autoconfigure:
+    exclude:
+      - org.springframework.ai.autoconfigure.openai.OpenAiAutoConfiguration
   datasource:
     url: jdbc:postgresql://127.0.0.1:5432/postgres?currentSchema=knowledge_agent
     username: postgres
@@ -8,14 +11,6 @@ spring:
     driver-class-name: org.postgresql.Driver
   quartz:
     job-store-type: memory
-  ai:
-    openai:
-      api-key: ${OPENAI_API_KEY:default-key}
-      chat:
-        options:
-          model: gpt-3.5-turbo
-#    anthropic:
-#      api-key: ${ANTHROPIC_API_KEY:default-key}
   jpa:
     hibernate:
       ddl-auto: update
@@ -29,6 +24,15 @@ spring:
       port: 6379
       host: 127.0.0.1
 
+# ============================================================
+# 动态模型配置（knowledge-agent 自定义）
+# ============================================================
+knowledge-agent:
+  model:
+    # 模型实例本地缓存过期时间（秒），默认 300 秒 = 5 分钟
+    cache-ttl-seconds: 300
+    # 缓存最大容量，默认 50 个模型实例
+    cache-max-size: 50
 
 mybatis-plus:
   mapper-locations: classpath:mapper/**/*.xml

@@ -65,7 +65,21 @@ public enum ErrorCodeEnum {
     /** 文档块存储失败 */
     CHUNK_STORAGE_FAILED(3012, "文档块存储失败"),
     /** 文档块数据校验失败 */
-    CHUNK_VALIDATION_FAILED(3013, "文档块数据校验失败");
+    CHUNK_VALIDATION_FAILED(3013, "文档块数据校验失败"),
+    /** 未找到可用的嵌入模型 */
+    NO_EMBEDDING_MODEL_AVAILABLE(3014, "未找到可用的嵌入模型"),
+    /** 向量嵌入计算失败 */
+    EMBEDDING_FAILED(3015, "向量嵌入计算失败"),
+    /** 向量存储失败 */
+    VECTOR_STORAGE_FAILED(3016, "向量存储失败"),
+
+    // ---- 动态模型模块业务错误码 (4xxx) ----
+    /** 未找到可用的模型提供商 */
+    NO_MODEL_PROVIDER_AVAILABLE(4001, "未找到可用的模型提供商"),
+    /** 模型工厂创建模型实例失败 */
+    MODEL_CREATION_FAILED(4002, "创建模型实例失败"),
+    /** 未找到该类型的模型配置 */
+    NO_MODEL_CONFIG_AVAILABLE(4003, "未找到该类型的模型配置");
 
     /** 错误码 */
     private final int code;
