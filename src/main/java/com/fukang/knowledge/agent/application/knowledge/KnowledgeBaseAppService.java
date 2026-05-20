@@ -15,9 +15,13 @@ import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.common.result.PageResponse;
 import com.fukang.knowledge.agent.application.knowledge.event.DocumentUploadedEvent;
+import com.fukang.knowledge.agent.infrastructure.persistence.entity.DocumentChunkDO;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.DocumentDO;
+import com.fukang.knowledge.agent.infrastructure.persistence.entity.EmbeddingIndexDO;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.KnowledgeBaseDO;
+import com.fukang.knowledge.agent.infrastructure.persistence.mapper.DocumentChunkMapper;
 import com.fukang.knowledge.agent.infrastructure.persistence.mapper.DocumentMapper;
+import com.fukang.knowledge.agent.infrastructure.persistence.mapper.EmbeddingIndexMapper;
 import com.fukang.knowledge.agent.infrastructure.persistence.mapper.KnowledgeBaseMapper;
 import com.fukang.knowledge.agent.infrastructure.storage.MinioStorageService;
 import lombok.RequiredArgsConstructor;
@@ -51,6 +55,8 @@ public class KnowledgeBaseAppService {
     private final KnowledgeBaseMapper knowledgeBaseMapper;
     private final MinioStorageService minioStorageService;
     private final ApplicationEventPublisher eventPublisher;
+    private final DocumentChunkMapper documentChunkMapper;
+    private final EmbeddingIndexMapper embeddingIndexMapper;
 
     /**
      * 上传文档
@@ -334,21 +340,46 @@ public class KnowledgeBaseAppService {
 
     /**
      * 删除文档
-     * <p>删除文档时同步清理 MinIO 中存储的原始文件，确保不产生孤立文件。
-     * MinIO 文件删除失败不影响数据库记录删除，仅在日志中记录异常。</p>
+     * <p>级联删除流程：
+     * <ol>
+     *   <li>查询该文档的所有块 chunkId</li>
+     *   <li>删除 embedding_index（按 chunkId 精确删除，不影响其他文档）</li>
+     *   <li>删除 document_chunk（按 documentId）</li>
+     *   <li>删除 document（主表记录）</li>
+     *   <li>尝试删除 MinIO 原文件（失败不影响业务）</li>
+     * </ol>
+     * </p>
      *
-     * @param documentId 文档ID
-     * @throws BaseException 文档不存在时抛出 DOCUMENT_NOT_EXIST
+     * @param documentId 要删除的文档ID
      */
     @Transactional(rollbackFor = Exception.class)
     public void deleteDocument(Long documentId) {
         DocumentDO document = findDocumentById(documentId);
 
+        List<Long> chunkIds = documentChunkMapper.selectList(
+                        new LambdaQueryWrapper<DocumentChunkDO>()
+                                .select(DocumentChunkDO::getId)
+                                .eq(DocumentChunkDO::getDocumentId, documentId))
+                .stream()
+                .map(DocumentChunkDO::getId)
+                .toList();
+
+        if (!chunkIds.isEmpty()) {
+            long embedCount = embeddingIndexMapper.delete(
+                    new LambdaQueryWrapper<EmbeddingIndexDO>()
+                            .in(EmbeddingIndexDO::getChunkId, chunkIds));
+            log.info("文档关联向量索引已删除: documentId={}, embedCount={}", documentId, embedCount);
+        }
+
+        long chunkCount = documentChunkMapper.delete(
+                new LambdaQueryWrapper<DocumentChunkDO>()
+                        .eq(DocumentChunkDO::getDocumentId, documentId));
+        log.info("文档关联块已删除: documentId={}, chunkCount={}", documentId, chunkCount);
+
         documentMapper.deleteById(documentId);
-        log.info("文档已删除: id={}, title={}, knowledgeBaseId={}",
+        log.info("文档记录已删除: id={}, title={}, knowledgeBaseId={}",
                 documentId, document.getTitle(), document.getKnowledgeBaseId());
 
-        // MinIO 文件删除放在数据库删除之后，避免文件删除失败阻塞业务
         minioStorageService.deleteFile(document.getFilePath());
     }
 
