@@ -73,6 +73,12 @@ public enum ErrorCodeEnum {
     /** 向量存储失败 */
     VECTOR_STORAGE_FAILED(3016, "向量存储失败"),
 
+    // ---- RAG 模块业务错误码 (35xx) ----
+    /** 问题不能为空 */
+    QUESTION_EMPTY(3501, "问题不能为空"),
+    /** 查询改写失败 */
+    QUERY_REWRITE_FAILED(3502, "查询改写失败"),
+
     // ---- 动态模型模块业务错误码 (4xxx) ----
     /** 未找到可用的模型提供商 */
     NO_MODEL_PROVIDER_AVAILABLE(4001, "未找到可用的模型提供商"),
