@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 @Component
 @ConfigurationProperties(prefix = "knowledge-agent.vector-store")
 public class VectorStoreProperties {
-    private String tableName = "embedding_index";
+    private String tableName = "vector_embedding";
     private int dimension = 1536;
     private String indexType = "hnsw";
     private boolean createTable = false;

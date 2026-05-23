@@ -9,17 +9,17 @@ import com.fukang.knowledge.agent.infrastructure.persistence.entity.ModelProvide
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalListener;
+import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.model.embedding.EmbeddingModel;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.TimeUnit;
 
 /**
  * 动态模型管理器
- * <p>使用 Caffeine 本地缓存管理动态创建的模型实例。
+ * <p>使用 Caffeine 本地缓存管理动态创建的 langchain4j 原生模型实例。
  * 缓存以 "providerId:modelType" 为键，在 TTL 过期后自动从数据库刷新配置</p>
  */
 @Slf4j
@@ -30,10 +30,8 @@ public class DynamicModelManager {
     private final DynamicModelProperties properties;
     private final ModelResolutionService resolutionService;
 
-    /** 缓存 ChatModel 实例，key = "providerId:modelName" */
-    private Cache<String, ChatModel> chatModelCache;
+    private Cache<String, ChatLanguageModel> chatModelCache;
 
-    /** 缓存 EmbeddingModel 实例，key = "providerId:modelName" */
     private Cache<String, EmbeddingModel> embeddingModelCache;
 
     public DynamicModelManager(DynamicModelFactory modelFactory,
@@ -61,43 +59,43 @@ public class DynamicModelManager {
     }
 
     /**
-     * 获取 ChatModel 实例
+     * 获取 ChatLanguageModel 实例
      * <p>优先从缓存获取，缓存未命中时从数据库加载配置并创建新实例</p>
      *
      * @param modelType 模型类型
-     * @return ChatModel 实例
+     * @return ChatLanguageModel 实例
      */
-    public ChatModel getChatModel(ModelTypeEnum modelType) {
+    public ChatLanguageModel getChatModel(ModelTypeEnum modelType) {
         ModelProviderDO provider = resolutionService.resolveProvider();
         ModelConfigDO config = resolutionService.resolveModelConfig(provider.getId(), modelType);
         String cacheKey = buildCacheKey(provider.getId(), config.getModelName());
         return chatModelCache.get(cacheKey, key -> {
-            log.info("缓存未命中，创建新 ChatModel 实例: key={}", key);
+            log.info("缓存未命中，创建新 ChatLanguageModel 实例: key={}", key);
             try {
                 return modelFactory.createChatModel(provider, config);
             } catch (Exception e) {
-                log.error("创建 ChatModel 实例失败: provider={}, model={}", provider.getName(), config.getModelName(), e);
+                log.error("创建 ChatLanguageModel 实例失败: provider={}, model={}", provider.getName(), config.getModelName(), e);
                 throw new BaseException(ErrorCodeEnum.MODEL_CREATION_FAILED);
             }
         });
     }
 
     /**
-     * 获取 ChatModel 实例（指定模型ID）
+     * 获取 ChatLanguageModel 实例（指定模型ID）
      *
      * @param modelId 模型配置ID
-     * @return ChatModel 实例
+     * @return ChatLanguageModel 实例
      */
-    public ChatModel getChatModelById(Long modelId) {
+    public ChatLanguageModel getChatModelById(Long modelId) {
         ModelConfigDO config = resolutionService.getModelConfigById(modelId);
         ModelProviderDO provider = resolutionService.getModelProviderById(config.getProviderId());
         String cacheKey = buildCacheKey(provider.getId(), config.getModelName());
         return chatModelCache.get(cacheKey, key -> {
-            log.info("缓存未命中，按模型ID创建 ChatModel 实例: key={}", key);
+            log.info("缓存未命中，按模型ID创建 ChatLanguageModel 实例: key={}", key);
             try {
                 return modelFactory.createChatModel(provider, config);
             } catch (Exception e) {
-                log.error("创建 ChatModel 实例失败: provider={}, model={}", provider.getName(), config.getModelName(), e);
+                log.error("创建 ChatLanguageModel 实例失败: provider={}, model={}", provider.getName(), config.getModelName(), e);
                 throw new BaseException(ErrorCodeEnum.MODEL_CREATION_FAILED);
             }
         });

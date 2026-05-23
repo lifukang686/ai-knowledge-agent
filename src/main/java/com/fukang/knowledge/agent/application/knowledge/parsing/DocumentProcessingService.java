@@ -136,7 +136,7 @@ public class DocumentProcessingService {
      * @throws BaseException 文档内容为空时抛出 DOCUMENT_CONTENT_EMPTY
      */
     public ChunkResult chunkDocument(DocumentParseResult parseResult) {
-        return chunkDocument(parseResult, new FixedLengthChunkStrategy());
+        return chunkDocument(parseResult, new Langchain4jChunkStrategy(chunkingProperties));
     }
 
     /**

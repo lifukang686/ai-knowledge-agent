@@ -38,6 +38,8 @@ public enum ErrorCodeEnum {
     MODEL_TYPE_INVALID(2004, "无效的模型类型"),
     /** 已存在默认提供商，请先取消后再设置 */
     DEFAULT_PROVIDER_EXISTS(2005, "已存在默认提供商，请先取消后再设置"),
+    /** 模型提供商BaseUrl不存在 */
+    MODEL_BASE_URL_IS_NULL(2006, "模型提供商BaseURL不存在"),
 
     // ---- 知识库模块业务错误码 (3xxx) ----
     /** 上传文件不能为空 */

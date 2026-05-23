@@ -5,11 +5,11 @@ import com.fukang.knowledge.agent.infrastructure.persistence.entity.AiCallLogDO;
 import com.fukang.knowledge.agent.infrastructure.persistence.mapper.AiCallLogMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.model.output.Response;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
-import org.springframework.ai.chat.metadata.Usage;
-import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.CompletableFuture;
@@ -50,11 +50,13 @@ public class AiCallLogAspect {
             int tokenUsage = 0;
             String responseText = "";
 
-            if (result instanceof ChatResponse chatResponse) {
-                responseText = chatResponse.getResult().getOutput().getText();
-                Usage usage = chatResponse.getMetadata().getUsage();
-                if (usage != null) {
-                    tokenUsage = usage.getTotalTokens().intValue();
+            if (result instanceof Response<?> response) {
+                Object content = response.content();
+                if (content instanceof AiMessage aiMessage) {
+                    responseText = aiMessage.text();
+                }
+                if (response.tokenUsage() != null) {
+                    tokenUsage = response.tokenUsage().totalTokenCount();
                     if (tokenUsage > TOKEN_WARN_THRESHOLD) {
                         log.warn("Token 消耗预警: 达到了 {} tokens", tokenUsage);
                     }

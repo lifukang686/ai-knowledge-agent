@@ -4,6 +4,7 @@ import com.fukang.knowledge.agent.common.enums.ModelTypeEnum;
 import com.fukang.knowledge.agent.rag.config.VectorStoreProperties;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.store.embedding.pgvector.PgVectorEmbeddingStore;
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -34,6 +35,24 @@ public class Langchain4jEmbeddingStoreFactory {
         this.dynamicModelManager = dynamicModelManager;
     }
 
+    /**
+     * 启动时初始化向量存储表
+     * <p>通过创建 PgVectorEmbeddingStore 实例触发建表（CREATE TABLE IF NOT EXISTS），
+     * 确保应用启动后表已就绪，无需等待首次文档上传</p>
+     */
+    @PostConstruct
+    void initTable() {
+        log.info("应用启动，初始化 pgvector 向量表: table={}", vectorStoreProperties.getTableName());
+        PgVectorEmbeddingStore.datasourceBuilder()
+                .datasource(dataSource)
+                .table(vectorStoreProperties.getTableName())
+                .dimension(vectorStoreProperties.getDimension())
+                .createTable(true)
+                .dropTableFirst(false)
+                .build();
+        log.info("pgvector 向量表初始化完成: table={}", vectorStoreProperties.getTableName());
+    }
+
     public PgVectorEmbeddingStore createEmbeddingStore(EmbeddingModel embeddingModel) {
         log.info("创建 PgVectorEmbeddingStore: table={}, dimension={}, indexType={}",
                 vectorStoreProperties.getTableName(),
@@ -51,18 +70,12 @@ public class Langchain4jEmbeddingStoreFactory {
 
     public PgVectorEmbeddingStore createEmbeddingStore() {
         log.info("无参创建 PgVectorEmbeddingStore，自动从 DynamicModelManager 获取嵌入模型");
-
-        org.springframework.ai.embedding.EmbeddingModel springAiEmbeddingModel =
-                dynamicModelManager.getEmbeddingModel(ModelTypeEnum.EMBEDDING);
-
-        SpringAiEmbeddingModelAdapter adapter = new SpringAiEmbeddingModelAdapter(springAiEmbeddingModel);
-
-        return createEmbeddingStore(adapter);
+        return createEmbeddingStore(dynamicModelManager.getEmbeddingModel(ModelTypeEnum.EMBEDDING));
     }
 
     public void deleteByKnowledgeBaseId(Long knowledgeBaseId) {
         String tableName = vectorStoreProperties.getTableName();
-        String sql = "DELETE FROM " + tableName + " WHERE metadata->>'knowledge_base_id' = ?";
+        String sql = "DELETE FROM " + tableName + " WHERE metadata::json->>'knowledge_base_id' = ?";
         log.info("通过 pgvector 删除向量: table={}, knowledgeBaseId={}", tableName, knowledgeBaseId);
 
         try (Connection conn = dataSource.getConnection();
@@ -83,7 +96,7 @@ public class Langchain4jEmbeddingStoreFactory {
 
         String tableName = vectorStoreProperties.getTableName();
         String placeholders = String.join(",", chunkIds.stream().map(id -> "?").toArray(String[]::new));
-        String sql = "DELETE FROM " + tableName + " WHERE metadata->>'chunk_id' IN (" + placeholders + ")";
+        String sql = "DELETE FROM " + tableName + " WHERE metadata::json->>'chunk_id' IN (" + placeholders + ")";
         log.info("通过 pgvector 批量删除向量: table={}, chunkCount={}", tableName, chunkIds.size());
 
         try (Connection conn = dataSource.getConnection();

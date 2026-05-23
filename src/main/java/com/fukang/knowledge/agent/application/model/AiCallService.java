@@ -1,11 +1,11 @@
 package com.fukang.knowledge.agent.application.model;
 
-import com.fukang.knowledge.agent.common.enums.ModelTypeEnum;
 import com.fukang.knowledge.agent.infrastructure.ai.SpringAiClientImpl;
+import dev.langchain4j.model.output.Response;
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.model.output.TokenUsage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.metadata.Usage;
-import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.stereotype.Service;
 
 /**
@@ -30,13 +30,13 @@ public class AiCallService {
      */
     public String callModel(String prompt) {
         long start = System.currentTimeMillis();
-        ChatResponse response = springAiClient.call(prompt);
+        Response<AiMessage> response = springAiClient.call(prompt);
         long latency = System.currentTimeMillis() - start;
-        String content = response.getResult().getOutput().getText();
+        String content = response.content().text();
 
-        Usage usage = response.getMetadata().getUsage();
-        if (usage != null) {
-            long totalTokens = usage.getTotalTokens();
+        TokenUsage tokenUsage = response.tokenUsage();
+        if (tokenUsage != null) {
+            int totalTokens = tokenUsage.totalTokenCount();
             log.info("AI 调用完成, 耗时: {}ms, 消耗 Token: {}", latency, totalTokens);
             if (totalTokens > TOKEN_WARN_THRESHOLD) {
                 log.warn("Token 消耗预警: 本次消耗达到了 {} tokens", totalTokens);

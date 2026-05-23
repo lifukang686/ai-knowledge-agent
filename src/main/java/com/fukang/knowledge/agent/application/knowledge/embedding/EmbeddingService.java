@@ -12,9 +12,10 @@ import com.fukang.knowledge.agent.infrastructure.ai.DynamicModelManager;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.ModelConfigDO;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.ModelProviderDO;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.embedding.EmbeddingModel;
-import org.springframework.ai.embedding.EmbeddingRequest;
-import org.springframework.ai.embedding.EmbeddingResponse;
+import dev.langchain4j.data.embedding.Embedding;
+import dev.langchain4j.data.segment.TextSegment;
+import dev.langchain4j.model.embedding.EmbeddingModel;
+import dev.langchain4j.model.output.Response;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -70,7 +71,7 @@ public class EmbeddingService {
             List<List<String>> batches = partition(texts, maxBatchSize);
             String apiUrl = provider.getApiBaseUrl();
             if (apiUrl == null || apiUrl.isBlank()) {
-                apiUrl = "https://api.openai.com";
+                throw new BaseException(ErrorCodeEnum.MODEL_BASE_URL_IS_NULL);
             }
 
             List<EmbeddingVector> allVectors = new ArrayList<>(texts.size());
@@ -84,14 +85,14 @@ public class EmbeddingService {
                         batchIndex + 1, batches.size(), apiUrl,
                         embeddingModel.getModelName(), batch.size(), batchOffset);
 
-                EmbeddingRequest request = new EmbeddingRequest(batch, null);
-                EmbeddingResponse response = embeddingClient.call(request);
+                List<TextSegment> segments = batch.stream().map(TextSegment::from).toList();
+                Response<List<Embedding>> response = embeddingClient.embedAll(segments);
 
                 List<EmbeddingVector> batchVectors = extractVectors(response, batchOffset);
                 allVectors.addAll(batchVectors);
 
-                if (response.getMetadata() != null && response.getMetadata().getUsage() != null) {
-                    totalTokens += (int) response.getMetadata().getUsage().getTotalTokens();
+                if (response.tokenUsage() != null) {
+                    totalTokens += response.tokenUsage().totalTokenCount();
                 }
             }
 
@@ -152,11 +153,11 @@ public class EmbeddingService {
     /**
      * 从单个嵌入响应中提取向量，使用 batchOffset 修正 chunkOrder
      */
-    private List<EmbeddingVector> extractVectors(EmbeddingResponse response, int batchOffset) {
-        List<org.springframework.ai.embedding.Embedding> aiEmbeddings = response.getResults();
-        List<EmbeddingVector> vectors = new ArrayList<>(aiEmbeddings.size());
-        for (int i = 0; i < aiEmbeddings.size(); i++) {
-            float[] embeddingArray = aiEmbeddings.get(i).getOutput();
+    private List<EmbeddingVector> extractVectors(Response<List<Embedding>> response, int batchOffset) {
+        List<Embedding> embeddings = response.content();
+        List<EmbeddingVector> vectors = new ArrayList<>(embeddings.size());
+        for (int i = 0; i < embeddings.size(); i++) {
+            float[] embeddingArray = embeddings.get(i).vector();
             vectors.add(new EmbeddingVector(batchOffset + i, embeddingArray, embeddingArray.length));
         }
         return vectors;

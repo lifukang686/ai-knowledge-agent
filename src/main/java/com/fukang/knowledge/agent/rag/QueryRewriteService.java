@@ -2,7 +2,6 @@ package com.fukang.knowledge.agent.rag;
 
 import com.fukang.knowledge.agent.common.enums.ModelTypeEnum;
 import com.fukang.knowledge.agent.infrastructure.ai.DynamicModelManager;
-import com.fukang.knowledge.agent.infrastructure.ai.SpringAiChatModelAdapter;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
@@ -131,9 +130,7 @@ public class QueryRewriteService {
 
         ChatLanguageModel chatModel;
         try {
-            org.springframework.ai.chat.model.ChatModel springAiChatModel =
-                    dynamicModelManager.getChatModel(ModelTypeEnum.CHAT);
-            chatModel = new SpringAiChatModelAdapter(springAiChatModel);
+            chatModel = dynamicModelManager.getChatModel(ModelTypeEnum.CHAT);
         } catch (Exception e) {
             log.warn("获取 ChatModel 失败，回退使用原始查询: strategy={}, error={}",
                     strategyName, e.getMessage());

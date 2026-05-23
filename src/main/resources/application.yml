@@ -1,9 +1,6 @@
 spring:
   application:
     name: knowledge-agent
-  autoconfigure:
-    exclude:
-      - org.springframework.ai.autoconfigure.openai.OpenAiAutoConfiguration
   datasource:
     url: jdbc:postgresql://127.0.0.1:5432/postgres?currentSchema=knowledge_agent
     username: postgres
@@ -41,10 +38,10 @@ knowledge-agent:
     similarity-threshold: 0.7
   # pgvector 向量存储配置（langchain4j 集成）
   vector-store:
-    table-name: embedding_index
+    table-name: vector_embedding
     dimension: 1536
     index-type: hnsw
-    create-table: false
+    create-table: true
     drop-table-first: false
   # 文档后处理管道配置
   document-processing:
