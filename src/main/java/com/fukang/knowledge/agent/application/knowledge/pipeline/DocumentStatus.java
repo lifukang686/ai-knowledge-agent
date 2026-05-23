@@ -1,4 +1,4 @@
-package com.fukang.knowledge.agent.application.knowledge;
+package com.fukang.knowledge.agent.application.knowledge.pipeline;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

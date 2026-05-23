@@ -1,17 +1,18 @@
-package com.fukang.knowledge.agent.application.knowledge;
+package com.fukang.knowledge.agent.application.knowledge.embedding;
 
-import com.fukang.knowledge.agent.application.knowledge.model.EmbeddingResult;
-import com.fukang.knowledge.agent.application.knowledge.model.ChunkStorageResult;
+import com.fukang.knowledge.agent.application.knowledge.chunk.DocumentChunkStorageService;
+import com.fukang.knowledge.agent.application.knowledge.chunk.model.ChunkStorageResult;
+import com.fukang.knowledge.agent.application.knowledge.embedding.model.EmbeddingResult;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.DocumentChunkDO;
-import com.fukang.knowledge.agent.infrastructure.persistence.entity.EmbeddingIndexDO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -78,10 +79,7 @@ public class DocumentEmbeddingAppService {
 
         EmbeddingResult embeddingResult = embeddingService.embed(texts);
 
-        List<EmbeddingIndexDO> indexDOs = embeddingIndexStorageService
-                .toIndexDOList(embeddingResult, chunks, knowledgeBaseId);
-
-        return embeddingIndexStorageService.saveAllInTransaction(indexDOs, null);
+        return embeddingIndexStorageService.saveVectorsToPgVector(chunks, embeddingResult, knowledgeBaseId);
     }
 
     /**
@@ -102,10 +100,7 @@ public class DocumentEmbeddingAppService {
 
         EmbeddingResult embeddingResult = embeddingService.embed(texts);
 
-        List<EmbeddingIndexDO> indexDOs = embeddingIndexStorageService
-                .toIndexDOList(embeddingResult, chunks, knowledgeBaseId);
-
-        return embeddingIndexStorageService.saveAllWithPartialFailure(indexDOs);
+        return embeddingIndexStorageService.saveVectorsToPgVector(chunks, embeddingResult, knowledgeBaseId);
     }
 
     /**
@@ -127,10 +122,7 @@ public class DocumentEmbeddingAppService {
 
         EmbeddingResult embeddingResult = embeddingService.embed(texts);
 
-        List<EmbeddingIndexDO> indexDOs = embeddingIndexStorageService
-                .toIndexDOList(embeddingResult, chunks, knowledgeBaseId);
-
-        return embeddingIndexStorageService.saveBatch(indexDOs);
+        return embeddingIndexStorageService.saveVectorsToPgVector(chunks, embeddingResult, knowledgeBaseId);
     }
 
     /**
@@ -145,8 +137,8 @@ public class DocumentEmbeddingAppService {
     public ChunkStorageResult replaceEmbedAndStore(List<DocumentChunkDO> chunks, Long knowledgeBaseId) {
         validateChunks(chunks, knowledgeBaseId);
 
-        int deleted = embeddingIndexStorageService.deleteByKnowledgeBaseId(knowledgeBaseId);
-        log.info("已清除旧向量索引: knowledgeBaseId={}, deletedCount={}", knowledgeBaseId, deleted);
+        embeddingIndexStorageService.deleteByKnowledgeBaseIdPgVector(knowledgeBaseId);
+        log.info("已清除旧向量索引: knowledgeBaseId={}", knowledgeBaseId);
 
         return embedAndStoreBatch(chunks, knowledgeBaseId);
     }
@@ -154,15 +146,18 @@ public class DocumentEmbeddingAppService {
     /**
      * 根据知识库ID查询所有向量索引
      *
+     * @deprecated 自 pgvector 完全迁移后，不再能通过 MyBatis-Plus 返回向量索引。向量数据完全由 PgVectorEmbeddingStore 管理
      * @param knowledgeBaseId 知识库ID
-     * @return 该知识库下所有向量索引
+     * @return 该知识库下所有向量索引（始终为空列表）
      */
-    public List<EmbeddingIndexDO> getVectorsByKnowledgeBase(Long knowledgeBaseId) {
+    @Deprecated
+    public List<DocumentChunkDO> getVectorsByKnowledgeBase(Long knowledgeBaseId) {
         if (knowledgeBaseId == null) {
             log.warn("知识库ID为空，无法查询向量索引");
             throw new BaseException(ErrorCodeEnum.KNOWLEDGE_BASE_NOT_EXIST);
         }
-        return embeddingIndexStorageService.findByKnowledgeBaseId(knowledgeBaseId);
+        log.warn("getVectorsByKnowledgeBase 已废弃，pgvector 中向量与 chunkText 绑定，请使用块查询替代");
+        return Collections.emptyList();
     }
 
     /**
@@ -176,7 +171,9 @@ public class DocumentEmbeddingAppService {
             log.warn("知识库ID为空，无法删除向量索引");
             throw new BaseException(ErrorCodeEnum.KNOWLEDGE_BASE_NOT_EXIST);
         }
-        return embeddingIndexStorageService.deleteByKnowledgeBaseId(knowledgeBaseId);
+        embeddingIndexStorageService.deleteByKnowledgeBaseIdPgVector(knowledgeBaseId);
+        log.info("已通过 pgvector 删除知识库所有向量: knowledgeBaseId={}", knowledgeBaseId);
+        return 0;
     }
 
     /**

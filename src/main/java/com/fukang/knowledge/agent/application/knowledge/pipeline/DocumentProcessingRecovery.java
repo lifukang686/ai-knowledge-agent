@@ -1,4 +1,4 @@
-package com.fukang.knowledge.agent.application.knowledge;
+package com.fukang.knowledge.agent.application.knowledge.pipeline;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.DocumentDO;

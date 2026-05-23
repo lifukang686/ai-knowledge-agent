@@ -1,4 +1,4 @@
-package com.fukang.knowledge.agent.application.knowledge.model;
+package com.fukang.knowledge.agent.application.knowledge.chunk.model;
 
 import java.util.List;
 import java.util.Map;

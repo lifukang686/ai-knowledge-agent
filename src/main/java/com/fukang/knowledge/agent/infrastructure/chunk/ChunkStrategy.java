@@ -1,7 +1,7 @@
 package com.fukang.knowledge.agent.infrastructure.chunk;
 
-import com.fukang.knowledge.agent.application.knowledge.model.ChunkResult;
-import com.fukang.knowledge.agent.application.knowledge.model.DocumentParseResult;
+import com.fukang.knowledge.agent.application.knowledge.chunk.model.ChunkResult;
+import com.fukang.knowledge.agent.application.knowledge.parsing.model.DocumentParseResult;
 
 /**
  * 文档分块策略接口

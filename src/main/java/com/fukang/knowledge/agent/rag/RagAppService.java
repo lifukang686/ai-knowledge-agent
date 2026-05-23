@@ -95,13 +95,13 @@ public class RagAppService {
         int topK = retrievalProperties.getTopK();
         double threshold = retrievalProperties.getSimilarityThreshold();
 
-        List<SearchResult> rewrittenResults = semanticSearchService.search(
+        List<SearchResult> rewrittenResults = semanticSearchService.searchWithPgVector(
                 rewrittenQuery, knowledgeBaseId, topK, threshold);
 
         List<SearchResult> allResults = new ArrayList<>(rewrittenResults);
         if (rewrittenResults.size() < topK && !rewrittenQuery.equals(question)) {
             log.info("改写查询检索结果不足 ({} < {})，使用原始查询补充检索", rewrittenResults.size(), topK);
-            List<SearchResult> originalResults = semanticSearchService.search(
+            List<SearchResult> originalResults = semanticSearchService.searchWithPgVector(
                     question, knowledgeBaseId, topK, threshold);
             Set<Long> existingChunkIds = rewrittenResults.stream()
                     .map(SearchResult::chunkId)

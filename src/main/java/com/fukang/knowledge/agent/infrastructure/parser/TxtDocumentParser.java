@@ -1,6 +1,6 @@
 package com.fukang.knowledge.agent.infrastructure.parser;
 
-import com.fukang.knowledge.agent.application.knowledge.model.DocumentParseResult;
+import com.fukang.knowledge.agent.application.knowledge.parsing.model.DocumentParseResult;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import lombok.extern.slf4j.Slf4j;

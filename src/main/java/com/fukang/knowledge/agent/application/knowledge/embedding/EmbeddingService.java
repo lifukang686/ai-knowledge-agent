@@ -1,9 +1,9 @@
-package com.fukang.knowledge.agent.application.knowledge;
+package com.fukang.knowledge.agent.application.knowledge.embedding;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fukang.knowledge.agent.application.knowledge.model.EmbeddingResult;
-import com.fukang.knowledge.agent.application.knowledge.model.EmbeddingResult.EmbeddingVector;
+import com.fukang.knowledge.agent.application.knowledge.embedding.model.EmbeddingResult;
+import com.fukang.knowledge.agent.application.knowledge.embedding.model.EmbeddingResult.EmbeddingVector;
 import com.fukang.knowledge.agent.application.model.ModelAppService;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.enums.ModelTypeEnum;

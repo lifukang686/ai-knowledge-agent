@@ -1,6 +1,6 @@
 package com.fukang.knowledge.agent.infrastructure.parser;
 
-import com.fukang.knowledge.agent.application.knowledge.model.DocumentParseResult;
+import com.fukang.knowledge.agent.application.knowledge.parsing.model.DocumentParseResult;
 
 import java.io.InputStream;
 

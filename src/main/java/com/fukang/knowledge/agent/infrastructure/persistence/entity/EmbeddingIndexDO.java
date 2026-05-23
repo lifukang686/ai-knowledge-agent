@@ -13,7 +13,10 @@ import lombok.EqualsAndHashCode;
  * <p>对应数据库表 embedding_index，存储文档块对应的向量嵌入数据。
  * 向量字段使用 pgvector 类型存储，用于后续语义检索。
  * MVP 阶段向量嵌入由 Week 3 RAG 模块实现后填充</p>
+ *
+ * @deprecated 自 pgvector 完全迁移后，向量数据完全由 PgVectorEmbeddingStore 管理，不再通过 MyBatis-Plus 操作此实体。此类保留仅供参考，将在后续版本中移除
  */
+@Deprecated
 @Data
 @EqualsAndHashCode(callSuper = true)
 @Entity

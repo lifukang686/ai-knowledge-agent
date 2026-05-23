@@ -10,6 +10,8 @@ import com.fukang.knowledge.agent.api.document.dto.DocumentUploadResp;
 import com.fukang.knowledge.agent.api.knowledgebase.dto.CreateKnowledgeBaseReq;
 import com.fukang.knowledge.agent.api.knowledgebase.dto.KnowledgeBaseResp;
 import com.fukang.knowledge.agent.api.knowledgebase.dto.UpdateKnowledgeBaseReq;
+import com.fukang.knowledge.agent.application.knowledge.embedding.EmbeddingIndexStorageService;
+import com.fukang.knowledge.agent.application.knowledge.pipeline.DocumentStatus;
 import com.fukang.knowledge.agent.common.context.UserContextHolder;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
@@ -17,11 +19,9 @@ import com.fukang.knowledge.agent.common.result.PageResponse;
 import com.fukang.knowledge.agent.application.knowledge.event.DocumentUploadedEvent;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.DocumentChunkDO;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.DocumentDO;
-import com.fukang.knowledge.agent.infrastructure.persistence.entity.EmbeddingIndexDO;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.KnowledgeBaseDO;
 import com.fukang.knowledge.agent.infrastructure.persistence.mapper.DocumentChunkMapper;
 import com.fukang.knowledge.agent.infrastructure.persistence.mapper.DocumentMapper;
-import com.fukang.knowledge.agent.infrastructure.persistence.mapper.EmbeddingIndexMapper;
 import com.fukang.knowledge.agent.infrastructure.persistence.mapper.KnowledgeBaseMapper;
 import com.fukang.knowledge.agent.infrastructure.storage.MinioStorageService;
 import lombok.RequiredArgsConstructor;
@@ -56,7 +56,7 @@ public class KnowledgeBaseAppService {
     private final MinioStorageService minioStorageService;
     private final ApplicationEventPublisher eventPublisher;
     private final DocumentChunkMapper documentChunkMapper;
-    private final EmbeddingIndexMapper embeddingIndexMapper;
+    private final EmbeddingIndexStorageService embeddingIndexStorageService;
 
     /**
      * 上传文档
@@ -365,10 +365,8 @@ public class KnowledgeBaseAppService {
                 .toList();
 
         if (!chunkIds.isEmpty()) {
-            long embedCount = embeddingIndexMapper.delete(
-                    new LambdaQueryWrapper<EmbeddingIndexDO>()
-                            .in(EmbeddingIndexDO::getChunkId, chunkIds));
-            log.info("文档关联向量索引已删除: documentId={}, embedCount={}", documentId, embedCount);
+            embeddingIndexStorageService.deleteByChunkIdsPgVector(chunkIds);
+            log.info("文档关联向量索引已删除: documentId={}, chunkCount={}", documentId, chunkIds.size());
         }
 
         long chunkCount = documentChunkMapper.delete(

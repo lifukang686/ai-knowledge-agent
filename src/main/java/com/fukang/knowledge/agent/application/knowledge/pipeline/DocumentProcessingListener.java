@@ -1,4 +1,4 @@
-package com.fukang.knowledge.agent.application.knowledge;
+package com.fukang.knowledge.agent.application.knowledge.pipeline;
 
 import com.fukang.knowledge.agent.application.knowledge.event.DocumentUploadedEvent;
 import lombok.RequiredArgsConstructor;
