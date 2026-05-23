@@ -29,9 +29,8 @@ public class EmbeddingIndexDO extends BaseEntity {
     @Column(name = "knowledge_base_id", nullable = false)
     private Long knowledgeBaseId;
 
-    /** 向量数据，pgvector 类型，后续由嵌入模型计算后填充 */
-    @Lob
-    @Column(name = "vector", columnDefinition = "TEXT")
+    /** 向量数据，pgvector 原生 vector 类型，由嵌入模型计算后填充 */
+    @Column(name = "vector", columnDefinition = "vector")
     private String vector;
 
     /** 向量元数据（JSON格式），可存储原文摘要、模型版本等信息 */

@@ -6,9 +6,11 @@ import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.infrastructure.chunk.ChunkStrategy;
 import com.fukang.knowledge.agent.infrastructure.chunk.FixedLengthChunkStrategy;
+import com.fukang.knowledge.agent.infrastructure.chunk.Langchain4jChunkStrategy;
 import com.fukang.knowledge.agent.infrastructure.chunk.SentenceChunkStrategy;
 import com.fukang.knowledge.agent.infrastructure.parser.DocumentParser;
 import com.fukang.knowledge.agent.infrastructure.parser.DocumentParserFactory;
+import com.fukang.knowledge.agent.rag.config.ChunkingProperties;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -45,15 +47,18 @@ import java.util.Map;
  * @see DocumentParserFactory
  * @see FixedLengthChunkStrategy
  * @see SentenceChunkStrategy
+ * @see Langchain4jChunkStrategy
  */
 @Slf4j
 @Service
 public class DocumentProcessingService {
 
     private final DocumentParserFactory parserFactory;
+    private final ChunkingProperties chunkingProperties;
 
-    public DocumentProcessingService() {
+    public DocumentProcessingService(ChunkingProperties chunkingProperties) {
         this.parserFactory = new DocumentParserFactory();
+        this.chunkingProperties = chunkingProperties;
     }
 
     /**
@@ -212,6 +217,45 @@ public class DocumentProcessingService {
      */
     public ChunkResult parseAndChunkBySentence(byte[] fileBytes, String fileName, long fileSizeInBytes) {
         return parseAndChunk(fileBytes, fileName, fileSizeInBytes, new SentenceChunkStrategy());
+    }
+
+    /**
+     * 使用 langchain4j 分割器对已解析的文档执行分块
+     * <p>基于配置的 chunking 策略（paragraph/sentence/fixed），
+     * 使用 langchain4j 的层次化分割器进行智能分块</p>
+     *
+     * @param parseResult 文档解析结果
+     * @return 分块结果
+     */
+    public ChunkResult chunkDocumentWithLangchain4j(DocumentParseResult parseResult) {
+        return chunkDocument(parseResult, new Langchain4jChunkStrategy(chunkingProperties));
+    }
+
+    /**
+     * 端到端处理：使用 langchain4j 解析器和分割器
+     * <p>使用 langchain4j 内置的文档解析器和分割策略完成完整的文档处理流程</p>
+     *
+     * @param fileBytes       文档文件的字节数据
+     * @param fileName        原始文件名
+     * @param fileSizeInBytes 文件大小（字节）
+     * @return 分块结果
+     */
+    public ChunkResult parseAndChunkWithLangchain4j(byte[] fileBytes, String fileName, long fileSizeInBytes) {
+        return parseAndChunk(fileBytes, fileName, fileSizeInBytes,
+                new Langchain4jChunkStrategy(chunkingProperties));
+    }
+
+    /**
+     * 便捷方法：使用 langchain4j 策略端到端处理文档
+     * <p>等同于 {@link #parseAndChunkWithLangchain4j}，提供语义化别名</p>
+     *
+     * @param fileBytes       文档文件的字节数据
+     * @param fileName        原始文件名
+     * @param fileSizeInBytes 文件大小（字节）
+     * @return 分块结果
+     */
+    public ChunkResult parseAndChunkByLangchain4jStrategy(byte[] fileBytes, String fileName, long fileSizeInBytes) {
+        return parseAndChunkWithLangchain4j(fileBytes, fileName, fileSizeInBytes);
     }
 
     /**

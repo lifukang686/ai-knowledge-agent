@@ -2,39 +2,52 @@ package com.fukang.knowledge.agent.application.knowledge;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.fukang.knowledge.agent.application.knowledge.model.EmbeddingResult;
-import com.fukang.knowledge.agent.application.knowledge.model.EmbeddingResult.EmbeddingVector;
 import com.fukang.knowledge.agent.application.knowledge.model.ChunkStorageResult;
 import com.fukang.knowledge.agent.application.knowledge.model.ChunkStorageResult.FailedChunkDetail;
+import com.fukang.knowledge.agent.application.knowledge.model.EmbeddingResult;
+import com.fukang.knowledge.agent.application.knowledge.model.EmbeddingResult.EmbeddingVector;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
+import com.fukang.knowledge.agent.infrastructure.ai.Langchain4jEmbeddingStoreFactory;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.DocumentChunkDO;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.EmbeddingIndexDO;
 import com.fukang.knowledge.agent.infrastructure.persistence.mapper.EmbeddingIndexMapper;
+import dev.langchain4j.data.embedding.Embedding;
+import dev.langchain4j.data.segment.TextSegment;
+import dev.langchain4j.store.embedding.pgvector.PgVectorEmbeddingStore;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * 嵌入向量索引批量存储服务
  * <p>负责向量数据的批量持久化操作，提供事务管理、数据校验和结果反馈。
  * 继承 MyBatis-Plus ServiceImpl 以获得批量插入等能力。
- * 向量数据通过 float 数组序列化为 JSON 字符串后存入数据库
- * （MVP 阶段使用 TEXT 存储，后续可迁移至 pgvector 原生类型）</p>
+ * 现已升级为 pgvector 原生向量存储 + langchain4j PgVectorEmbeddingStore，
+ * 同时保留 MyBatis-Plus 兼容层用于查询和删除操作</p>
  *
- * <p>提供三种存储模式：
+ * <p>存储模式：
  * <ul>
  *   <li>{@link #saveAllInTransaction} - 全事务模式，任意失败整体回滚</li>
  *   <li>{@link #saveAllWithPartialFailure} - 逐条模式，收集失败详情继续执行</li>
  *   <li>{@link #saveBatch} - 批量插入模式，利用 MyBatis-Plus 高效批量写入</li>
+ *   <li>{@link #saveVectors} - pgvector 原生批量存储，通过 langchain4j 写入</li>
+ *   <li>{@link #saveVector} - pgvector 原生单条存储，同时写入 MyBatis-Plus 兼容记录</li>
  * </ul>
  */
 @Slf4j
 @Service
 public class EmbeddingIndexStorageService extends ServiceImpl<EmbeddingIndexMapper, EmbeddingIndexDO> {
+
+    private final Langchain4jEmbeddingStoreFactory storeFactory;
+
+    public EmbeddingIndexStorageService(Langchain4jEmbeddingStoreFactory storeFactory) {
+        this.storeFactory = storeFactory;
+    }
 
     /**
      * 事务批量保存嵌入向量索引（全量成功或整体回滚）
@@ -137,6 +150,72 @@ public class EmbeddingIndexStorageService extends ServiceImpl<EmbeddingIndexMapp
         log.info("批量插入向量索引完成: count={}", indexDOs.size());
 
         return ChunkStorageResult.allSuccess(0L, indexDOs.size());
+    }
+
+    /**
+     * 通过 PgVectorEmbeddingStore 批量存储向量
+     * <p>遍历 TextSegment 和 Embedding 列表，逐一写入 pgvector 存储</p>
+     *
+     * @param segments   文本段列表，包含块文本和元数据
+     * @param embeddings langchain4j 嵌入向量列表，与 segments 一一对应
+     */
+    public void saveVectors(List<TextSegment> segments, List<Embedding> embeddings) {
+        if (segments == null || segments.isEmpty()) {
+            log.warn("待存储的向量列表为空");
+            return;
+        }
+        if (segments.size() != embeddings.size()) {
+            log.error("segment 与 embedding 数量不一致: segments={}, embeddings={}",
+                    segments.size(), embeddings.size());
+            throw new BaseException(ErrorCodeEnum.CHUNK_DATA_EMPTY);
+        }
+
+        log.info("开始通过 PgVectorEmbeddingStore 批量存储向量: count={}", segments.size());
+        PgVectorEmbeddingStore store = storeFactory.createEmbeddingStore();
+
+        List<String> ids = new ArrayList<>(segments.size());
+        for (int i = 0; i < segments.size(); i++) {
+            ids.add(UUID.randomUUID().toString());
+        }
+        store.addAll(embeddings, segments);
+        log.info("PgVectorEmbeddingStore 批量存储完成: count={}", segments.size());
+    }
+
+    /**
+     * 通过 PgVectorEmbeddingStore 存储单条向量，同时写入 MyBatis-Plus 兼容记录
+     * <p>将向量写入 pgvector 原生存储，并同步在 embedding_index 表中写入元数据记录，
+     * 确保已有的 MyBatis-Plus 查询/删除方法仍可正常工作</p>
+     *
+     * @param id              向量记录唯一标识
+     * @param vector          嵌入向量数组
+     * @param chunkId         关联的文档块 ID
+     * @param knowledgeBaseId 所属知识库 ID
+     */
+    public void saveVector(String id, float[] vector, String chunkId, Long knowledgeBaseId) {
+        log.info("通过 PgVectorEmbeddingStore 存储单条向量: id={}, chunkId={}, kbId={}", id, chunkId, knowledgeBaseId);
+
+        PgVectorEmbeddingStore store = storeFactory.createEmbeddingStore();
+
+        Embedding embedding = Embedding.from(vector);
+
+        dev.langchain4j.data.document.Metadata metadata =
+                new dev.langchain4j.data.document.Metadata();
+        metadata.put("chunk_id", chunkId);
+        metadata.put("knowledge_base_id", String.valueOf(knowledgeBaseId));
+
+        TextSegment segment = TextSegment.from("", metadata);
+
+        store.add(embedding, segment);
+
+        EmbeddingIndexDO indexDO = new EmbeddingIndexDO();
+        indexDO.setId(Long.valueOf(id));
+        indexDO.setChunkId(Long.valueOf(chunkId));
+        indexDO.setKnowledgeBaseId(knowledgeBaseId);
+        indexDO.setVector(vectorToJson(vector));
+        indexDO.setMetadata(buildMetadataForSingle(chunkId, knowledgeBaseId));
+        baseMapper.insert(indexDO);
+
+        log.info("单条向量写入完成: id={}, chunkId={}", id, chunkId);
     }
 
     /**
@@ -271,6 +350,13 @@ public class EmbeddingIndexStorageService extends ServiceImpl<EmbeddingIndexMapp
                 embeddingVector.dimension(),
                 embeddingVector.chunkOrder(),
                 embeddingResult.totalTokens()
+        );
+    }
+
+    private String buildMetadataForSingle(String chunkId, Long knowledgeBaseId) {
+        return String.format(
+                "{\"chunkId\":\"%s\",\"knowledgeBaseId\":%d,\"storeType\":\"pgvector\"}",
+                chunkId, knowledgeBaseId
         );
     }
 }

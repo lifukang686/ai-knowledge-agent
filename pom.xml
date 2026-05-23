@@ -18,6 +18,7 @@
         <!-- 显式声明 Spring AI Starter 的版本，避免找不到 -->
         <spring-ai-starter-openai.version>1.0.0-M6</spring-ai-starter-openai.version>
         <spring-ai-starter-anthropic.version>1.0.0-M6</spring-ai-starter-anthropic.version>
+        <langchain4j.version>0.36.2</langchain4j.version>
     </properties>
 
     <dependencyManagement>
@@ -112,6 +113,29 @@
 <!--            <artifactId>spring-ai-anthropic-spring-boot-starter</artifactId>-->
 <!--            <version>${spring-ai-starter-anthropic.version}</version>-->
 <!--        </dependency>-->
+
+        <!-- langchain4j -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j</artifactId>
+            <version>${langchain4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-pgvector</artifactId>
+            <version>${langchain4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-document-parser-apache-pdfbox</artifactId>
+            <version>${langchain4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-document-parser-apache-poi</artifactId>
+            <version>${langchain4j.version}</version>
+        </dependency>
+
         <!-- Apache PDFBox for PDF parsing -->
         <dependency>
             <groupId>org.apache.pdfbox</groupId>
@@ -179,6 +203,11 @@
                         </goals>
                     </execution>
                 </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
             </plugin>
         </plugins>
     </build>

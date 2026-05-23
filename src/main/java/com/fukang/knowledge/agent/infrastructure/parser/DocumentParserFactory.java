@@ -2,6 +2,8 @@ package com.fukang.knowledge.agent.infrastructure.parser;
 
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
+import dev.langchain4j.data.document.parser.apache.pdfbox.ApachePdfBoxDocumentParser;
+import dev.langchain4j.data.document.parser.apache.poi.ApachePoiDocumentParser;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
@@ -11,7 +13,8 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * 文档解析器工厂
  * <p>根据文件扩展名选择合适的文档解析器。采用注册制，
- * 新增解析器时只需注册即可，无需修改工厂逻辑</p>
+ * 新增解析器时只需注册即可，无需修改工厂逻辑。
+ * 同时支持项目自定义解析器和 langchain4j 内置解析器</p>
  */
 @Slf4j
 public class DocumentParserFactory {
@@ -21,8 +24,8 @@ public class DocumentParserFactory {
 
     /**
      * 构造解析器工厂并注册默认解析器
-     * <p>默认注册 PDF、Word、TXT 三种格式的解析器。
-     * 支持后续通过 {@link #registerParser} 动态添加更多格式</p>
+     * <p>默认注册 PDF、Word、TXT 三种格式的解析器，
+     * 同时注册 langchain4j 版本的解析器作为覆盖选项（后者覆盖前者）</p>
      */
     public DocumentParserFactory() {
         this.parserRegistry = new ConcurrentHashMap<>();
@@ -33,6 +36,12 @@ public class DocumentParserFactory {
         );
 
         defaultParsers.forEach(this::registerParser);
+
+        registerParser(new Langchain4jDocumentParserAdapter(
+                new ApachePdfBoxDocumentParser(), List.of("pdf")));
+        registerParser(new Langchain4jDocumentParserAdapter(
+                new ApachePoiDocumentParser(), List.of("doc", "docx")));
+
         log.info("文档解析器工厂已初始化，已注册 {} 种格式解析器", defaultParsers.size());
     }
 
