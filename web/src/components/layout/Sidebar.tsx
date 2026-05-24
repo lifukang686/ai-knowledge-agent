@@ -29,7 +29,7 @@ export const Sidebar: React.FC = () => {
   };
 
   return (
-    <aside className="w-64 bg-white shadow-sm border-r border-gray-200 min-h-screen">
+    <aside className="w-64 bg-white shadow-sm border-r border-gray-200 flex-shrink-0 overflow-y-auto">
       <div className="p-6">
         <h1 className="text-xl font-bold text-gray-900 mb-8">知识库AI平台</h1>
         
