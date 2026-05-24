@@ -42,13 +42,15 @@ public class Langchain4jEmbeddingStoreFactory {
      */
     @PostConstruct
     void initTable() {
-        log.info("应用启动，初始化 pgvector 向量表: table={}", vectorStoreProperties.getTableName());
+        log.info("应用启动，初始化 pgvector 向量表: table={}, dimension={}, dropTableFirst={}",
+                vectorStoreProperties.getTableName(), vectorStoreProperties.getDimension(),
+                vectorStoreProperties.isDropTableFirst());
         PgVectorEmbeddingStore.datasourceBuilder()
                 .datasource(dataSource)
                 .table(vectorStoreProperties.getTableName())
                 .dimension(vectorStoreProperties.getDimension())
                 .createTable(true)
-                .dropTableFirst(false)
+                .dropTableFirst(vectorStoreProperties.isDropTableFirst())
                 .build();
         log.info("pgvector 向量表初始化完成: table={}", vectorStoreProperties.getTableName());
     }

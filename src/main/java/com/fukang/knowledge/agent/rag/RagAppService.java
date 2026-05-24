@@ -23,12 +23,14 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
  * RAG 问答编排服务
- * <p>统一采用"检索 → 多因子重排序 → LLM 生成回答"的三阶段流程。
- * 支持 knowledgeBaseId 为空时的全量检索场景，检索失败时自动降级</p>
+ * <p>采用意图检测 + "检索 → 多因子重排序 → LLM 生成回答"的三阶段流程。
+ * 寒暄及非知识库类问题直接走 LLM，跳过检索；知识类问题走完整管线。
+ * 支持 knowledgeBaseId 为空时的全量检索场景</p>
  */
 @Slf4j
 @Service
@@ -39,6 +41,23 @@ public class RagAppService {
             "你是一个专业的知识库问答助手。请严格基于提供的文档内容回答问题，不要编造信息。";
 
     private static final String NOT_FOUND_MESSAGE = "抱歉，未找到与您问题相关的文档内容。";
+
+    /**
+     * 非知识库提问的正则模式
+     * <p>匹配寒暄、自称、能力询问等无需检索知识库即可回答的对话</p>
+     */
+    private static final Pattern CHITCHAT_PATTERN = Pattern.compile(
+            "(你好|您好|嗨|哈[喽啰]|早上好|下午好|晚上好|晚安|再见|拜拜|谢谢|感谢|辛苦了)"
+            + "|(你(是|叫|能|可以|会|有)什么)|(谁|哪位|叫什么名字)"
+            + "|(你能|你可以|你会|你擅长|你有什么(功能|能力|本事))"
+            + "|自我介绍|做个介绍|介绍(一下|下)自己"
+            + "|(讲个|说个|来个)?(笑话|故事)"
+            + "|(天气|几点了|今天(几号|星期几|周几)|现在几(点|时))"
+            + "|(帮我)?(翻译|算(一下|下)|计算)"
+    );
+
+    private static final String CHITCHAT_SYSTEM_PROMPT =
+            "你是一个友好的AI助手。请用自然、亲切的语气回答用户的问题，不需要引用任何文档。";
 
     private final QueryRewriteService queryRewriteService;
     private final KnowledgeBaseMapper knowledgeBaseMapper;
@@ -62,17 +81,61 @@ public class RagAppService {
             throw new BaseException(ErrorCodeEnum.KNOWLEDGE_BASE_NOT_EXIST);
         }
 
+        if (isChitchat(question)) {
+            log.info("检测到非知识库提问（寒暄/能力询问），直接 LLM 回答: {}", question);
+            String answer = directChat(question);
+            return new QaResp(answer, question, "success");
+        }
+
         String rewrittenQuery = queryRewriteService.rewrite(question);
         double threshold = retrievalProperties.getSimilarityThreshold();
         int topK = retrievalProperties.getTopK();
 
         List<SearchResult> results = retrieveWithFallback(rewrittenQuery, question, knowledgeBaseId, topK, threshold);
 
+        if (results.isEmpty() && isChitchat(rewrittenQuery)) {
+            log.info("检索无结果且改写后为寒暄类问题，降级为直接 LLM 回答");
+            String answer = directChat(rewrittenQuery);
+            return new QaResp(answer, rewrittenQuery, "success");
+        }
+
         results = rerankService.rerank(results, question);
 
         String answer = generateAnswer(results, rewrittenQuery);
         String status = results.isEmpty() ? "no_results" : "success";
         return new QaResp(answer, rewrittenQuery, status);
+    }
+
+    /**
+     * 检测是否为非知识库类提问
+     */
+    private boolean isChitchat(String text) {
+        if (text == null || text.isBlank()) {
+            return false;
+        }
+        return text.trim().length() <= 20 && CHITCHAT_PATTERN.matcher(text).find();
+    }
+
+    /**
+     * 直接 LLM 回答（跳过检索）
+     */
+    private String directChat(String question) {
+        try {
+            ChatLanguageModel chatModel = dynamicModelManager.getChatModel(ModelTypeEnum.CHAT);
+            List<ChatMessage> messages = List.of(
+                    SystemMessage.from(CHITCHAT_SYSTEM_PROMPT),
+                    UserMessage.from(question)
+            );
+            Response<AiMessage> response = chatModel.generate(messages);
+            String answer = response.content().text();
+            if (answer == null || answer.isBlank()) {
+                return "你好！有什么可以帮你的吗？";
+            }
+            return answer;
+        } catch (Exception e) {
+            log.error("直接 LLM 回答失败", e);
+            return "你好！我是智能问答助手，有什么可以帮你的吗？";
+        }
     }
 
     /**

@@ -11,6 +11,7 @@ import dev.langchain4j.data.document.DocumentSplitter;
 import dev.langchain4j.data.document.Metadata;
 import dev.langchain4j.data.document.splitter.DocumentByParagraphSplitter;
 import dev.langchain4j.data.document.splitter.DocumentBySentenceSplitter;
+import dev.langchain4j.data.document.splitter.DocumentByCharacterSplitter;
 import dev.langchain4j.data.segment.TextSegment;
 import lombok.extern.slf4j.Slf4j;
 
@@ -90,9 +91,8 @@ public class Langchain4jChunkStrategy implements ChunkStrategy {
 
         return switch (strategy) {
             case "paragraph" -> new DocumentByParagraphSplitter(maxSegmentSize, overlapSize);
-            case "sentence" -> new DocumentByParagraphSplitter(maxSegmentSize, overlapSize,
-                    new DocumentBySentenceSplitter(maxSegmentSize, overlapSize));
-            case "fixed" -> new DocumentByParagraphSplitter(chunkSize, overlapSize);
+            case "sentence" -> new DocumentBySentenceSplitter(maxSegmentSize, overlapSize);
+            case "fixed" -> new DocumentByCharacterSplitter(chunkSize, overlapSize);
             default -> {
                 log.warn("未知的分块策略: {}，使用默认段落策略", strategy);
                 yield new DocumentByParagraphSplitter(maxSegmentSize, overlapSize);

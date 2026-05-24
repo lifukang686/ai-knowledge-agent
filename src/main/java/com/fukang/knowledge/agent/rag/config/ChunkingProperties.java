@@ -14,11 +14,11 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "knowledge-agent.chunking")
 public class ChunkingProperties {
     /** 块大小（字符数/令牌数），默认 800 */
-    private int chunkSize = 800;
-    /** 块间重叠大小，默认 100 */
-    private int overlapSize = 100;
+    private int chunkSize = 500;
+    /** 块间重叠大小，默认 200 */
+    private int overlapSize = 200;
     /** 分割策略：paragraph / sentence / fixed */
     private String strategy = "paragraph";
-    /** 段落分割时最大段大小，默认 1000 */
-    private int maxSegmentSize = 1000;
+    /** 段落分割时最大段大小，默认 500（适配中文检索粒度） */
+    private int maxSegmentSize = 500;
 }

@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "knowledge-agent.retrieval")
 public class RetrievalProperties {
     /** 默认返回结果数量 */
-    private int topK = 5;
+    private int topK = 8;
     /** 默认相似度阈值 (0.0 ~ 1.0)，低于此值的结果将被过滤 */
-    private double similarityThreshold = 0.7;
+    private double similarityThreshold = 0.6;
 }
