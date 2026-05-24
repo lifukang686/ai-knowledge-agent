@@ -10,6 +10,8 @@ import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.store.embedding.EmbeddingSearchRequest;
 import dev.langchain4j.store.embedding.EmbeddingSearchResult;
+import dev.langchain4j.store.embedding.filter.Filter;
+import dev.langchain4j.store.embedding.filter.MetadataFilterBuilder;
 import dev.langchain4j.store.embedding.pgvector.PgVectorEmbeddingStore;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -74,11 +76,18 @@ public class SemanticSearchService {
 
         PgVectorEmbeddingStore store = storeFactory.createEmbeddingStore();
 
-        EmbeddingSearchRequest searchRequest = EmbeddingSearchRequest.builder()
+        EmbeddingSearchRequest.EmbeddingSearchRequestBuilder requestBuilder = EmbeddingSearchRequest.builder()
                 .queryEmbedding(queryEmbedding)
                 .maxResults(topK)
-                .minScore(threshold)
-                .build();
+                .minScore(threshold);
+
+        if (knowledgeBaseId != null) {
+            Filter filter = MetadataFilterBuilder.metadataKey("knowledge_base_id")
+                    .isEqualTo(String.valueOf(knowledgeBaseId));
+            requestBuilder.filter(filter);
+        }
+
+        EmbeddingSearchRequest searchRequest = requestBuilder.build();
 
         EmbeddingSearchResult<TextSegment> searchResult = store.search(searchRequest);
 

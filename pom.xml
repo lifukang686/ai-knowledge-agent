@@ -106,6 +106,13 @@
             <artifactId>langchain4j-pgvector</artifactId>
             <version>${langchain4j.version}</version>
         </dependency>
+
+        <!-- jieba 中文分词 -->
+        <dependency>
+            <groupId>com.huaban</groupId>
+            <artifactId>jieba-analysis</artifactId>
+            <version>1.0.2</version>
+        </dependency>
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-document-parser-apache-pdfbox</artifactId>

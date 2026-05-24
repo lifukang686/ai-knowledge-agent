@@ -2,18 +2,19 @@ package com.fukang.knowledge.agent.rag;
 
 import com.fukang.knowledge.agent.api.qa.dto.QaResp;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
+import com.fukang.knowledge.agent.common.enums.ModelTypeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
+import com.fukang.knowledge.agent.infrastructure.ai.DynamicModelManager;
 import com.fukang.knowledge.agent.infrastructure.persistence.mapper.KnowledgeBaseMapper;
-import com.fukang.knowledge.agent.rag.chain.RagChainBuilder;
 import com.fukang.knowledge.agent.rag.chain.RerankService;
 import com.fukang.knowledge.agent.rag.config.RetrievalProperties;
 import com.fukang.knowledge.agent.rag.model.SearchResult;
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.data.message.ChatMessage;
+import dev.langchain4j.data.message.SystemMessage;
+import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.chat.ChatLanguageModel;
-import dev.langchain4j.rag.RetrievalAugmentor;
-import dev.langchain4j.rag.content.retriever.ContentRetriever;
-import dev.langchain4j.service.AiServices;
-import dev.langchain4j.service.SystemMessage;
-import dev.langchain4j.service.UserMessage;
+import dev.langchain4j.model.output.Response;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -26,124 +27,138 @@ import java.util.stream.Collectors;
 
 /**
  * RAG 问答编排服务
- * <p>负责 RAG 问答流程的完整编排，集成语义检索和 langchain4j 链式 RAG 能力。
- * 优先使用 langchain4j 的 ContentRetriever + RetrievalAugmentor + AiServices 链式编排，
- * 失败时自动降级为手动双路检索编排以保证可用性</p>
+ * <p>统一采用"检索 → 多因子重排序 → LLM 生成回答"的三阶段流程。
+ * 支持 knowledgeBaseId 为空时的全量检索场景，检索失败时自动降级</p>
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class RagAppService {
 
+    private static final String SYSTEM_PROMPT =
+            "你是一个专业的知识库问答助手。请严格基于提供的文档内容回答问题，不要编造信息。";
+
+    private static final String NOT_FOUND_MESSAGE = "抱歉，未找到与您问题相关的文档内容。";
+
     private final QueryRewriteService queryRewriteService;
     private final KnowledgeBaseMapper knowledgeBaseMapper;
     private final SemanticSearchService semanticSearchService;
     private final RetrievalProperties retrievalProperties;
-    private final RagChainBuilder ragChainBuilder;
     private final RerankService rerankService;
+    private final DynamicModelManager dynamicModelManager;
 
     /**
      * RAG 问答核心流程
-     * <p>使用 langchain4j 链式 RAG 编排：查询改写 → ContentRetriever 检索 →
-     * RetrievalAugmentor 增强 → AiServices 生成回答。
-     * 链式编排异常时自动降级为手动双路检索编排</p>
      *
      * @param question        用户自然语言问题
-     * @param knowledgeBaseId 目标知识库 ID
-     * @param conversationId  会话 ID（可选，预留多轮对话）
-     * @return 问答响应，包含回答文本和改写后的查询
-     * @throws BaseException 知识库不存在时抛出 KNOWLEDGE_BASE_NOT_EXIST
+     * @param knowledgeBaseId 目标知识库 ID（null 表示全量检索）
+     * @param conversationId  会话 ID（预留多轮对话）
+     * @return 问答响应
+     * @throws BaseException knowledgeBaseId 非 null 但对应知识库不存在时抛出
      */
     public QaResp answer(String question, Long knowledgeBaseId, Long conversationId) {
-        if (knowledgeBaseMapper.selectById(knowledgeBaseId) == null) {
+        if (knowledgeBaseId != null && knowledgeBaseMapper.selectById(knowledgeBaseId) == null) {
             log.warn("知识库不存在: id={}", knowledgeBaseId);
             throw new BaseException(ErrorCodeEnum.KNOWLEDGE_BASE_NOT_EXIST);
         }
 
         String rewrittenQuery = queryRewriteService.rewrite(question);
         double threshold = retrievalProperties.getSimilarityThreshold();
+        int topK = retrievalProperties.getTopK();
 
-        try {
-            ContentRetriever contentRetriever = ragChainBuilder.buildContentRetriever(knowledgeBaseId);
-            RetrievalAugmentor augmentor = rerankService.buildReRankingAugmentor(contentRetriever, threshold);
+        List<SearchResult> results = retrieveWithFallback(rewrittenQuery, question, knowledgeBaseId, topK, threshold);
 
-            ChatLanguageModel chatModel = ragChainBuilder.createChatModel();
-            RagAssistant assistant = AiServices.builder(RagAssistant.class)
-                    .chatLanguageModel(chatModel)
-                    .retrievalAugmentor(augmentor)
-                    .build();
+        results = rerankService.rerank(results, question);
 
-            String answer = assistant.answer(rewrittenQuery);
-            return new QaResp(answer, rewrittenQuery, "success");
-        } catch (Exception e) {
-            log.error("langchain4j RAG 链执行异常，降级为手动编排", e);
-            return answerWithFallback(question, knowledgeBaseId, rewrittenQuery);
-        }
+        String answer = generateAnswer(results, rewrittenQuery);
+        String status = results.isEmpty() ? "no_results" : "success";
+        return new QaResp(answer, rewrittenQuery, status);
     }
 
     /**
-     * 手动编排降级方案
-     * <p>当 langchain4j 链执行失败时，回退到原有手动编排逻辑：
-     * 双路检索（改写查询优先，原始查询补充）→ 结果去重排序 → 格式化输出</p>
-     *
-     * @param question        原始用户问题
-     * @param knowledgeBaseId 目标知识库 ID
-     * @param rewrittenQuery  改写后的查询
-     * @return 问答响应
+     * 双路检索：改写查询优先，原始查询补充
      */
-    private QaResp answerWithFallback(String question, Long knowledgeBaseId, String rewrittenQuery) {
-        int topK = retrievalProperties.getTopK();
-        double threshold = retrievalProperties.getSimilarityThreshold();
-
+    private List<SearchResult> retrieveWithFallback(String rewrittenQuery, String originalQuery,
+                                                     Long knowledgeBaseId, int topK, double threshold) {
         List<SearchResult> rewrittenResults = semanticSearchService.searchWithPgVector(
                 rewrittenQuery, knowledgeBaseId, topK, threshold);
 
+        if (rewrittenResults.size() >= topK || rewrittenQuery.equals(originalQuery)) {
+            return rewrittenResults;
+        }
+
+        log.info("改写查询检索结果不足 ({} < {})，使用原始查询补充检索", rewrittenResults.size(), topK);
+        List<SearchResult> originalResults = semanticSearchService.searchWithPgVector(
+                originalQuery, knowledgeBaseId, topK, threshold);
+
+        Set<Long> existingChunkIds = rewrittenResults.stream()
+                .map(SearchResult::chunkId)
+                .collect(Collectors.toSet());
+
         List<SearchResult> allResults = new ArrayList<>(rewrittenResults);
-        if (rewrittenResults.size() < topK && !rewrittenQuery.equals(question)) {
-            log.info("改写查询检索结果不足 ({} < {})，使用原始查询补充检索", rewrittenResults.size(), topK);
-            List<SearchResult> originalResults = semanticSearchService.searchWithPgVector(
-                    question, knowledgeBaseId, topK, threshold);
-            Set<Long> existingChunkIds = rewrittenResults.stream()
-                    .map(SearchResult::chunkId)
-                    .collect(Collectors.toSet());
-            for (SearchResult r : originalResults) {
-                if (!existingChunkIds.contains(r.chunkId())) {
-                    allResults.add(r);
-                    existingChunkIds.add(r.chunkId());
-                }
-            }
-            allResults.sort(Comparator.comparingDouble(SearchResult::similarity).reversed());
-            if (allResults.size() > topK) {
-                allResults = allResults.subList(0, topK);
+        for (SearchResult r : originalResults) {
+            if (!existingChunkIds.contains(r.chunkId())) {
+                allResults.add(r);
+                existingChunkIds.add(r.chunkId());
             }
         }
-
-        String answer;
-        if (allResults.isEmpty()) {
-            answer = "抱歉，未找到与您问题相关的文档内容。";
-        } else {
-            StringBuilder sb = new StringBuilder();
-            sb.append("为您找到以下相关内容：\n\n");
-            for (int i = 0; i < allResults.size(); i++) {
-                SearchResult r = allResults.get(i);
-                sb.append("【").append(i + 1).append("】").append(r.chunkText()).append("\n");
-                sb.append("（相似度：").append(String.format("%.2f", r.similarity())).append("）\n\n");
-            }
-            answer = sb.toString().trim();
+        allResults.sort(Comparator.comparingDouble(SearchResult::similarity).reversed());
+        if (allResults.size() > topK) {
+            allResults = allResults.subList(0, topK);
         }
-
-        return new QaResp(answer, rewrittenQuery, "success");
+        return allResults;
     }
 
     /**
-     * RAG 问答助手接口
-     * <p>langchain4j AiServices 代理接口，由 AiServices 动态生成实现类，
-     * 自动集成 RetrievalAugmentor 进行检索增强</p>
+     * 通过 LLM 基于检索结果生成回答
      */
-    interface RagAssistant {
+    private String generateAnswer(List<SearchResult> results, String query) {
+        if (results.isEmpty()) {
+            return NOT_FOUND_MESSAGE;
+        }
 
-        @SystemMessage("你是一个专业的知识库问答助手。请严格基于提供的文档内容回答问题，不要编造信息。")
-        @UserMessage("{{it}}")
-        String answer(String question);
+        StringBuilder context = new StringBuilder();
+        for (int i = 0; i < results.size(); i++) {
+            SearchResult r = results.get(i);
+            context.append("【文档片段").append(i + 1).append("】").append(r.chunkText()).append("\n");
+        }
+
+        String userPrompt = String.format(
+                "请基于以下文档内容回答问题：\n\n%s\n\n问题：%s", context, query);
+
+        try {
+            ChatLanguageModel chatModel = dynamicModelManager.getChatModel(ModelTypeEnum.CHAT);
+            List<ChatMessage> messages = List.of(
+                    SystemMessage.from(SYSTEM_PROMPT),
+                    UserMessage.from(userPrompt)
+            );
+            Response<AiMessage> response = chatModel.generate(messages);
+            String answer = response.content().text();
+            if (answer == null || answer.isBlank()) {
+                log.warn("LLM 返回空回答");
+                return NOT_FOUND_MESSAGE;
+            }
+            return answer;
+        } catch (Exception e) {
+            log.error("LLM 生成回答失败，降级为文本拼接", e);
+            return formatFallbackAnswer(results);
+        }
+    }
+
+    /**
+     * 降级回答：直接拼接检索结果
+     */
+    private String formatFallbackAnswer(List<SearchResult> results) {
+        if (results.isEmpty()) {
+            return NOT_FOUND_MESSAGE;
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append("为您找到以下相关内容：\n\n");
+        for (int i = 0; i < results.size(); i++) {
+            SearchResult r = results.get(i);
+            sb.append("【").append(i + 1).append("】").append(r.chunkText()).append("\n");
+            sb.append("（相关度：").append(String.format("%.2f", r.similarity())).append("）\n\n");
+        }
+        return sb.toString().trim();
     }
 }
