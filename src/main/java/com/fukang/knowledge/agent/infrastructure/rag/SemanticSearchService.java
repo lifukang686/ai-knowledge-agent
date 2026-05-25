@@ -1,4 +1,4 @@
-package com.fukang.knowledge.agent.domain.rag.service;
+package com.fukang.knowledge.agent.infrastructure.rag;
 
 import com.fukang.knowledge.agent.application.knowledge.embedding.EmbeddingService;
 import com.fukang.knowledge.agent.domain.knowledge.model.EmbeddingResult;

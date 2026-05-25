@@ -1,4 +1,4 @@
-package com.fukang.knowledge.agent.rag;
+package com.fukang.knowledge.agent.infrastructure.rag;
 
 import com.fukang.knowledge.agent.common.enums.ModelTypeEnum;
 import com.fukang.knowledge.agent.infrastructure.ai.DynamicModelManager;

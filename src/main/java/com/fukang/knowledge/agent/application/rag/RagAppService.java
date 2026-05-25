@@ -5,8 +5,8 @@ import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.enums.ModelTypeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.domain.rag.model.SearchResult;
-import com.fukang.knowledge.agent.domain.rag.service.QueryRewriteService;
-import com.fukang.knowledge.agent.domain.rag.service.SemanticSearchService;
+import com.fukang.knowledge.agent.infrastructure.rag.QueryRewriteService;
+import com.fukang.knowledge.agent.infrastructure.rag.SemanticSearchService;
 import com.fukang.knowledge.agent.infrastructure.ai.DynamicModelManager;
 import com.fukang.knowledge.agent.infrastructure.config.RetrievalProperties;
 import com.fukang.knowledge.agent.infrastructure.persistence.mapper.KnowledgeBaseMapper;
@@ -40,7 +40,16 @@ import java.util.stream.Collectors;
 public class RagAppService {
 
     private static final String SYSTEM_PROMPT =
-            "你是一个专业的知识库问答助手。请严格基于提供的文档内容回答问题，不要编造信息。";
+            "你是一个专业的知识库问答助手，必须确保每条回答都能在提供的文档中找到依据。\n" +
+                    "任务：根据用户消息中提供的文档内容，回答用户的问题。\n" +
+                    "格式要求：\n" +
+                    "- 先给出直接答案（一句话）。\n" +
+                    "- 然后逐条列出支撑依据，每条依据后注明所在的文档片段编号（如“文档片段1”）。\n" +
+                    "- 如果答案涉及多个事实，用分点列出，每条后面用括号标注出处。\n\n" +
+                    "约束：\n" +
+                    "1. 如果文档未提供足够信息回答，请回复：“文档中未找到关于[具体问题]的信息。” 不要补充外部知识。\n" +
+                    "2. 禁止改写文档原意。\n" +
+                    "3. 不要添加“根据我的知识”等主观表述。";
 
     private static final String NOT_FOUND_MESSAGE = "抱歉，未找到与您问题相关的文档内容。";
 
@@ -188,8 +197,9 @@ public class RagAppService {
             context.append("【文档片段").append(i + 1).append("】").append(r.chunkText()).append("\n");
         }
 
+        // 用户消息包含文档内容和问题
         String userPrompt = String.format(
-                "请基于以下文档内容回答问题：\n\n%s\n\n问题：%s", context, query);
+                "【文档内容】\n%s\n\n【用户问题】\n%s", context.toString(), query);
 
         try {
             ChatLanguageModel chatModel = dynamicModelManager.getChatModel(ModelTypeEnum.CHAT);
