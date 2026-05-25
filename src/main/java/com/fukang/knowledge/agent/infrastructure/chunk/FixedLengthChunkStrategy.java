@@ -1,8 +1,8 @@
 package com.fukang.knowledge.agent.infrastructure.chunk;
 
-import com.fukang.knowledge.agent.application.knowledge.chunk.model.ChunkResult;
-import com.fukang.knowledge.agent.application.knowledge.chunk.model.ChunkResult.DocumentChunk;
-import com.fukang.knowledge.agent.application.knowledge.parsing.model.DocumentParseResult;
+import com.fukang.knowledge.agent.domain.knowledge.model.ChunkResult;
+import com.fukang.knowledge.agent.domain.knowledge.model.ChunkResult.DocumentChunk;
+import com.fukang.knowledge.agent.domain.knowledge.model.DocumentParseResult;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import lombok.extern.slf4j.Slf4j;

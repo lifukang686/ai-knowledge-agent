@@ -1,4 +1,4 @@
-package com.fukang.knowledge.agent.rag.model;
+package com.fukang.knowledge.agent.domain.rag.model;
 
 /**
  * 语义检索结果 DTO

@@ -1,11 +1,11 @@
 package com.fukang.knowledge.agent.infrastructure.chunk;
 
-import com.fukang.knowledge.agent.application.knowledge.chunk.model.ChunkResult;
-import com.fukang.knowledge.agent.application.knowledge.chunk.model.ChunkResult.DocumentChunk;
-import com.fukang.knowledge.agent.application.knowledge.parsing.model.DocumentParseResult;
+import com.fukang.knowledge.agent.domain.knowledge.model.ChunkResult;
+import com.fukang.knowledge.agent.domain.knowledge.model.ChunkResult.DocumentChunk;
+import com.fukang.knowledge.agent.domain.knowledge.model.DocumentParseResult;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
-import com.fukang.knowledge.agent.rag.config.ChunkingProperties;
+import com.fukang.knowledge.agent.infrastructure.config.ChunkingProperties;
 import dev.langchain4j.data.document.Document;
 import dev.langchain4j.data.document.DocumentSplitter;
 import dev.langchain4j.data.document.Metadata;

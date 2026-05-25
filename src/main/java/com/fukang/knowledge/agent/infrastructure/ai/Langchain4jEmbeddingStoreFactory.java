@@ -1,7 +1,7 @@
 package com.fukang.knowledge.agent.infrastructure.ai;
 
 import com.fukang.knowledge.agent.common.enums.ModelTypeEnum;
-import com.fukang.knowledge.agent.rag.config.VectorStoreProperties;
+import com.fukang.knowledge.agent.infrastructure.config.VectorStoreProperties;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.store.embedding.pgvector.PgVectorEmbeddingStore;
 import jakarta.annotation.PostConstruct;

@@ -1,4 +1,4 @@
-package com.fukang.knowledge.agent.application.knowledge.event;
+package com.fukang.knowledge.agent.domain.knowledge.event;
 
 import lombok.Getter;
 import org.springframework.context.ApplicationEvent;

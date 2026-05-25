@@ -1,14 +1,16 @@
-package com.fukang.knowledge.agent.rag;
+package com.fukang.knowledge.agent.application.rag;
 
 import com.fukang.knowledge.agent.api.qa.dto.QaResp;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.enums.ModelTypeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
+import com.fukang.knowledge.agent.domain.rag.model.SearchResult;
+import com.fukang.knowledge.agent.domain.rag.service.QueryRewriteService;
+import com.fukang.knowledge.agent.domain.rag.service.SemanticSearchService;
 import com.fukang.knowledge.agent.infrastructure.ai.DynamicModelManager;
+import com.fukang.knowledge.agent.infrastructure.config.RetrievalProperties;
 import com.fukang.knowledge.agent.infrastructure.persistence.mapper.KnowledgeBaseMapper;
-import com.fukang.knowledge.agent.rag.chain.RerankService;
-import com.fukang.knowledge.agent.rag.config.RetrievalProperties;
-import com.fukang.knowledge.agent.rag.model.SearchResult;
+import com.fukang.knowledge.agent.infrastructure.rag.RerankService;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;

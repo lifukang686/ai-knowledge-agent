@@ -1,8 +1,9 @@
 package com.fukang.knowledge.agent.application.knowledge.embedding;
 
-import com.fukang.knowledge.agent.application.knowledge.chunk.DocumentChunkStorageService;
-import com.fukang.knowledge.agent.application.knowledge.chunk.model.ChunkStorageResult;
-import com.fukang.knowledge.agent.application.knowledge.embedding.model.EmbeddingResult;
+import com.fukang.knowledge.agent.infrastructure.persistence.DocumentChunkStorageService;
+import com.fukang.knowledge.agent.infrastructure.ai.EmbeddingIndexStorageService;
+import com.fukang.knowledge.agent.domain.knowledge.model.ChunkStorageResult;
+import com.fukang.knowledge.agent.domain.knowledge.model.EmbeddingResult;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.DocumentChunkDO;

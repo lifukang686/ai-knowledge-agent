@@ -1,10 +1,10 @@
-package com.fukang.knowledge.agent.rag;
+package com.fukang.knowledge.agent.domain.rag.service;
 
 import com.fukang.knowledge.agent.application.knowledge.embedding.EmbeddingService;
-import com.fukang.knowledge.agent.application.knowledge.embedding.model.EmbeddingResult;
+import com.fukang.knowledge.agent.domain.knowledge.model.EmbeddingResult;
+import com.fukang.knowledge.agent.domain.rag.model.SearchResult;
 import com.fukang.knowledge.agent.infrastructure.ai.Langchain4jEmbeddingStoreFactory;
-import com.fukang.knowledge.agent.rag.config.RetrievalProperties;
-import com.fukang.knowledge.agent.rag.model.SearchResult;
+import com.fukang.knowledge.agent.infrastructure.config.RetrievalProperties;
 import dev.langchain4j.data.document.Metadata;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;

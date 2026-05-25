@@ -1,4 +1,4 @@
-package com.fukang.knowledge.agent.rag.config;
+package com.fukang.knowledge.agent.infrastructure.config;
 
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;

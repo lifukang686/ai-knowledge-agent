@@ -1,6 +1,6 @@
-package com.fukang.knowledge.agent.application.knowledge.pipeline;
+package com.fukang.knowledge.agent.domain.knowledge.service;
 
-import com.fukang.knowledge.agent.application.knowledge.event.DocumentUploadedEvent;
+import com.fukang.knowledge.agent.domain.knowledge.event.DocumentUploadedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;

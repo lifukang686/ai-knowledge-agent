@@ -1,7 +1,7 @@
 package com.fukang.knowledge.agent.application.knowledge.parsing;
 
-import com.fukang.knowledge.agent.application.knowledge.chunk.model.ChunkResult;
-import com.fukang.knowledge.agent.application.knowledge.parsing.model.DocumentParseResult;
+import com.fukang.knowledge.agent.domain.knowledge.model.ChunkResult;
+import com.fukang.knowledge.agent.domain.knowledge.model.DocumentParseResult;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.infrastructure.chunk.ChunkStrategy;
@@ -10,7 +10,7 @@ import com.fukang.knowledge.agent.infrastructure.chunk.Langchain4jChunkStrategy;
 import com.fukang.knowledge.agent.infrastructure.chunk.SentenceChunkStrategy;
 import com.fukang.knowledge.agent.infrastructure.parser.DocumentParser;
 import com.fukang.knowledge.agent.infrastructure.parser.DocumentParserFactory;
-import com.fukang.knowledge.agent.rag.config.ChunkingProperties;
+import com.fukang.knowledge.agent.infrastructure.config.ChunkingProperties;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 

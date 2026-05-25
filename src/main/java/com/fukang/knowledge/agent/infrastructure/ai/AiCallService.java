@@ -1,4 +1,4 @@
-package com.fukang.knowledge.agent.application.model;
+package com.fukang.knowledge.agent.infrastructure.ai;
 
 import com.fukang.knowledge.agent.infrastructure.ai.SpringAiClientImpl;
 import dev.langchain4j.model.output.Response;

@@ -1,6 +1,7 @@
-package com.fukang.knowledge.agent.application.knowledge.pipeline;
+package com.fukang.knowledge.agent.domain.knowledge.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.fukang.knowledge.agent.domain.knowledge.model.DocumentStatus;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.DocumentDO;
 import com.fukang.knowledge.agent.infrastructure.persistence.mapper.DocumentMapper;
 import lombok.RequiredArgsConstructor;

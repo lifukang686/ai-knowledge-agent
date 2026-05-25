@@ -1,4 +1,4 @@
-package com.fukang.knowledge.agent.application.knowledge.pipeline;
+package com.fukang.knowledge.agent.domain.knowledge.model;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

@@ -1,11 +1,12 @@
-package com.fukang.knowledge.agent.application.knowledge.pipeline;
+package com.fukang.knowledge.agent.domain.knowledge.service;
 
+import com.fukang.knowledge.agent.domain.knowledge.model.ChunkResult;
+import com.fukang.knowledge.agent.domain.knowledge.model.ChunkStorageResult;
+import com.fukang.knowledge.agent.domain.knowledge.model.DocumentParseResult;
+import com.fukang.knowledge.agent.domain.knowledge.model.DocumentStatus;
 import com.fukang.knowledge.agent.application.knowledge.chunk.DocumentChunkAppService;
-import com.fukang.knowledge.agent.application.knowledge.chunk.model.ChunkResult;
-import com.fukang.knowledge.agent.application.knowledge.chunk.model.ChunkStorageResult;
 import com.fukang.knowledge.agent.application.knowledge.embedding.DocumentEmbeddingAppService;
 import com.fukang.knowledge.agent.application.knowledge.parsing.DocumentProcessingService;
-import com.fukang.knowledge.agent.application.knowledge.parsing.model.DocumentParseResult;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.infrastructure.config.DocumentProcessingProperties;

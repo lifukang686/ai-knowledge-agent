@@ -1,4 +1,4 @@
-package com.fukang.knowledge.agent.application.knowledge.parsing.model;
+package com.fukang.knowledge.agent.domain.knowledge.model;
 
 import java.time.LocalDateTime;
 import java.util.Map;

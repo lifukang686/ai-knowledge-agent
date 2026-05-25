@@ -1,7 +1,8 @@
-package com.fukang.knowledge.agent.application.knowledge.embedding.model;
+package com.fukang.knowledge.agent.domain.knowledge.model;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 向量化结果
@@ -22,7 +23,7 @@ public record EmbeddingResult(
         List<EmbeddingVector> embeddings,
         String modelName,
         int totalTokens,
-        java.util.Map<String, Object> metadata,
+        Map<String, Object> metadata,
         LocalDateTime embeddingTime,
         boolean allSucceeded
 ) {
@@ -61,13 +62,13 @@ public record EmbeddingResult(
             List<EmbeddingVector> embeddings,
             String modelName,
             int totalTokens,
-            java.util.Map<String, Object> metadata) {
+            Map<String, Object> metadata) {
         return new EmbeddingResult(
                 embeddings.size(),
                 List.copyOf(embeddings),
                 modelName,
                 totalTokens,
-                metadata != null ? java.util.Map.copyOf(metadata) : java.util.Map.of(),
+                metadata != null ? Map.copyOf(metadata) : Map.of(),
                 LocalDateTime.now(),
                 true
         );
@@ -88,13 +89,13 @@ public record EmbeddingResult(
             int totalChunks,
             String modelName,
             int totalTokens,
-            java.util.Map<String, Object> metadata) {
+            Map<String, Object> metadata) {
         return new EmbeddingResult(
                 totalChunks,
                 embeddings != null ? List.copyOf(embeddings) : List.of(),
                 modelName,
                 totalTokens,
-                metadata != null ? java.util.Map.copyOf(metadata) : java.util.Map.of(),
+                metadata != null ? Map.copyOf(metadata) : Map.of(),
                 LocalDateTime.now(),
                 embeddings != null && embeddings.size() == totalChunks
         );

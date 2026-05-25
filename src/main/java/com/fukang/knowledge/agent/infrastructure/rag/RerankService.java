@@ -1,6 +1,6 @@
-package com.fukang.knowledge.agent.rag.chain;
+package com.fukang.knowledge.agent.infrastructure.rag;
 
-import com.fukang.knowledge.agent.rag.model.SearchResult;
+import com.fukang.knowledge.agent.domain.rag.model.SearchResult;
 import com.huaban.analysis.jieba.JiebaSegmenter;
 import dev.langchain4j.rag.DefaultRetrievalAugmentor;
 import dev.langchain4j.rag.RetrievalAugmentor;

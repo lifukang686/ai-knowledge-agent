@@ -5,7 +5,7 @@ import com.fukang.knowledge.agent.api.qa.dto.QaResp;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.common.result.Result;
-import com.fukang.knowledge.agent.rag.RagAppService;
+import com.fukang.knowledge.agent.application.rag.RagAppService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;

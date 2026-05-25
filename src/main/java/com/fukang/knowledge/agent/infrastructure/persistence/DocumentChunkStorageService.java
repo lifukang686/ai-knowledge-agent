@@ -1,11 +1,11 @@
-package com.fukang.knowledge.agent.application.knowledge.chunk;
+package com.fukang.knowledge.agent.infrastructure.persistence;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.fukang.knowledge.agent.application.knowledge.chunk.model.ChunkResult;
-import com.fukang.knowledge.agent.application.knowledge.chunk.model.ChunkResult.DocumentChunk;
-import com.fukang.knowledge.agent.application.knowledge.chunk.model.ChunkStorageResult;
-import com.fukang.knowledge.agent.application.knowledge.chunk.model.ChunkStorageResult.FailedChunkDetail;
+import com.fukang.knowledge.agent.domain.knowledge.model.ChunkResult;
+import com.fukang.knowledge.agent.domain.knowledge.model.ChunkResult.DocumentChunk;
+import com.fukang.knowledge.agent.domain.knowledge.model.ChunkStorageResult;
+import com.fukang.knowledge.agent.domain.knowledge.model.ChunkStorageResult.FailedChunkDetail;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.DocumentChunkDO;

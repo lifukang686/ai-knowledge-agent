@@ -1,11 +1,10 @@
-package com.fukang.knowledge.agent.application.knowledge.embedding;
+package com.fukang.knowledge.agent.infrastructure.ai;
 
-import com.fukang.knowledge.agent.application.knowledge.chunk.model.ChunkStorageResult;
-import com.fukang.knowledge.agent.application.knowledge.embedding.model.EmbeddingResult;
-import com.fukang.knowledge.agent.application.knowledge.embedding.model.EmbeddingResult.EmbeddingVector;
+import com.fukang.knowledge.agent.domain.knowledge.model.ChunkStorageResult;
+import com.fukang.knowledge.agent.domain.knowledge.model.EmbeddingResult;
+import com.fukang.knowledge.agent.domain.knowledge.model.EmbeddingResult.EmbeddingVector;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
-import com.fukang.knowledge.agent.infrastructure.ai.Langchain4jEmbeddingStoreFactory;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.DocumentChunkDO;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
