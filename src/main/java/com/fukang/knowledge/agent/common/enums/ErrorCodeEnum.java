@@ -87,7 +87,31 @@ public enum ErrorCodeEnum {
     /** 模型工厂创建模型实例失败 */
     MODEL_CREATION_FAILED(4002, "创建模型实例失败"),
     /** 未找到该类型的模型配置 */
-    NO_MODEL_CONFIG_AVAILABLE(4003, "未找到该类型的模型配置");
+    NO_MODEL_CONFIG_AVAILABLE(4003, "未找到该类型的模型配置"),
+
+    // ---- Agent 模块业务错误码 (5xxx) ----
+    /** Agent 配置不存在 */
+    AGENT_NOT_EXIST(5001, "Agent配置不存在"),
+    /** Agent 规划失败 */
+    AGENT_PLANNING_FAILED(5002, "Agent规划失败"),
+    /** Agent 计划解析失败 */
+    AGENT_PLAN_PARSE_FAILED(5003, "Agent计划解析失败"),
+    /** Agent 运行记录不存在 */
+    AGENT_RUN_NOT_EXIST(5004, "Agent运行记录不存在"),
+    /** Agent 步骤执行失败 */
+    AGENT_STEP_EXECUTION_FAILED(5005, "Agent步骤执行失败"),
+    /** Agent 执行步数超过限制 */
+    AGENT_MAX_STEPS_EXCEEDED(5006, "Agent执行步数超过限制"),
+    /** 工具不存在 */
+    AGENT_TOOL_NOT_FOUND(5007, "工具不存在"),
+    /** 工具执行器不存在 */
+    AGENT_TOOL_EXECUTOR_NOT_FOUND(5008, "工具执行器不存在"),
+
+    // ---- 工具模块业务错误码 (51xx) ----
+    /** 工具名称已存在 */
+    TOOL_ALREADY_EXISTS(5101, "工具名称已存在"),
+    /** 工具配置无效 */
+    TOOL_CONFIG_INVALID(5102, "工具配置无效");
 
     /** 错误码 */
     private final int code;
