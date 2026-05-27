@@ -7,21 +7,28 @@ export interface Tool extends BaseEntity {
   tags?: string[];
 }
 
-export interface ToolCreateRequest {
+export interface CreateToolReq {
   name: string;
-  description?: string;
-  executor_type: 'http' | 'function' | 'script';
-  executor_config: Record<string, any>;
-  schema?: Record<string, any>;
-  tags?: string[];
+  description: string;
+  executorType: 'HTTP' | 'SQL' | 'LOCAL_METHOD';
+  executorConfig: string;
+  parametersSchema: string;
 }
 
-export interface ToolUpdateRequest extends Partial<ToolCreateRequest> {}
-
-export interface ToolQueryParams extends PaginationParams {
-  name?: string;
-  executor_type?: string;
-  tags?: string[];
+export interface ToolItem {
+  id: string;
+  name: string;
+  description: string;
+  executorType: string;
+  executorConfig: string;
+  parametersSchema: string;
+  enabled: boolean;
 }
 
-import { BaseEntity, PaginationParams } from './common';
+export interface UpdateToolReq {
+  name: string;
+  description: string;
+  executorType: string;
+  executorConfig: string;
+  parametersSchema: string;
+}
