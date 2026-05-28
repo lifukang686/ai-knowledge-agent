@@ -156,6 +156,7 @@ public class ToolRegistry {
         log.info("工具更新成功: id={}, oldName={}, newName={}", id, oldName, toolDefinition.name());
         return new ToolResp(id, toolDefinition.name(), toolDefinition.description(),
                 toolDefinition.executorType(), toolDefinition.parametersSchema(),
+                toolDefinition.executorConfig(),
                 toolDefinition.enabled());
     }
 
@@ -227,6 +228,7 @@ public class ToolRegistry {
                 toolDO.getName(),
                 toolDO.getDescription(),
                 ExecutorTypeEnum.fromCode(toolDO.getExecutorType()),
+                toolDO.getExecutorConfig(),
                 toolDO.getParametersSchema(),
                 toolDO.getEnabled()
         );
