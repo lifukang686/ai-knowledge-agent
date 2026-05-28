@@ -41,4 +41,12 @@ public class AgentDO extends BaseEntity {
     /** 最大执行步数，防止无限循环，默认 10 */
     @Column(name = "max_steps")
     private Integer maxSteps;
+
+    /**
+     * 执行策略：PLAN_EXECUTE（默认，复杂多步任务）/ AI_SERVICES（LLM 原生工具调用）
+     * <p>对应数据库 agent 表的 execution_strategy 字段 (varchar)。
+     * 若此字段为空或不存在，默认使用 PLAN_EXECUTE 策略</p>
+     */
+    @Column(name = "execution_strategy", length = 20)
+    private String executionStrategy;
 }

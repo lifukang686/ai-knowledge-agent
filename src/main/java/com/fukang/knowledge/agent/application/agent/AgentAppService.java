@@ -3,13 +3,17 @@ package com.fukang.knowledge.agent.application.agent;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
+import com.fukang.knowledge.agent.common.enums.ModelTypeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.domain.agent.model.*;
+import com.fukang.knowledge.agent.infrastructure.ai.DynamicModelManager;
 import com.fukang.knowledge.agent.infrastructure.config.AgentProperties;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.AgentDO;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.AgentRunDO;
 import com.fukang.knowledge.agent.infrastructure.persistence.mapper.AgentMapper;
 import com.fukang.knowledge.agent.infrastructure.persistence.mapper.AgentRunMapper;
+import com.fukang.knowledge.agent.infrastructure.tool.DynamicToolProvider;
+import dev.langchain4j.service.AiServices;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -50,19 +54,42 @@ public class AgentAppService {
     private final AgentPlanner agentPlanner;
     private final AgentExecutor agentExecutor;
     private final AgentReasoner agentReasoner;
+    private final DynamicToolProvider dynamicToolProvider;
+    private final DynamicModelManager dynamicModelManager;
     private final AgentProperties agentProperties;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
      * 执行 Agent 任务
      *
-     * @param agentId Agent 配置 ID
-     * @param task    用户任务描述
+     * @param agentId  Agent 配置 ID
+     * @param task     用户任务描述
+     * @param strategy 执行策略
      * @return Agent 运行结果
      * @throws BaseException Agent 配置不存在时抛出
      */
     @Transactional
+    public AgentRunResult run(Long agentId, String task, ExecutionStrategy strategy) {
+        ExecutionStrategy execStrategy = strategy != null ? strategy : ExecutionStrategy.PLAN_EXECUTE;
+
+        if (execStrategy == ExecutionStrategy.AI_SERVICES) {
+            return runWithAiServices(agentId, task);
+        }
+        return runWithPlanExecute(agentId, task);
+    }
+
+    /**
+     * 执行 Agent 任务（默认 Plan-Execute 策略）
+     */
+    @Transactional
     public AgentRunResult run(Long agentId, String task) {
+        return run(agentId, task, ExecutionStrategy.PLAN_EXECUTE);
+    }
+
+    /**
+     * Plan-Then-Execute 策略（已有逻辑不变）
+     */
+    private AgentRunResult runWithPlanExecute(Long agentId, String task) {
         AgentDO agentDO = agentMapper.selectById(agentId);
         if (agentDO == null) {
             throw new BaseException(ErrorCodeEnum.AGENT_NOT_EXIST);
@@ -182,6 +209,63 @@ public class AgentAppService {
         List<AgentStep> steps = parseSteps(runDO.getLog());
         return buildResult(runId, runDO.getOutputAnswer(), runDO.getStatus(),
                 steps, calculateDuration(runDO.getStartTime(), runDO.getEndTime()));
+    }
+
+    /**
+     * AiServices 轻量执行策略（ReAct 模式）
+     * <p>利用 LangChain4j 的 {@link AiServices} 框架，让 LLM 通过 Function Calling
+     * 自主决定何时调用哪个工具。框架自动管理 Thought → Action → Observation 循环，
+     * 无需手动编写工具调用循环逻辑</p>
+     *
+     * @param agentId Agent 配置 ID
+     * @param task    用户任务描述
+     * @return Agent 运行结果
+     */
+    @Transactional
+    public AgentRunResult runWithAiServices(Long agentId, String task) {
+        AgentDO agentDO = agentMapper.selectById(agentId);
+        if (agentDO == null) {
+            throw new BaseException(ErrorCodeEnum.AGENT_NOT_EXIST);
+        }
+
+        AgentRunDO runDO = createRunRecord(agentId, task);
+        runDO.setStatus("EXECUTING");
+        agentRunMapper.updateById(runDO);
+
+        log.info("Agent [AI_SERVICES] 开始执行: runId={}, agentId={}, task={}", runDO.getId(), agentId, task);
+
+        long startTime = System.currentTimeMillis();
+
+        try {
+            AgentAiService aiService = AiServices
+                    .builder(AgentAiService.class)
+                    .chatLanguageModel(dynamicModelManager.getChatModel(ModelTypeEnum.CHAT))
+                    .systemMessageProvider(memoryId ->
+                            agentDO.getSystemPrompt() != null && !agentDO.getSystemPrompt().isBlank()
+                                    ? agentDO.getSystemPrompt()
+                                    : "你是一个智能助手，能够根据需要调用工具来帮助用户完成任务。")
+                    .toolProvider(dynamicToolProvider)
+                    .build();
+
+            String answer = aiService.chat(task);
+
+            long totalDuration = System.currentTimeMillis() - startTime;
+            AgentContext context = new AgentContext(task);
+            context.setStatus(AgentContext.AgentContextStatus.COMPLETED);
+            updateRunRecord(runDO, "COMPLETED", answer, context);
+
+            log.info("Agent [AI_SERVICES] 执行完成: runId={}, duration={}ms", runDO.getId(), totalDuration);
+            return buildResult(runDO.getId(), answer, "COMPLETED", List.of(), totalDuration);
+
+        } catch (Exception e) {
+            log.error("Agent [AI_SERVICES] 执行异常: runId={}, agentId={}", runDO.getId(), agentId, e);
+            long totalDuration = System.currentTimeMillis() - startTime;
+            String errorMsg = "执行异常: " + e.getMessage();
+            AgentContext context = new AgentContext(task);
+            context.setStatus(AgentContext.AgentContextStatus.FAILED);
+            updateRunRecord(runDO, "FAILED", errorMsg, context);
+            return buildResult(runDO.getId(), errorMsg, "FAILED", List.of(), totalDuration);
+        }
     }
 
     private void executeAndRecord(AgentContext context, PlanStep step) {

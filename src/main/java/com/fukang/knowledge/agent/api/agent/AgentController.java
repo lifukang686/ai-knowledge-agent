@@ -4,6 +4,7 @@ import com.fukang.knowledge.agent.api.agent.dto.AgentCreateReq;
 import com.fukang.knowledge.agent.api.agent.dto.AgentResp;
 import com.fukang.knowledge.agent.api.agent.dto.AgentRunReq;
 import com.fukang.knowledge.agent.domain.agent.model.AgentRunResult;
+import com.fukang.knowledge.agent.domain.agent.model.ExecutionStrategy;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.common.result.Result;
@@ -47,7 +48,8 @@ public class AgentController {
         if (req.task() == null || req.task().isBlank()) {
             throw new BaseException(ErrorCodeEnum.BAD_REQUEST.getCode(), "任务描述不能为空");
         }
-        AgentRunResult result = agentAppService.run(agentId, req.task());
+        ExecutionStrategy strategy = ExecutionStrategy.from(req.executionStrategy());
+        AgentRunResult result = agentAppService.run(agentId, req.task(), strategy);
         return Result.success(result);
     }
 
