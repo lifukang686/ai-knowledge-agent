@@ -3,7 +3,7 @@ package com.fukang.knowledge.agent.api.agent;
 import com.fukang.knowledge.agent.api.agent.dto.AgentCreateReq;
 import com.fukang.knowledge.agent.api.agent.dto.AgentResp;
 import com.fukang.knowledge.agent.api.agent.dto.AgentRunReq;
-import com.fukang.knowledge.agent.application.agent.AgentRunResult;
+import com.fukang.knowledge.agent.domain.agent.model.AgentRunResult;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.common.result.Result;

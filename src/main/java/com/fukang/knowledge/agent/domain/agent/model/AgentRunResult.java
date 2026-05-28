@@ -1,4 +1,4 @@
-package com.fukang.knowledge.agent.application.agent;
+package com.fukang.knowledge.agent.domain.agent.model;
 
 import java.util.List;
 

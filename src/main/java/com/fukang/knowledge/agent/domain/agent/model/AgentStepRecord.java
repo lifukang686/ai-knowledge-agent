@@ -1,4 +1,4 @@
-package com.fukang.knowledge.agent.application.agent;
+package com.fukang.knowledge.agent.domain.agent.model;
 
 /**
  * Agent 执行步骤记录 DTO
