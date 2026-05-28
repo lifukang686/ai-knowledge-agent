@@ -1,13 +1,13 @@
-package com.fukang.knowledge.agent.agent.planning;
+package com.fukang.knowledge.agent.application.agent;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fukang.knowledge.agent.agent.registry.ToolRegistry;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.enums.ModelTypeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.domain.agent.model.ToolInfo;
+import com.fukang.knowledge.agent.domain.agent.model.PlanStep;
 import com.fukang.knowledge.agent.infrastructure.ai.DynamicModelManager;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;

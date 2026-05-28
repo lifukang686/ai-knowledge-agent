@@ -1,4 +1,4 @@
-package com.fukang.knowledge.agent.agent.execution;
+package com.fukang.knowledge.agent.domain.agent.model;
 
 /**
  * 工具执行结果

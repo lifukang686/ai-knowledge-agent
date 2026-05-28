@@ -1,4 +1,4 @@
-package com.fukang.knowledge.agent.agent.registry;
+package com.fukang.knowledge.agent.application.agent;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
@@ -155,8 +155,8 @@ public class ToolRegistry {
 
         log.info("工具更新成功: id={}, oldName={}, newName={}", id, oldName, toolDefinition.name());
         return new ToolResp(id, toolDefinition.name(), toolDefinition.description(),
-                toolDefinition.executorType(), toolDefinition.executorConfig(),
-                toolDefinition.parametersSchema(), toolDefinition.enabled());
+                toolDefinition.executorType(), toolDefinition.parametersSchema(),
+                toolDefinition.enabled());
     }
 
     /**
@@ -227,7 +227,6 @@ public class ToolRegistry {
                 toolDO.getName(),
                 toolDO.getDescription(),
                 ExecutorTypeEnum.fromCode(toolDO.getExecutorType()),
-                toolDO.getExecutorConfig(),
                 toolDO.getParametersSchema(),
                 toolDO.getEnabled()
         );

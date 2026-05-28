@@ -1,8 +1,10 @@
-package com.fukang.knowledge.agent.agent.execution;
+package com.fukang.knowledge.agent.application.agent;
 
-import com.fukang.knowledge.agent.agent.registry.ToolRegistry;
-import com.fukang.knowledge.agent.agent.planning.PlanStep;
 import com.fukang.knowledge.agent.domain.agent.model.ToolDefinition;
+import com.fukang.knowledge.agent.domain.agent.model.Observation;
+import com.fukang.knowledge.agent.domain.agent.model.PlanStep;
+import com.fukang.knowledge.agent.domain.agent.service.ToolExecutor;
+import com.fukang.knowledge.agent.infrastructure.tool.ToolExecutorFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -50,7 +52,7 @@ public class AgentExecutor {
             ToolExecutor executor = executorFactory.getExecutor(tool.executorType());
 
             Map<String, Object> params = step.parameters() != null ? step.parameters() : Map.of();
-            ToolExecutionResult result = executor.execute(tool, params);
+            com.fukang.knowledge.agent.domain.agent.model.ToolExecutionResult result = executor.execute(tool, params);
 
             long duration = System.currentTimeMillis() - start;
 

@@ -1,4 +1,4 @@
-package com.fukang.knowledge.agent.agent.context;
+package com.fukang.knowledge.agent.domain.agent.model;
 
 import java.util.Map;
 

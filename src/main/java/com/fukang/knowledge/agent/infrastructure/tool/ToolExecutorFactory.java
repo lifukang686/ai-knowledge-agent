@@ -1,6 +1,7 @@
-package com.fukang.knowledge.agent.agent.execution;
+package com.fukang.knowledge.agent.infrastructure.tool;
 
 import com.fukang.knowledge.agent.common.enums.ExecutorTypeEnum;
+import com.fukang.knowledge.agent.domain.agent.service.ToolExecutor;
 import org.springframework.stereotype.Component;
 
 /**

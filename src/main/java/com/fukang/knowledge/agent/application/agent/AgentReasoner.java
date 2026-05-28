@@ -1,10 +1,11 @@
-package com.fukang.knowledge.agent.agent.reasoning;
+package com.fukang.knowledge.agent.application.agent;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fukang.knowledge.agent.agent.context.AgentContext;
-import com.fukang.knowledge.agent.agent.context.AgentStep;
-import com.fukang.knowledge.agent.agent.planning.PlanStep;
+import com.fukang.knowledge.agent.domain.agent.model.AgentContext;
+import com.fukang.knowledge.agent.domain.agent.model.AgentStep;
+import com.fukang.knowledge.agent.domain.agent.model.PlanStep;
+import com.fukang.knowledge.agent.domain.agent.model.ReasoningResult;
 import com.fukang.knowledge.agent.common.enums.ModelTypeEnum;
 import com.fukang.knowledge.agent.infrastructure.ai.DynamicModelManager;
 import dev.langchain4j.data.message.AiMessage;
@@ -138,7 +139,6 @@ public class AgentReasoner {
             return buildFallbackFinalAnswer(context);
         }
 
-        // 上一步失败
         String error = lastStep.errorMessage() != null ? lastStep.errorMessage() : "";
         if (error.contains("超时") || error.contains("timeout") || error.contains("timed out")) {
             return new ReasoningResult(ReasoningResult.Decision.RETRY, "上一步执行超时，建议重试");

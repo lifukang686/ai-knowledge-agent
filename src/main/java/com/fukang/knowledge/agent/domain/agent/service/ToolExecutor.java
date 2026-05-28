@@ -1,6 +1,7 @@
-package com.fukang.knowledge.agent.agent.execution;
+package com.fukang.knowledge.agent.domain.agent.service;
 
 import com.fukang.knowledge.agent.domain.agent.model.ToolDefinition;
+import com.fukang.knowledge.agent.domain.agent.model.ToolExecutionResult;
 
 import java.util.Map;
 

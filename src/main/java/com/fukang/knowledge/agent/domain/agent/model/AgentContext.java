@@ -1,6 +1,5 @@
-package com.fukang.knowledge.agent.agent.context;
+package com.fukang.knowledge.agent.domain.agent.model;
 
-import com.fukang.knowledge.agent.agent.planning.PlanStep;
 import lombok.Data;
 
 import java.util.ArrayList;

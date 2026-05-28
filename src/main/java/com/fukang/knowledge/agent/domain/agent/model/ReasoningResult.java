@@ -1,4 +1,4 @@
-package com.fukang.knowledge.agent.agent.reasoning;
+package com.fukang.knowledge.agent.domain.agent.model;
 
 /**
  * 推理结果值对象

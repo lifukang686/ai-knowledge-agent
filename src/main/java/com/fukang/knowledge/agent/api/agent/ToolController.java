@@ -4,7 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fukang.knowledge.agent.api.agent.dto.ToolCreateReq;
 import com.fukang.knowledge.agent.api.agent.dto.ToolResp;
 import com.fukang.knowledge.agent.api.agent.dto.ToolUpdateReq;
-import com.fukang.knowledge.agent.agent.registry.ToolRegistry;
+import com.fukang.knowledge.agent.application.agent.ToolRegistry;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.common.result.PageResponse;
