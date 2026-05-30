@@ -6,6 +6,7 @@ import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.enums.ModelTypeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.domain.agent.model.*;
+import com.fukang.knowledge.agent.infrastructure.ai.AgentMemoryFactory;
 import com.fukang.knowledge.agent.infrastructure.ai.DynamicModelManager;
 import com.fukang.knowledge.agent.infrastructure.config.AgentProperties;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.AgentDO;
@@ -14,7 +15,6 @@ import com.fukang.knowledge.agent.infrastructure.persistence.mapper.AgentMapper;
 import com.fukang.knowledge.agent.infrastructure.persistence.mapper.AgentRunMapper;
 import com.fukang.knowledge.agent.infrastructure.tool.DynamicToolProvider;
 import dev.langchain4j.service.AiServices;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,7 +46,6 @@ import java.util.List;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class AgentAppService {
 
     private final AgentMapper agentMapper;
@@ -56,8 +55,29 @@ public class AgentAppService {
     private final AgentReasoner agentReasoner;
     private final DynamicToolProvider dynamicToolProvider;
     private final DynamicModelManager dynamicModelManager;
+    private final AgentMemoryFactory memoryFactory;
     private final AgentProperties agentProperties;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    public AgentAppService(AgentMapper agentMapper,
+                           AgentRunMapper agentRunMapper,
+                           AgentPlanner agentPlanner,
+                           AgentExecutor agentExecutor,
+                           AgentReasoner agentReasoner,
+                           DynamicToolProvider dynamicToolProvider,
+                           DynamicModelManager dynamicModelManager,
+                           AgentMemoryFactory memoryFactory,
+                           AgentProperties agentProperties) {
+        this.agentMapper = agentMapper;
+        this.agentRunMapper = agentRunMapper;
+        this.agentPlanner = agentPlanner;
+        this.agentExecutor = agentExecutor;
+        this.agentReasoner = agentReasoner;
+        this.dynamicToolProvider = dynamicToolProvider;
+        this.dynamicModelManager = dynamicModelManager;
+        this.memoryFactory = memoryFactory;
+        this.agentProperties = agentProperties;
+    }
 
     /**
      * 执行 Agent 任务
@@ -100,6 +120,7 @@ public class AgentAppService {
 
         AgentRunDO runDO = createRunRecord(agentId, task);
         AgentContext context = new AgentContext(task);
+        context.setChatMemory(memoryFactory.createDefault());
 
         long startTime = System.currentTimeMillis();
 
@@ -245,6 +266,7 @@ public class AgentAppService {
                                     ? agentDO.getSystemPrompt()
                                     : "你是一个智能助手，能够根据需要调用工具来帮助用户完成任务。")
                     .toolProvider(dynamicToolProvider)
+                    .chatMemory(memoryFactory.createDefault())
                     .build();
 
             String answer = aiService.chat(task);

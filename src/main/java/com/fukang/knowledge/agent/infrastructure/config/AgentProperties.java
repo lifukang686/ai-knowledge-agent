@@ -25,4 +25,7 @@ public class AgentProperties {
 
     /** 是否启用并行工具调用（二期功能，暂不启用） */
     private boolean parallelExecution = false;
+
+    /** ChatMemory 最大消息数（滑动窗口），默认 20 */
+    private int chatMemoryMaxMessages = 20;
 }

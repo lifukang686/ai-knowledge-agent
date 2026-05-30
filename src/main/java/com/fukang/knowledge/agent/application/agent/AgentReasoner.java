@@ -7,18 +7,20 @@ import com.fukang.knowledge.agent.domain.agent.model.AgentStep;
 import com.fukang.knowledge.agent.domain.agent.model.PlanStep;
 import com.fukang.knowledge.agent.domain.agent.model.ReasoningResult;
 import com.fukang.knowledge.agent.common.enums.ModelTypeEnum;
+import com.fukang.knowledge.agent.infrastructure.ai.AgentMemoryFactory;
 import com.fukang.knowledge.agent.infrastructure.ai.DynamicModelManager;
+import com.fukang.knowledge.agent.infrastructure.ai.PromptTemplateManager;
 import dev.langchain4j.data.message.AiMessage;
-import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.model.chat.ChatLanguageModel;
 import dev.langchain4j.model.output.Response;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -35,26 +37,10 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class AgentReasoner {
 
     private static final String REASONING_SYSTEM_PROMPT = """
             你是一个任务执行推理助手。你正在帮助用户完成一个任务，已经执行了一些步骤。
-            
-            【原始任务】
-            {originalTask}
-            
-            【已执行的步骤及结果】
-            {stepsHistory}
-            
-            【当前状态】
-            已执行 {completedSteps} 个步骤，原始计划共 {totalSteps} 个步骤。
-            剩余待执行步骤：
-            {remainingSteps}
-            
-            【上一步执行结果】
-            成功: {lastStepSuccess}
-            {lastStepDetail}
             
             请判断下一步应该做什么，按以下 JSON 格式返回（仅返回 JSON，不要包含 markdown 标记或其他内容）：
             {
@@ -72,7 +58,17 @@ public class AgentReasoner {
             4. ABORT — 上一步失败的不可恢复错误（如参数错误、资源不存在），content 说明终止原因""";
 
     private final DynamicModelManager dynamicModelManager;
+    private final AgentMemoryFactory memoryFactory;
+    private final PromptTemplateManager promptTemplateManager;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    public AgentReasoner(DynamicModelManager dynamicModelManager,
+                         AgentMemoryFactory memoryFactory,
+                         PromptTemplateManager promptTemplateManager) {
+        this.dynamicModelManager = dynamicModelManager;
+        this.memoryFactory = memoryFactory;
+        this.promptTemplateManager = promptTemplateManager;
+    }
 
     /**
      * 根据 Agent 执行上下文进行推理决策
@@ -91,23 +87,29 @@ public class AgentReasoner {
         String lastStepDetail = formatLastStepDetail(lastStep);
         boolean lastStepSuccess = lastStep != null && Boolean.TRUE.equals(lastStep.success());
 
-        String prompt = REASONING_SYSTEM_PROMPT
-                .replace("{originalTask}", context.getTask())
-                .replace("{stepsHistory}", stepsHistory)
-                .replace("{completedSteps}", String.valueOf(context.getCompletedStepCount()))
-                .replace("{totalSteps}", String.valueOf(context.getTotalStepCount()))
-                .replace("{remainingSteps}", remainingSteps)
-                .replace("{lastStepSuccess}", String.valueOf(lastStepSuccess))
-                .replace("{lastStepDetail}", lastStepDetail);
+        String userPrompt = promptTemplateManager.renderText("agent/reasoning", Map.of(
+                "originalTask", context.getTask(),
+                "stepsHistory", stepsHistory,
+                "completedSteps", String.valueOf(context.getCompletedStepCount()),
+                "totalSteps", String.valueOf(context.getTotalStepCount()),
+                "remainingSteps", remainingSteps,
+                "lastStepSuccess", String.valueOf(lastStepSuccess),
+                "lastStepDetail", lastStepDetail
+        ));
+
+        ChatMemory chatMemory = context.getChatMemory();
+        if (chatMemory == null) {
+            chatMemory = memoryFactory.createDefault();
+            context.setChatMemory(chatMemory);
+            chatMemory.add(SystemMessage.from(REASONING_SYSTEM_PROMPT));
+        }
+        chatMemory.add(UserMessage.from(userPrompt));
 
         String jsonResponse;
         try {
             ChatLanguageModel chatModel = dynamicModelManager.getChatModel(ModelTypeEnum.CHAT);
-            List<ChatMessage> messages = List.of(
-                    SystemMessage.from(prompt),
-                    UserMessage.from("请根据以上信息做出决策")
-            );
-            Response<AiMessage> response = chatModel.generate(messages);
+            Response<AiMessage> response = chatModel.generate(chatMemory.messages());
+            chatMemory.add(response.content());
             jsonResponse = extractJson(response.content().text());
             log.debug("LLM 推理响应: {}", jsonResponse);
             return parseReasoningResult(jsonResponse);

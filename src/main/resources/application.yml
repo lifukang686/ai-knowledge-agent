@@ -32,10 +32,12 @@ knowledge-agent:
     cache-max-size: 50
   # 语义检索配置
   retrieval:
-    # 默认返回结果数量
-    top-k: 8
-    # 默认相似度阈值 (0.0 ~ 1.0)，低于此值的结果将被过滤
-    similarity-threshold: 0.6
+    # 以下为默认值，仅需配置与默认值不同的项
+    # top-k: 8
+    # similarity-threshold: 0.6
+    # hybrid-enabled: true
+    # bm25-threshold: 0.1
+    # rrf-k: 60
   # pgvector 向量存储配置（langchain4j 集成）
   vector-store:
     table-name: vector_embedding

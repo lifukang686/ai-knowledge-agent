@@ -6,7 +6,7 @@ import com.fukang.knowledge.agent.common.enums.ModelTypeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.domain.rag.model.SearchResult;
 import com.fukang.knowledge.agent.infrastructure.rag.QueryRewriteService;
-import com.fukang.knowledge.agent.infrastructure.rag.SemanticSearchService;
+import com.fukang.knowledge.agent.infrastructure.rag.HybridSearchService;
 import com.fukang.knowledge.agent.infrastructure.ai.DynamicModelManager;
 import com.fukang.knowledge.agent.infrastructure.config.RetrievalProperties;
 import com.fukang.knowledge.agent.infrastructure.persistence.mapper.KnowledgeBaseMapper;
@@ -72,7 +72,7 @@ public class RagAppService {
 
     private final QueryRewriteService queryRewriteService;
     private final KnowledgeBaseMapper knowledgeBaseMapper;
-    private final SemanticSearchService semanticSearchService;
+    private final HybridSearchService hybridSearchService;
     private final RetrievalProperties retrievalProperties;
     private final RerankService rerankService;
     private final DynamicModelManager dynamicModelManager;
@@ -150,11 +150,11 @@ public class RagAppService {
     }
 
     /**
-     * 双路检索：改写查询优先，原始查询补充
+     * 混合检索：改写查询优先，原始查询补充
      */
     private List<SearchResult> retrieveWithFallback(String rewrittenQuery, String originalQuery,
                                                      Long knowledgeBaseId, int topK, double threshold) {
-        List<SearchResult> rewrittenResults = semanticSearchService.searchWithPgVector(
+        List<SearchResult> rewrittenResults = hybridSearchService.search(
                 rewrittenQuery, knowledgeBaseId, topK, threshold);
 
         if (rewrittenResults.size() >= topK || rewrittenQuery.equals(originalQuery)) {
@@ -162,7 +162,7 @@ public class RagAppService {
         }
 
         log.info("改写查询检索结果不足 ({} < {})，使用原始查询补充检索", rewrittenResults.size(), topK);
-        List<SearchResult> originalResults = semanticSearchService.searchWithPgVector(
+        List<SearchResult> originalResults = hybridSearchService.search(
                 originalQuery, knowledgeBaseId, topK, threshold);
 
         Set<Long> existingChunkIds = rewrittenResults.stream()

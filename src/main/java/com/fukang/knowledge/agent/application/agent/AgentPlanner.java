@@ -8,14 +8,14 @@ import com.fukang.knowledge.agent.common.enums.ModelTypeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.domain.agent.model.ToolInfo;
 import com.fukang.knowledge.agent.domain.agent.model.PlanStep;
+import com.fukang.knowledge.agent.infrastructure.ai.AgentMemoryFactory;
 import com.fukang.knowledge.agent.infrastructure.ai.DynamicModelManager;
+import com.fukang.knowledge.agent.infrastructure.ai.PromptTemplateManager;
 import dev.langchain4j.data.message.AiMessage;
-import dev.langchain4j.data.message.ChatMessage;
-import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.model.chat.ChatLanguageModel;
 import dev.langchain4j.model.output.Response;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -31,42 +31,23 @@ import java.util.Map;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class AgentPlanner {
-
-    private static final String PLANNING_SYSTEM_PROMPT = """
-            你是一个任务规划专家。根据用户的任务描述和可用工具列表，生成详细的执行计划。
-            
-            【可用工具列表】
-            {tools}
-            
-            【任务描述】
-            {task}
-            
-            请仔细分析任务，按以下 JSON 格式返回执行计划（仅返回 JSON，不要包含其他内容）：
-            {
-              "steps": [
-                {
-                  "stepOrder": 1,
-                  "toolName": "工具名称（必须是上面工具列表中的某个工具）",
-                  "parameters": {"参数名": "参数值"},
-                  "reasoning": "为什么需要这一步，用简短的中文说明"
-                }
-              ]
-            }
-            
-            规则：
-            1. 每个步骤必须使用上面【可用工具列表】中的某个工具
-            2. 参数的取值要合理，不能凭空捏造，参数值应符合参数 Schema 的类型要求
-            3. 步骤之间的数据依赖需要考虑清楚
-            4. 如果任务简单，可能只需要 1-2 步
-            5. 如果某个参数的取值依赖于前一步的输出，请用 "{{上一步的输出字段}}" 格式标注
-            6. stepOrder 从 1 开始递增
-            7. 仅返回 JSON，不要有任何额外的解释文字""";
 
     private final DynamicModelManager dynamicModelManager;
     private final ToolRegistry toolRegistry;
+    private final AgentMemoryFactory memoryFactory;
+    private final PromptTemplateManager promptTemplateManager;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    public AgentPlanner(DynamicModelManager dynamicModelManager,
+                        ToolRegistry toolRegistry,
+                        AgentMemoryFactory memoryFactory,
+                        PromptTemplateManager promptTemplateManager) {
+        this.dynamicModelManager = dynamicModelManager;
+        this.toolRegistry = toolRegistry;
+        this.memoryFactory = memoryFactory;
+        this.promptTemplateManager = promptTemplateManager;
+    }
 
     /**
      * 根据任务描述生成执行计划
@@ -80,18 +61,16 @@ public class AgentPlanner {
         log.info("开始规划: 任务长度={}, 可用工具数={}", task.length(), tools.size());
 
         String toolsDesc = formatToolsForPrompt(tools);
-        String systemPrompt = PLANNING_SYSTEM_PROMPT
-                .replace("{tools}", toolsDesc)
-                .replace("{task}", task);
 
         String jsonResponse;
         try {
             ChatLanguageModel chatModel = dynamicModelManager.getChatModel(ModelTypeEnum.CHAT);
-            List<ChatMessage> messages = List.of(
-                    SystemMessage.from(systemPrompt),
-                    UserMessage.from("请生成执行计划")
-            );
-            Response<AiMessage> response = chatModel.generate(messages);
+            ChatMemory chatMemory = memoryFactory.createMessageWindowMemory(5);
+            chatMemory.add(promptTemplateManager.renderSystem("agent/planning",
+                    Map.of("tools", toolsDesc, "task", task)));
+            chatMemory.add(UserMessage.from("请生成执行计划"));
+            Response<AiMessage> response = chatModel.generate(chatMemory.messages());
+            chatMemory.add(response.content());
             jsonResponse = extractJson(response.content().text());
             log.debug("LLM 规划响应: {}", jsonResponse);
         } catch (Exception e) {
