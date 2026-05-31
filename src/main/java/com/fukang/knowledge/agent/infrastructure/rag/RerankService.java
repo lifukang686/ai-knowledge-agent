@@ -1,5 +1,6 @@
 package com.fukang.knowledge.agent.infrastructure.rag;
 
+import com.fukang.knowledge.agent.application.ai.port.RerankModelPort;
 import com.fukang.knowledge.agent.domain.rag.model.SearchResult;
 import com.fukang.knowledge.agent.domain.rag.service.Reranker;
 import com.huaban.analysis.jieba.JiebaSegmenter;
@@ -16,6 +17,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -41,6 +43,12 @@ public class RerankService implements Reranker {
     private static final int MIN_TERM_LENGTH = 2;
     private static final JiebaSegmenter SEGMENTER = new JiebaSegmenter();
     private static final Pattern CHINESE_PATTERN = Pattern.compile("[\\u4e00-\\u9fff]");
+
+    private final RerankModelPort rerankModelPort;
+
+    public RerankService(RerankModelPort rerankModelPort) {
+        this.rerankModelPort = rerankModelPort;
+    }
 
     private record ScoredCandidate(
             SearchResult candidate,
@@ -70,6 +78,46 @@ public class RerankService implements Reranker {
         }
 
         long startTime = System.currentTimeMillis();
+        Optional<List<SearchResult>> modelReranked = rerankByModel(candidates, query, startTime);
+        if (modelReranked.isPresent()) {
+            return modelReranked.get();
+        }
+
+        return rerankByLocalRules(candidates, query, startTime);
+    }
+
+    private Optional<List<SearchResult>> rerankByModel(List<SearchResult> candidates, String query, long startTime) {
+        Optional<List<RerankModelPort.RerankScore>> scoreResult = rerankModelPort.rerank(query, candidates);
+        if (scoreResult.isEmpty()) {
+            return Optional.empty();
+        }
+
+        Map<Integer, Double> scoresByIndex = scoreResult.get().stream()
+                .collect(Collectors.toMap(RerankModelPort.RerankScore::index,
+                        RerankModelPort.RerankScore::score,
+                        (left, right) -> left,
+                        LinkedHashMap::new));
+
+        if (scoresByIndex.isEmpty()) {
+            return Optional.empty();
+        }
+
+        List<SearchResult> reranked = new ArrayList<>();
+        for (int i = 0; i < candidates.size(); i++) {
+            SearchResult candidate = candidates.get(i);
+            Double modelScore = scoresByIndex.get(i);
+            reranked.add(candidate.withScores(candidate.vectorScore(), candidate.bm25Score(),
+                    candidate.rrfScore(), modelScore));
+        }
+
+        reranked.sort(Comparator.comparingDouble((SearchResult result) ->
+                result.rerankScore() != null ? result.rerankScore() : Double.NEGATIVE_INFINITY).reversed());
+        log.info("模型重排完成: candidates={}, scored={}, elapsedMs={}",
+                candidates.size(), scoresByIndex.size(), System.currentTimeMillis() - startTime);
+        return Optional.of(reranked);
+    }
+
+    private List<SearchResult> rerankByLocalRules(List<SearchResult> candidates, String query, long startTime) {
         List<String> queryTerms = extractQueryTerms(query);
         if (queryTerms.isEmpty()) {
             return new ArrayList<>(candidates);
