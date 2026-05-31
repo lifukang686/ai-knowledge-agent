@@ -1,7 +1,9 @@
 package com.fukang.knowledge.agent.application.rag;
 
 import com.fukang.knowledge.agent.application.ai.port.ChatCompletionPort;
+import com.fukang.knowledge.agent.application.ai.port.StreamingChatCompletionPort;
 import com.fukang.knowledge.agent.application.rag.result.QaResult;
+import com.fukang.knowledge.agent.application.rag.stream.QaStreamHandler;
 import com.fukang.knowledge.agent.application.knowledge.port.KnowledgeBaseRepository;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
@@ -12,6 +14,7 @@ import com.fukang.knowledge.agent.domain.rag.service.Reranker;
 import com.fukang.knowledge.agent.domain.rag.service.RetrievalStrategy;
 import com.fukang.knowledge.agent.infrastructure.ai.PromptTemplateManager;
 import com.fukang.knowledge.agent.infrastructure.config.RetrievalProperties;
+import com.fukang.knowledge.agent.infrastructure.rag.LlmAnswerGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -48,6 +51,8 @@ public class RagAppService {
     private final RetrievalProperties retrievalProperties;
     private final PromptTemplateManager promptTemplateManager;
     private final ChatCompletionPort chatCompletionPort;
+    private final StreamingChatCompletionPort streamingChatCompletionPort;
+    private final LlmAnswerGenerator llmAnswerGenerator;
 
     public QaResult answer(String question, Long knowledgeBaseId, Long conversationId) {
         validateKnowledgeBase(knowledgeBaseId);
@@ -70,6 +75,57 @@ public class RagAppService {
         log.info("回答内容" + answer);
         String status = reranked.isEmpty() ? "no_results" : "success";
         return new QaResult(answer, rewrittenQuery, status);
+    }
+
+    /**
+     * 流式问答：检索阶段发送状态事件，生成阶段发送 token。
+     */
+    public void answerStream(String question, Long knowledgeBaseId, Long conversationId, QaStreamHandler handler) {
+        try {
+            validateKnowledgeBase(knowledgeBaseId);
+
+            if (isChitchat(question)) {
+                handler.onStage("generate_start", "检测到闲聊问题，正在生成回答");
+                streamDirectChat(question, handler);
+                return;
+            }
+
+            handler.onStage("rewrite_start", "正在改写查询");
+            String rewrittenQuery = queryRewritePort.rewrite(question);
+            handler.onStage("rewrite_done", "查询改写完成");
+
+            handler.onStage("retrieve_start", "正在检索知识库");
+            List<SearchResult> retrieved = retrieveWithFallback(rewrittenQuery, question, knowledgeBaseId);
+            handler.onStage("retrieve_done", "检索完成，找到 " + retrieved.size() + " 个候选片段");
+
+            if (retrieved.isEmpty() && isChitchat(rewrittenQuery)) {
+                handler.onStage("generate_start", "检索无结果，降级为直接回答");
+                streamDirectChat(rewrittenQuery, handler);
+                return;
+            }
+
+            handler.onStage("rerank_start", "正在对检索结果重排序");
+            List<SearchResult> reranked = reranker.rerank(retrieved, question);
+            handler.onStage("rerank_done", "重排序完成，保留 " + reranked.size() + " 个候选片段");
+
+            if (reranked.isEmpty()) {
+                String answer = "抱歉，未找到与您问题相关的文档内容。";
+                handler.onToken(answer);
+                handler.onDone(new QaResult(answer, rewrittenQuery, "no_results"));
+                return;
+            }
+
+            handler.onStage("generate_start", "正在生成回答");
+            String systemPrompt = promptTemplateManager.renderText("rag/answer-system.v1", null);
+            String userPrompt = llmAnswerGenerator.buildRagUserPrompt(reranked, rewrittenQuery);
+            streamChat(List.of(
+                    ChatCompletionPort.Message.system(systemPrompt),
+                    ChatCompletionPort.Message.user(userPrompt)
+            ), rewrittenQuery, "success", handler);
+        } catch (Exception e) {
+            log.error("流式 RAG 问答失败", e);
+            handler.onError("生成失败，请稍后重试", e);
+        }
     }
 
     private void validateKnowledgeBase(Long knowledgeBaseId) {
@@ -99,6 +155,40 @@ public class RagAppService {
             log.error("直接 LLM 回答失败", e);
             return "你好！我是智能问答助手，有什么可以帮您的吗？";
         }
+    }
+
+    private void streamDirectChat(String question, QaStreamHandler handler) {
+        streamChat(List.of(
+                ChatCompletionPort.Message.system(promptTemplateManager.renderText(CHITCHAT_SYSTEM_TEMPLATE, null)),
+                ChatCompletionPort.Message.user(question)
+        ), question, "success", handler);
+    }
+
+    private void streamChat(List<ChatCompletionPort.Message> messages,
+                            String rewrittenQuery,
+                            String status,
+                            QaStreamHandler handler) {
+        StringBuilder answer = new StringBuilder();
+        streamingChatCompletionPort.completeStream(messages, new StreamingChatCompletionPort.StreamHandler() {
+            @Override
+            public void onToken(String token) {
+                answer.append(token);
+                handler.onToken(token);
+            }
+
+            @Override
+            public void onComplete(String fullText) {
+                String finalAnswer = fullText != null && !fullText.isBlank()
+                        ? fullText
+                        : answer.toString();
+                handler.onDone(new QaResult(finalAnswer, rewrittenQuery, status));
+            }
+
+            @Override
+            public void onError(Throwable error) {
+                handler.onError("生成失败，请稍后重试", error);
+            }
+        });
     }
 
     private List<SearchResult> retrieveWithFallback(String rewrittenQuery, String originalQuery, Long knowledgeBaseId) {

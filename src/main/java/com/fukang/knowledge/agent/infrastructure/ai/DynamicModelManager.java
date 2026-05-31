@@ -10,6 +10,7 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalListener;
 import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.model.chat.StreamingChatLanguageModel;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +33,8 @@ public class DynamicModelManager {
 
     private Cache<String, ChatLanguageModel> chatModelCache;
 
+    private Cache<String, StreamingChatLanguageModel> streamingChatModelCache;
+
     private Cache<String, EmbeddingModel> embeddingModelCache;
 
     public DynamicModelManager(DynamicModelFactory modelFactory,
@@ -52,6 +55,7 @@ public class DynamicModelManager {
                 .maximumSize(properties.getCacheMaxSize());
 
         chatModelCache = cacheBuilder.build();
+        streamingChatModelCache = cacheBuilder.build();
         embeddingModelCache = cacheBuilder.build();
 
         log.info("动态模型管理器初始化完成: cacheTtl={}s, maxSize={}",
@@ -75,6 +79,25 @@ public class DynamicModelManager {
                 return modelFactory.createChatModel(provider, config);
             } catch (Exception e) {
                 log.error("创建 ChatLanguageModel 实例失败: provider={}, model={}", provider.getName(), config.getModelName(), e);
+                throw new BaseException(ErrorCodeEnum.MODEL_CREATION_FAILED);
+            }
+        });
+    }
+
+    /**
+     * 获取流式 ChatLanguageModel 实例。
+     */
+    public StreamingChatLanguageModel getStreamingChatModel(ModelTypeEnum modelType) {
+        ModelProviderDO provider = resolutionService.resolveProvider();
+        ModelConfigDO config = resolutionService.resolveModelConfig(provider.getId(), modelType);
+        String cacheKey = buildCacheKey(provider.getId(), config.getModelName());
+        return streamingChatModelCache.get(cacheKey, key -> {
+            log.info("缓存未命中，创建新 StreamingChatLanguageModel 实例: key={}", key);
+            try {
+                return modelFactory.createStreamingChatModel(provider, config);
+            } catch (Exception e) {
+                log.error("创建 StreamingChatLanguageModel 实例失败: provider={}, model={}",
+                        provider.getName(), config.getModelName(), e);
                 throw new BaseException(ErrorCodeEnum.MODEL_CREATION_FAILED);
             }
         });
@@ -174,6 +197,7 @@ public class DynamicModelManager {
      */
     public void evictAllCaches() {
         chatModelCache.invalidateAll();
+        streamingChatModelCache.invalidateAll();
         embeddingModelCache.invalidateAll();
         log.info("已清除所有动态模型缓存");
     }
@@ -184,6 +208,7 @@ public class DynamicModelManager {
     public void evictCache(Long providerId, String modelName) {
         String cacheKey = buildCacheKey(providerId, modelName);
         chatModelCache.invalidate(cacheKey);
+        streamingChatModelCache.invalidate(cacheKey);
         embeddingModelCache.invalidate(cacheKey);
         log.info("已清除模型缓存: key={}", cacheKey);
     }

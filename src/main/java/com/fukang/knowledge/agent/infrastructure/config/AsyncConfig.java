@@ -50,4 +50,25 @@ public class AsyncConfig {
                 executor.getCorePoolSize(), executor.getMaxPoolSize(), executor.getQueueCapacity());
         return executor;
     }
+
+    /**
+     * QA 流式问答线程池。
+     * <p>SSE 请求会长时间占用连接，单独线程池可以避免影响文档处理等后台任务。</p>
+     */
+    @Bean("qaStreamExecutor")
+    public ThreadPoolTaskExecutor qaStreamExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(4);
+        executor.setMaxPoolSize(12);
+        executor.setQueueCapacity(100);
+        executor.setKeepAliveSeconds(60);
+        executor.setThreadNamePrefix("qa-stream-");
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(30);
+        executor.initialize();
+        log.info("QA 流式问答线程池初始化完成: corePoolSize={}, maxPoolSize={}, queueCapacity={}",
+                executor.getCorePoolSize(), executor.getMaxPoolSize(), executor.getQueueCapacity());
+        return executor;
+    }
 }

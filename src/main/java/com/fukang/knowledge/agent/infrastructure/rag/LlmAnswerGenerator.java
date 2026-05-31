@@ -54,6 +54,13 @@ public class LlmAnswerGenerator implements AnswerGenerator {
     }
 
     String buildUserPrompt(List<SearchResult> results, String query) {
+        return buildRagUserPrompt(results, query);
+    }
+
+    /**
+     * 构造 RAG 回答的用户消息，供同步和流式生成复用。
+     */
+    public String buildRagUserPrompt(List<SearchResult> results, String query) {
         StringBuilder context = new StringBuilder();
         for (int i = 0; i < results.size(); i++) {
             SearchResult result = results.get(i);

@@ -6,9 +6,11 @@ import com.fukang.knowledge.agent.common.enums.ModelTypeEnum;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.ModelConfigDO;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.ModelProviderDO;
 import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.model.chat.StreamingChatLanguageModel;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 import dev.langchain4j.model.openai.OpenAiEmbeddingModel;
+import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -49,6 +51,21 @@ public class DynamicModelFactory {
                 .modelName(config.getModelName())
                 .timeout(DEFAULT_TIMEOUT)
                 .maxRetries(DEFAULT_MAX_RETRIES)
+                .logRequests(true)
+                .logResponses(true)
+                .build();
+    }
+
+    /**
+     * 根据提供商和模型配置创建流式 ChatLanguageModel 实例。
+     */
+    public StreamingChatLanguageModel createStreamingChatModel(ModelProviderDO provider, ModelConfigDO config) {
+        log.info("正在创建流式 Chat 模型实例: provider={}, model={}", provider.getName(), config.getModelName());
+        return OpenAiStreamingChatModel.builder()
+                .baseUrl(resolveBaseUrl(provider.getApiBaseUrl()))
+                .apiKey(provider.getApiKey())
+                .modelName(config.getModelName())
+                .timeout(DEFAULT_TIMEOUT)
                 .logRequests(true)
                 .logResponses(true)
                 .build();
