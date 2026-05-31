@@ -225,6 +225,10 @@ public class DocumentEmbeddingAppService {
         return knowledgeBase != null ? knowledgeBase.getEmbeddingModelId() : null;
     }
 
+    /**
+     * 将实际使用的 embedding 元数据回写到 document/chunk。
+     * <p>这些字段用于审计和后续支持多知识库不同 embedding 配置。</p>
+     */
     private void updateEmbeddingMetadata(List<DocumentChunkDO> chunks, EmbeddingResult embeddingResult) {
         Long modelId = embeddingResult.modelId();
         Integer dimension = embeddingResult.dimension();

@@ -57,6 +57,11 @@ public class EmbeddingService {
         return embed(texts, null);
     }
 
+    /**
+     * 使用指定或默认的 embedding 模型生成向量。
+     *
+     * @param embeddingModelId 知识库绑定的 embedding 模型 ID；为空时按全局默认策略解析
+     */
     public EmbeddingResult embed(List<String> texts, Long embeddingModelId) {
         if (texts == null || texts.isEmpty()) {
             log.warn("待嵌入的文本列表为空，无法执行向量化");
@@ -89,6 +94,7 @@ public class EmbeddingService {
                         batchIndex + 1, batches.size(), apiUrl,
                         embeddingModel.getModelName(), batch.size(), batchOffset);
 
+                // LangChain4j embedding 接口按 TextSegment 批量提交，batchOffset 用于还原原始 chunkOrder。
                 List<TextSegment> segments = batch.stream().map(TextSegment::from).toList();
                 Response<List<Embedding>> response = embeddingClient.embedAll(segments);
 
@@ -178,6 +184,7 @@ public class EmbeddingService {
         metadata.put("modelId", embeddingModel.getId());
         metadata.put("providerId", embeddingModel.getProviderId());
         metadata.put("vectorDimension", allVectors.isEmpty() ? 0 : allVectors.get(0).dimension());
+        // 当前没有独立版本字段，先用 modelName 作为可审计版本标识。
         metadata.put("modelVersion", embeddingModel.getModelName());
 
         log.info("向量化完成: model={}, chunkCount={}, dimension={}, totalTokens={}",
@@ -195,6 +202,7 @@ public class EmbeddingService {
     }
 
     private ModelConfigDO findEmbeddingModel(Long embeddingModelId) {
+        // 知识库绑定模型优先，确保同库文档使用一致的向量空间。
         if (embeddingModelId != null) {
             ModelConfigDO configuredModel = modelAppService.findModelById(embeddingModelId);
             if (configuredModel == null) {
@@ -205,6 +213,7 @@ public class EmbeddingService {
             }
             return configuredModel;
         }
+        // 未绑定时保持原有默认策略：默认 provider 下的 embedding 模型优先。
         ModelProviderDO defaultProvider = modelAppService.findDefaultProvider();
         if (defaultProvider != null) {
             List<ModelConfigDO> defaultProviderModels = modelAppService

@@ -31,6 +31,7 @@ public class FullTextSearchService {
             """;
 
     private final JdbcTemplate jdbcTemplate;
+    /** 查询词与入库文本使用同一分词策略，保证 PostgreSQL simple FTS 能匹配中文 token。 */
     private final ChineseTextTokenizer chineseTextTokenizer;
 
     /**

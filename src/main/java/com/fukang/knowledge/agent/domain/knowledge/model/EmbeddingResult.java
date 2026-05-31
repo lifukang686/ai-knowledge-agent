@@ -28,6 +28,7 @@ public record EmbeddingResult(
         boolean allSucceeded
 ) {
 
+    /** 本次向量化实际使用的模型配置 ID。 */
     public Long modelId() {
         Object value = metadata != null ? metadata.get("modelId") : null;
         if (value instanceof Number number) {
@@ -39,6 +40,7 @@ public record EmbeddingResult(
         return null;
     }
 
+    /** 本次向量化的向量维度，优先读取元数据，缺失时从首个向量推断。 */
     public int dimension() {
         Object value = metadata != null ? metadata.get("vectorDimension") : null;
         if (value instanceof Number number) {
@@ -50,6 +52,7 @@ public record EmbeddingResult(
         return embeddings.isEmpty() ? 0 : embeddings.get(0).dimension();
     }
 
+    /** 本次向量化的模型版本标识；当前以模型名称兜底。 */
     public String modelVersion() {
         Object value = metadata != null ? metadata.get("modelVersion") : null;
         return value != null ? String.valueOf(value) : modelName;

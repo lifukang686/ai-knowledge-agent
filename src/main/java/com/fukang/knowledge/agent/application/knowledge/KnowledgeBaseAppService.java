@@ -245,6 +245,9 @@ public class KnowledgeBaseAppService {
                 kb.getDescription(),
                 documentCount,
                 "completed",
+                kb.getEmbeddingModelId(),
+                kb.getEmbeddingDimension(),
+                kb.getEmbeddingVersion(),
                 kb.getCreateTime(),
                 kb.getUpdateTime()
         );
@@ -309,6 +312,9 @@ public class KnowledgeBaseAppService {
                 uploadedBy,
                 document.getChunkCount() != null ? document.getChunkCount().longValue() : 0L,
                 document.getProcessingDurationMs() != null ? document.getProcessingDurationMs() : 0L,
+                document.getEmbeddingModelId(),
+                document.getEmbeddingDimension(),
+                document.getEmbeddingVersion(),
                 document.getCreateTime(),
                 document.getUpdateTime()
         );

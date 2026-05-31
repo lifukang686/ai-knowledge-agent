@@ -36,6 +36,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Agent 应用服务。
+ * <p>统一承载 Agent 配置创建、Plan-Execute 执行、AiServices 执行和运行日志查询。
+ * 两种执行策略都会输出 {@link AgentRunEvent}，便于前端用同一套结构展示运行详情。</p>
+ */
 @Slf4j
 @Service
 public class AgentAppService {
@@ -49,6 +54,7 @@ public class AgentAppService {
     private final DynamicModelManager dynamicModelManager;
     private final AgentMemoryFactory memoryFactory;
     private final AgentProperties agentProperties;
+    /** 负责序列化 toolIds 和 agent_run.log 中的结构化事件。 */
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public AgentAppService(AgentMapper agentMapper,
@@ -90,6 +96,11 @@ public class AgentAppService {
         return toAgentResp(agentDO, req.toolIds());
     }
 
+    /**
+     * 按指定策略执行 Agent。
+     *
+     * @param strategy 为空时默认使用 Plan-Execute
+     */
     @Transactional
     public AgentRunResult run(Long agentId, String task, ExecutionStrategy strategy) {
         ExecutionStrategy execStrategy = strategy != null ? strategy : ExecutionStrategy.PLAN_EXECUTE;
@@ -104,6 +115,10 @@ public class AgentAppService {
         return run(agentId, task, ExecutionStrategy.PLAN_EXECUTE);
     }
 
+    /**
+     * Plan-Execute 策略。
+     * <p>流程为：生成计划 → Reasoner 判断下一步 → 调用工具 → 记录观察结果 → 循环直至最终答案。</p>
+     */
     private AgentRunResult runWithPlanExecute(Long agentId, String task) {
         AgentDO agentDO = agentMapper.selectById(agentId);
         if (agentDO == null) {
@@ -121,12 +136,14 @@ public class AgentAppService {
             context.setStatus(AgentContext.AgentContextStatus.PLANNING);
             List<PlanStep> plan = agentPlanner.plan(task);
             context.setPlanSteps(plan);
+            // plan 事件保留完整计划，前端可直接渲染计划树。
             events.add(event(AgentRunEvent.EventType.PLAN, null, null,
                     Map.of("steps", plan), true, null, "Plan generated"));
 
             context.setStatus(AgentContext.AgentContextStatus.EXECUTING);
             int stepCount = 0;
             while (stepCount < maxSteps) {
+                // 每轮先让 Reasoner 基于上下文判断：继续、重试、终止或给最终答案。
                 ReasoningResult reasoning = agentReasoner.reason(context);
                 recordReasoning(events, reasoning, "Reasoning decision");
 
@@ -139,6 +156,7 @@ public class AgentAppService {
                 if (reasoning.decision() == ReasoningResult.Decision.RETRY) {
                     AgentStep lastStep = context.getLastStep();
                     if (lastStep != null) {
+                        // RETRY 复用上一步工具与参数，仅在事件中标记为重试原因。
                         PlanStep retryStep = new PlanStep(lastStep.stepOrder(),
                                 lastStep.toolName(), lastStep.parameters(), "Retry previous step");
                         executeAndRecord(context, retryStep, events);
@@ -148,6 +166,7 @@ public class AgentAppService {
                 }
 
                 if (context.getRemainingSteps().isEmpty()) {
+                    // 计划耗尽后再给 Reasoner 一次汇总机会，避免已完成任务被误判失败。
                     ReasoningResult finalReason = agentReasoner.reason(context);
                     recordReasoning(events, finalReason, "Final reasoning decision");
                     if (finalReason.decision() == ReasoningResult.Decision.FINAL_ANSWER) {
@@ -198,6 +217,7 @@ public class AgentAppService {
         long startTime = System.currentTimeMillis();
 
         try (AgentRunEventCollector collector = AgentRunEventCollector.open()) {
+            // AiServices 内部的工具回调通过 ThreadLocal collector 汇总到同一个运行日志。
             collector.add(event(AgentRunEvent.EventType.REASONING, null, null,
                     Map.of("strategy", ExecutionStrategy.AI_SERVICES.name()), true, null,
                     "AiServices execution started"));
@@ -254,6 +274,7 @@ public class AgentAppService {
     }
 
     private void executeAndRecord(AgentContext context, PlanStep step, List<AgentRunEvent> events) {
+        // tool_call 与 observation 分开记录，方便前端展示“调用参数”和“工具返回”。
         events.add(event(AgentRunEvent.EventType.TOOL_CALL, step.stepOrder(), step.toolName(),
                 Map.of("parameters", step.parameters() != null ? step.parameters() : Map.of(),
                         "reasoning", step.reasoning() != null ? step.reasoning() : ""),
@@ -324,6 +345,7 @@ public class AgentAppService {
         } catch (Exception e) {
             log.debug("Agent run log is not event format, trying legacy step format");
         }
+        // 兼容旧版本 agent_run.log 中直接存 AgentStep 列表的历史数据。
         try {
             List<AgentStep> legacySteps = objectMapper.readValue(logJson, new TypeReference<List<AgentStep>>() {});
             return stepsToEvents(legacySteps);
@@ -334,6 +356,7 @@ public class AgentAppService {
     }
 
     private List<AgentStep> eventsToSteps(List<AgentRunEvent> events) {
+        // steps 是旧前端兼容字段，只从 observation 事件派生。
         return events.stream()
                 .filter(e -> AgentRunEvent.EventType.OBSERVATION.code().equals(e.type()))
                 .map(e -> new AgentStep(

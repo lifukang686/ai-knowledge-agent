@@ -19,12 +19,21 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 工具参数 Schema 转换器。
+ * <p>将平台内保存的 JSON Schema 转换为 LangChain4j ToolSpecification 可识别的
+ * JsonObjectSchema，让模型不再只依赖自然语言 description 猜测参数。</p>
+ */
 @Slf4j
 @Component
 public class ToolSchemaConverter {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    /**
+     * 解析工具参数 JSON Schema。
+     * <p>兼容两种格式：根节点就是 object schema，或根节点下包含 parameters object。</p>
+     */
     public JsonObjectSchema fromJsonSchema(String schemaJson) {
         if (!StringUtils.hasText(schemaJson)) {
             return JsonObjectSchema.builder().properties(Map.of()).required(List.of()).build();
@@ -60,6 +69,7 @@ public class ToolSchemaConverter {
                 .build();
     }
 
+    /** 递归转换 JSON Schema 属性，当前覆盖常见基础类型与 object/array。 */
     private JsonSchemaElement toSchemaElement(JsonNode node) {
         String description = text(node, "description");
         return switch (typeOf(node)) {
@@ -75,6 +85,7 @@ public class ToolSchemaConverter {
         };
     }
 
+    /** JSON Schema type 可能是字符串或数组，这里统一取第一个有效类型。 */
     private String typeOf(JsonNode node) {
         JsonNode type = node.path("type");
         if (type.isTextual()) {

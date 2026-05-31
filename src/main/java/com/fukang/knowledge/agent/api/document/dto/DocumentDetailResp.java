@@ -18,6 +18,9 @@ import java.time.LocalDateTime;
  * @param uploadedBy      上传者
  * @param chunkCount      分块数量
  * @param fileSize        文件大小（字节）
+ * @param embeddingModelId 文档向量化实际使用的模型配置 ID
+ * @param embeddingDimension 文档向量维度
+ * @param embeddingVersion 文档向量化模型版本标识
  * @param createTime      创建时间
  * @param updateTime      更新时间
  */
