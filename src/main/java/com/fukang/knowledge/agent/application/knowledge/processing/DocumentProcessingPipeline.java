@@ -2,6 +2,7 @@ package com.fukang.knowledge.agent.application.knowledge.processing;
 
 import com.fukang.knowledge.agent.application.knowledge.chunk.DocumentChunkAppService;
 import com.fukang.knowledge.agent.application.knowledge.embedding.DocumentEmbeddingAppService;
+import com.fukang.knowledge.agent.application.knowledge.embedding.DocumentEmbeddingTextAppService;
 import com.fukang.knowledge.agent.application.knowledge.parsing.DocumentProcessingService;
 import com.fukang.knowledge.agent.application.knowledge.port.DocumentRepository;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
@@ -34,6 +35,7 @@ public class DocumentProcessingPipeline {
     private final MinioStorageService minioStorageService;
     private final DocumentProcessingService processingService;
     private final DocumentChunkAppService chunkAppService;
+    private final DocumentEmbeddingTextAppService embeddingTextAppService;
     private final DocumentEmbeddingAppService embeddingAppService;
     private final DocumentProcessingProperties properties;
 
@@ -46,9 +48,15 @@ public class DocumentProcessingPipeline {
         log.info("文档处理管道启动: documentId={}, fileName={}", documentId, fileName);
 
         try {
+            // 解析为纯文本
             DocumentParseResult parseResult = phaseParse(documentId, filePath, fileName);
+            // 文本分块
             List<Long> chunkIds = phaseChunk(documentId, parseResult);
+            // 构造 embedding 专用文本
+            phaseBuildEmbeddingText(documentId);
+            // 文档块生成 embedding
             phaseEmbed(documentId, knowledgeBaseId);
+            // 完成处理
             phaseComplete(documentId, chunkIds.size(), startTime);
         } catch (Exception e) {
             phaseFailed(documentId, e);
@@ -60,7 +68,7 @@ public class DocumentProcessingPipeline {
      */
     private DocumentParseResult phaseParse(Long documentId, String filePath, String fileName) {
         updateStatus(documentId, DocumentStatus.PARSING, null);
-        log.info("Phase 1/4 文档解析: documentId={}", documentId);
+        log.info("Phase 1/5 文档解析: documentId={}", documentId);
 
         byte[] fileBytes = minioStorageService.readFileBytes(filePath);
         if (fileBytes == null || fileBytes.length == 0) {
@@ -68,7 +76,7 @@ public class DocumentProcessingPipeline {
         }
 
         DocumentParseResult result = processingService.parseDocument(fileBytes, fileName, fileBytes.length);
-        log.info("Phase 1/4 解析完成: documentId={}, charCount={}", documentId, result.characterCount());
+        log.info("Phase 1/5 解析完成: documentId={}, charCount={}", documentId, result.characterCount());
         return result;
     }
 
@@ -77,27 +85,36 @@ public class DocumentProcessingPipeline {
      */
     private List<Long> phaseChunk(Long documentId, DocumentParseResult parseResult) {
         updateStatus(documentId, DocumentStatus.CHUNKING, null);
-        log.info("Phase 2/4 文本分块: documentId={}", documentId);
+        log.info("Phase 2/5 文本分块: documentId={}", documentId);
 
         ChunkResult chunkResult = processingService.chunkDocument(parseResult);
         List<Long> chunkIds = chunkAppService.replaceAndStoreChunks(chunkResult, documentId);
-        log.info("Phase 2/4 分块完成: documentId={}, chunkCount={}", documentId, chunkResult.totalChunks());
+        log.info("Phase 2/5 分块完成: documentId={}, chunkCount={}", documentId, chunkResult.totalChunks());
         return chunkIds;
     }
 
     /**
-     * Phase 3: 对文档块生成 embedding，并按配置执行指数退避重试。
+     * Phase 3: 构造 embedding 专用文本，补充标题和片段位置上下文。
+     */
+    private void phaseBuildEmbeddingText(Long documentId) {
+        log.info("Phase 3/5 构造 embedding 文本: documentId={}", documentId);
+        int updated = embeddingTextAppService.buildAndStore(documentId);
+        log.info("Phase 3/5 embedding 文本构造完成: documentId={}, updated={}", documentId, updated);
+    }
+
+    /**
+     * Phase 4: 对文档块生成 embedding，并按配置执行指数退避重试。
      */
     private void phaseEmbed(Long documentId, Long knowledgeBaseId) {
         updateStatus(documentId, DocumentStatus.EMBEDDING, null);
-        log.info("Phase 3/4 嵌入向量: documentId={}", documentId);
+        log.info("Phase 4/5 嵌入向量: documentId={}", documentId);
 
         int maxRetries = properties.getEmbedRetryMax();
         long baseSeconds = properties.getEmbedRetryBaseSeconds();
         for (int attempt = 0; attempt <= maxRetries; attempt++) {
             try {
                 ChunkStorageResult result = embeddingAppService.embedAndStore(documentId, knowledgeBaseId);
-                log.info("Phase 3/4 嵌入完成: documentId={}, total={}, success={}",
+                log.info("Phase 4/5 嵌入完成: documentId={}, total={}, success={}",
                         documentId, result.totalCount(), result.successCount());
                 return;
             } catch (Exception e) {
@@ -110,7 +127,7 @@ public class DocumentProcessingPipeline {
     }
 
     /**
-     * Phase 4: 标记文档处理完成，记录块数和耗时。
+     * Phase 5: 标记文档处理完成，记录块数和耗时。
      */
     private void phaseComplete(Long documentId, int chunkCount, Instant startTime) {
         long duration = Duration.between(startTime, Instant.now()).toMillis();
@@ -120,7 +137,7 @@ public class DocumentProcessingPipeline {
         doc.setProcessingDurationMs(duration);
         doc.setErrorMessage(null);
         documentRepository.updateById(doc);
-        log.info("Phase 4/4 文档处理完成: documentId={}, chunkCount={}, duration={}ms",
+        log.info("Phase 5/5 文档处理完成: documentId={}, chunkCount={}, duration={}ms",
                 documentId, chunkCount, duration);
     }
 
@@ -158,7 +175,7 @@ public class DocumentProcessingPipeline {
 
     private void sleepBeforeRetry(Long documentId, int attempt, long baseSeconds, Exception e) {
         long delaySeconds = baseSeconds * (1L << attempt);
-        log.warn("Phase 3/4 嵌入失败（第 {} 次重试），{} 秒后重试: documentId={}",
+        log.warn("Phase 4/5 嵌入失败（第 {} 次重试），{} 秒后重试: documentId={}",
                 attempt + 1, delaySeconds, documentId, e);
         try {
             Thread.sleep(delaySeconds * 1000);

@@ -24,8 +24,8 @@ public class DocumentParserFactory {
 
     /**
      * 构造解析器工厂并注册默认解析器
-     * <p>默认注册 PDF、Word、TXT 三种格式的解析器，
-     * 同时注册 langchain4j 版本的解析器作为覆盖选项（后者覆盖前者）</p>
+     * <p>默认注册 PDF、Word、TXT 三种格式的解析器。
+     * 自定义解析器会保留页码、章节和表格标记，LangChain4j 解析器仅作为后续可扩展兜底。</p>
      */
     public DocumentParserFactory() {
         this.parserRegistry = new ConcurrentHashMap<>();
@@ -37,9 +37,9 @@ public class DocumentParserFactory {
 
         defaultParsers.forEach(this::registerParser);
 
-        registerParser(new Langchain4jDocumentParserAdapter(
+        registerFallbackParser(new Langchain4jDocumentParserAdapter(
                 new ApachePdfBoxDocumentParser(), List.of("pdf")));
-        registerParser(new Langchain4jDocumentParserAdapter(
+        registerFallbackParser(new Langchain4jDocumentParserAdapter(
                 new ApachePoiDocumentParser(), List.of("doc", "docx")));
 
         log.info("文档解析器工厂已初始化，已注册 {} 种格式解析器", defaultParsers.size());
@@ -55,6 +55,13 @@ public class DocumentParserFactory {
         for (String extension : parser.supportedExtensions()) {
             parserRegistry.put(extension.toLowerCase(), parser);
             log.info("已注册文档解析器: extension={}, parser={}", extension, parser.getClass().getSimpleName());
+        }
+    }
+
+    private void registerFallbackParser(DocumentParser parser) {
+        for (String extension : parser.supportedExtensions()) {
+            parserRegistry.putIfAbsent(extension.toLowerCase(), parser);
+            log.info("已注册兜底文档解析器: extension={}, parser={}", extension, parser.getClass().getSimpleName());
         }
     }
 

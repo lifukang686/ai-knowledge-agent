@@ -34,13 +34,22 @@ public class HttpScoringModel implements ScoringModel {
     private final HttpClient httpClient;
 
     public HttpScoringModel(ModelProviderDO provider, ModelConfigDO modelConfig, ObjectMapper objectMapper) {
+        this(provider, modelConfig, objectMapper, null);
+    }
+
+    HttpScoringModel(ModelProviderDO provider,
+                     ModelConfigDO modelConfig,
+                     ObjectMapper objectMapper,
+                     HttpClient httpClient) {
         this.provider = provider;
         this.modelConfig = modelConfig;
         this.objectMapper = objectMapper;
         this.options = RerankHttpOptions.from(modelConfig, objectMapper);
-        this.httpClient = HttpClient.newBuilder()
-                .connectTimeout(options.timeout())
-                .build();
+        this.httpClient = httpClient != null
+                ? httpClient
+                : HttpClient.newBuilder()
+                        .connectTimeout(options.timeout())
+                        .build();
     }
 
     @Override
@@ -61,6 +70,7 @@ public class HttpScoringModel implements ScoringModel {
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 throw new IllegalStateException("Rerank HTTP status=" + response.statusCode()
+                        + ", uri=" + request.uri()
                         + ", body=" + response.body());
             }
             return Response.from(parseScores(response.body(), segments.size()));
@@ -69,7 +79,11 @@ public class HttpScoringModel implements ScoringModel {
         }
     }
 
-    private HttpRequest buildRequest(String query, List<TextSegment> segments) throws Exception {
+    HttpRequest buildRequest(String query, List<TextSegment> segments) throws Exception {
+        if (options.isDashScopeFormat() || isDashScopeProvider(provider.getApiBaseUrl())) {
+            return buildDashScopeRequest(query, segments);
+        }
+
         Map<String, Object> body = new LinkedHashMap<>();
         body.put(options.modelField(), modelConfig.getModelName());
         body.put(options.queryField(), query);
@@ -92,6 +106,80 @@ public class HttpScoringModel implements ScoringModel {
         return builder.build();
     }
 
+    /**
+     * DashScope rerank 使用独立接口，不走 OpenAI compatible-mode/v1。
+     */
+    private HttpRequest buildDashScopeRequest(String query, List<TextSegment> segments) throws Exception {
+        Map<String, Object> input = new LinkedHashMap<>();
+        input.put("query", dashScopeTextInput(query));
+        input.put("documents", segments.stream()
+                .map(TextSegment::text)
+                .map(text -> text != null ? text : "")
+                .map(this::dashScopeDocumentInput)
+                .toList());
+
+        Map<String, Object> parameters = new LinkedHashMap<>(options.requestParams());
+        parameters.remove("dashscopeInputFormat");
+        parameters.remove("dashscopeModelName");
+        parameters.putIfAbsent("return_documents", true);
+        parameters.put("top_n", segments.size());
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("model", resolveDashScopeModelName());
+        body.put("input", input);
+        body.put("parameters", parameters);
+
+        HttpRequest.Builder builder = HttpRequest.newBuilder()
+                .uri(URI.create(resolveDashScopeEndpoint(provider.getApiBaseUrl(), options.path())))
+                .timeout(options.timeout())
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body)));
+
+        if (provider.getApiKey() != null && !provider.getApiKey().isBlank()) {
+            builder.header("Authorization", "Bearer " + provider.getApiKey());
+        }
+        return builder.build();
+    }
+
+    private Object dashScopeTextInput(String text) {
+        if (!usesDashScopeObjectInput()) {
+            return text;
+        }
+        return Map.of("text", text != null ? text : "");
+    }
+
+    private Object dashScopeDocumentInput(String text) {
+        if (!usesDashScopeObjectInput()) {
+            return text;
+        }
+        return Map.of("text", text != null ? text : "");
+    }
+
+    /**
+     * 文本检索默认按 DashScope 文档使用字符串；多模态场景可显式切换为对象格式。
+     */
+    private boolean usesDashScopeObjectInput() {
+        Object inputFormat = options.requestParams().get("dashscopeInputFormat");
+        return inputFormat != null && "object".equalsIgnoreCase(String.valueOf(inputFormat));
+    }
+
+    /**
+     * 纯文本重排优先使用 DashScope 文本 rerank 模型，避免 VL 模型在部分账号/区域不可用。
+     */
+    private String resolveDashScopeModelName() {
+        Object configured = options.requestParams().get("dashscopeModelName");
+        if (configured != null && !String.valueOf(configured).isBlank()) {
+            return String.valueOf(configured);
+        }
+        String modelName = modelConfig.getModelName();
+        if (!usesDashScopeObjectInput()
+                && modelName != null
+                && "qwen3-vl-rerank".equalsIgnoreCase(modelName)) {
+            return "qwen3-rerank";
+        }
+        return modelName;
+    }
+
     private List<Double> parseScores(String responseBody, int segmentCount) throws Exception {
         JsonNode root = objectMapper.readTree(responseBody);
         JsonNode scoresNode = root.get("scores");
@@ -102,6 +190,9 @@ public class HttpScoringModel implements ScoringModel {
         JsonNode resultsNode = root.get(options.resultsField());
         if (resultsNode == null && !"results".equals(options.resultsField())) {
             resultsNode = root.get("results");
+        }
+        if (resultsNode == null) {
+            resultsNode = root.path("output").get("results");
         }
         if (resultsNode == null) {
             resultsNode = root.get("data");
@@ -168,8 +259,38 @@ public class HttpScoringModel implements ScoringModel {
         return normalizedBase + normalizedPath;
     }
 
+    private boolean isDashScopeProvider(String baseUrl) {
+        return baseUrl != null && baseUrl.toLowerCase().contains("dashscope.aliyuncs.com");
+    }
+
+    private String resolveDashScopeEndpoint(String baseUrl, String path) {
+        String normalizedPath = path != null && !path.isBlank() ? path.trim() : "";
+        if (normalizedPath.startsWith("http://") || normalizedPath.startsWith("https://")) {
+            return normalizedPath;
+        }
+        if (normalizedPath.isBlank() || "/rerank".equals(normalizedPath) || "rerank".equals(normalizedPath)) {
+            normalizedPath = "/api/v1/services/rerank/text-rerank/text-rerank";
+        }
+
+        String normalizedBase = baseUrl != null ? baseUrl.trim() : "";
+        if (normalizedBase.isBlank()) {
+            normalizedBase = "https://dashscope.aliyuncs.com";
+        }
+
+        URI baseUri = URI.create(normalizedBase);
+        String origin = baseUri.getScheme() + "://" + baseUri.getAuthority();
+        if (origin.endsWith("/") && normalizedPath.startsWith("/")) {
+            return origin + normalizedPath.substring(1);
+        }
+        if (!origin.endsWith("/") && !normalizedPath.startsWith("/")) {
+            return origin + "/" + normalizedPath;
+        }
+        return origin + normalizedPath;
+    }
+
     private record RerankHttpOptions(
             String path,
+            String requestFormat,
             String modelField,
             String queryField,
             String documentsField,
@@ -179,10 +300,15 @@ public class HttpScoringModel implements ScoringModel {
             Duration timeout,
             Map<String, Object> requestParams
     ) {
+        boolean isDashScopeFormat() {
+            return "dashscope".equalsIgnoreCase(requestFormat);
+        }
+
         static RerankHttpOptions from(ModelConfigDO modelConfig, ObjectMapper objectMapper) {
             Map<String, Object> params = parseParams(modelConfig, objectMapper);
             return new RerankHttpOptions(
                     stringParam(params, "path", "/rerank"),
+                    stringParam(params, "requestFormat", ""),
                     stringParam(params, "modelField", "model"),
                     stringParam(params, "queryField", "query"),
                     stringParam(params, "documentsField", "documents"),

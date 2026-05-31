@@ -202,7 +202,8 @@ public class DocumentEmbeddingAppService {
     }
 
     /**
-     * 从文档块列表中提取文本内容
+     * 从文档块列表中提取向量化输入文本
+     * <p>优先使用 embedding_text，缺失时回退 chunk_text，兼容历史数据。</p>
      *
      * @param chunks 文档块列表
      * @return 文本列表，顺序与块顺序一致
@@ -210,7 +211,10 @@ public class DocumentEmbeddingAppService {
     private List<String> extractTexts(List<DocumentChunkDO> chunks) {
         List<String> texts = new ArrayList<>(chunks.size());
         for (DocumentChunkDO chunk : chunks) {
-            texts.add(chunk.getChunkText());
+            String embeddingText = chunk.getEmbeddingText();
+            texts.add(embeddingText != null && !embeddingText.isBlank()
+                    ? embeddingText
+                    : chunk.getChunkText());
         }
         return texts;
     }

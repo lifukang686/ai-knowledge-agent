@@ -7,6 +7,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ooxml.POIXMLProperties.CoreProperties;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
+import org.apache.poi.xwpf.usermodel.XWPFTable;
+import org.apache.poi.xwpf.usermodel.XWPFTableCell;
+import org.apache.poi.xwpf.usermodel.XWPFTableRow;
 
 import java.io.InputStream;
 import java.time.LocalDateTime;
@@ -14,7 +17,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * Word 文档解析器
@@ -74,11 +76,46 @@ public class WordDocumentParser implements DocumentParser {
      * @return 提取的全文文本
      */
     private String extractText(XWPFDocument document) {
+        StringBuilder content = new StringBuilder();
         List<XWPFParagraph> paragraphs = document.getParagraphs();
-        return paragraphs.stream()
-                .map(XWPFParagraph::getText)
-                .filter(text -> !text.isBlank())
-                .collect(Collectors.joining("\n"));
+        for (XWPFParagraph paragraph : paragraphs) {
+            String text = paragraph.getText();
+            if (text == null || text.isBlank()) {
+                continue;
+            }
+            String trimmed = text.trim();
+            String style = paragraph.getStyle();
+            if (isHeadingStyle(style)) {
+                content.append("[[SECTION:").append(trimmed).append("]]\n");
+            }
+            content.append(trimmed).append("\n\n");
+        }
+
+        for (XWPFTable table : document.getTables()) {
+            content.append("[[TABLE]]\n");
+            for (XWPFTableRow row : table.getRows()) {
+                String rowText = row.getTableCells().stream()
+                        .map(XWPFTableCell::getText)
+                        .map(text -> text != null ? text.trim() : "")
+                        .filter(text -> !text.isBlank())
+                        .reduce((left, right) -> left + " | " + right)
+                        .orElse("");
+                if (!rowText.isBlank()) {
+                    content.append(rowText).append('\n');
+                }
+            }
+            content.append("[[/TABLE]]\n\n");
+        }
+
+        return content.toString();
+    }
+
+    private boolean isHeadingStyle(String style) {
+        if (style == null || style.isBlank()) {
+            return false;
+        }
+        String normalized = style.toLowerCase();
+        return normalized.startsWith("heading") || normalized.startsWith("标题");
     }
 
     /**

@@ -78,10 +78,10 @@ public class RerankService implements Reranker {
         }
 
         long startTime = System.currentTimeMillis();
-        Optional<List<SearchResult>> modelReranked = rerankByModel(candidates, query, startTime);
-        if (modelReranked.isPresent()) {
-            return modelReranked.get();
-        }
+//        Optional<List<SearchResult>> modelReranked = rerankByModel(candidates, query, startTime);
+//        if (modelReranked.isPresent()) {
+//            return modelReranked.get();
+//        }
 
         return rerankByLocalRules(candidates, query, startTime);
     }

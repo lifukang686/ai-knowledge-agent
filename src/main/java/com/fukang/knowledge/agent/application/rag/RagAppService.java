@@ -67,6 +67,7 @@ public class RagAppService {
 
         List<SearchResult> reranked = reranker.rerank(retrieved, question);
         String answer = answerGenerator.generateAnswer(reranked, rewrittenQuery);
+        log.info("回答内容" + answer);
         String status = reranked.isEmpty() ? "no_results" : "success";
         return new QaResult(answer, rewrittenQuery, status);
     }

@@ -78,8 +78,14 @@ public class PdfDocumentParser implements DocumentParser {
         PDFTextStripper stripper = new PDFTextStripper();
         stripper.setSortByPosition(true);
         stripper.setParagraphStart("\n");
-        stripper.setPageEnd("\n\n");
-        return stripper.getText(document);
+        StringBuilder content = new StringBuilder();
+        for (int page = 1; page <= document.getNumberOfPages(); page++) {
+            stripper.setStartPage(page);
+            stripper.setEndPage(page);
+            content.append("[[PAGE:").append(page).append("]]\n");
+            content.append(stripper.getText(document).trim()).append("\n\n");
+        }
+        return content.toString();
     }
 
     /**

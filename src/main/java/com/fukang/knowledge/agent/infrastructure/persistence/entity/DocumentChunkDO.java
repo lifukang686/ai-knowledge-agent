@@ -33,6 +33,23 @@ public class DocumentChunkDO extends BaseEntity {
     @Column(name = "search_text", columnDefinition = "TEXT")
     private String searchText;
 
+    /** 向量化专用文本，可包含标题和位置信息，不用于前端展示 */
+    @Lob
+    @Column(name = "embedding_text", columnDefinition = "TEXT")
+    private String embeddingText;
+
+    /** embedding_text 的构造策略版本，用于后续重建和审计 */
+    @Column(name = "embedding_text_version", length = 32)
+    private String embeddingTextVersion;
+
+    /** 文档块所在页码，无法识别时为空 */
+    @Column(name = "page_number")
+    private Integer pageNumber;
+
+    /** 文档块所属章节标题，无法识别时为空 */
+    @Column(name = "section_title", length = 255)
+    private String sectionTitle;
+
     /** 块在文档中的顺序号，从 0 开始递增 */
     @Column(name = "chunk_order", nullable = false)
     private Integer chunkOrder;

@@ -208,10 +208,24 @@ public class DocumentChunkStorageService extends ServiceImpl<DocumentChunkMapper
             chunkDO.setDocumentId(documentId);
             chunkDO.setChunkText(chunk.chunkText());
             chunkDO.setSearchText(chineseTextTokenizer.tokenize(chunk.chunkText()));
+            chunkDO.setPageNumber(parseInteger(chunk.metadata().get("pageNumber")));
+            chunkDO.setSectionTitle(chunk.metadata().get("sectionTitle"));
             chunkDO.setChunkOrder(chunk.chunkOrder());
             chunkDO.setTokenCount(chunk.tokenCount());
             chunkDOs.add(chunkDO);
         }
         return chunkDOs;
+    }
+
+    private Integer parseInteger(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            log.debug("解析文档块数字元数据失败: value={}", value);
+            return null;
+        }
     }
 }
