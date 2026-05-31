@@ -54,12 +54,16 @@ public class EmbeddingService {
      * @return 嵌入计算结果，包含向量列表和元数据
      */
     public EmbeddingResult embed(List<String> texts) {
+        return embed(texts, null);
+    }
+
+    public EmbeddingResult embed(List<String> texts, Long embeddingModelId) {
         if (texts == null || texts.isEmpty()) {
             log.warn("待嵌入的文本列表为空，无法执行向量化");
             throw new BaseException(ErrorCodeEnum.CHUNK_DATA_EMPTY);
         }
 
-        ModelConfigDO embeddingModel = findEmbeddingModel();
+        ModelConfigDO embeddingModel = findEmbeddingModel(embeddingModelId);
         ModelProviderDO provider = modelManager.resolveProvider();
         int maxBatchSize = parseMaxBatchSize(embeddingModel);
 
@@ -171,8 +175,10 @@ public class EmbeddingService {
                                              int totalTokens) {
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("modelName", embeddingModel.getModelName());
+        metadata.put("modelId", embeddingModel.getId());
         metadata.put("providerId", embeddingModel.getProviderId());
         metadata.put("vectorDimension", allVectors.isEmpty() ? 0 : allVectors.get(0).dimension());
+        metadata.put("modelVersion", embeddingModel.getModelName());
 
         log.info("向量化完成: model={}, chunkCount={}, dimension={}, totalTokens={}",
                 embeddingModel.getModelName(), allVectors.size(),
@@ -185,6 +191,20 @@ public class EmbeddingService {
      * <p>策略：默认提供商下的嵌入模型 → 全局嵌入模型</p>
      */
     private ModelConfigDO findEmbeddingModel() {
+        return findEmbeddingModel(null);
+    }
+
+    private ModelConfigDO findEmbeddingModel(Long embeddingModelId) {
+        if (embeddingModelId != null) {
+            ModelConfigDO configuredModel = modelAppService.findModelById(embeddingModelId);
+            if (configuredModel == null) {
+                throw new BaseException(ErrorCodeEnum.MODEL_NOT_EXIST);
+            }
+            if (!ModelTypeEnum.EMBEDDING.getCode().equals(configuredModel.getModelType())) {
+                throw new BaseException(ErrorCodeEnum.MODEL_TYPE_INVALID);
+            }
+            return configuredModel;
+        }
         ModelProviderDO defaultProvider = modelAppService.findDefaultProvider();
         if (defaultProvider != null) {
             List<ModelConfigDO> defaultProviderModels = modelAppService

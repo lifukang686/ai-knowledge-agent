@@ -8,6 +8,7 @@ import com.fukang.knowledge.agent.domain.knowledge.model.ChunkStorageResult;
 import com.fukang.knowledge.agent.domain.knowledge.model.ChunkStorageResult.FailedChunkDetail;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
+import com.fukang.knowledge.agent.infrastructure.rag.ChineseTextTokenizer;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.DocumentChunkDO;
 import com.fukang.knowledge.agent.infrastructure.persistence.mapper.DocumentChunkMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -33,6 +34,12 @@ import java.util.List;
 @Slf4j
 @Service
 public class DocumentChunkStorageService extends ServiceImpl<DocumentChunkMapper, DocumentChunkDO> {
+
+    private final ChineseTextTokenizer chineseTextTokenizer;
+
+    public DocumentChunkStorageService(ChineseTextTokenizer chineseTextTokenizer) {
+        this.chineseTextTokenizer = chineseTextTokenizer;
+    }
 
     /**
      * 事务批量保存文档块（全量成功或整体回滚）
@@ -200,6 +207,7 @@ public class DocumentChunkStorageService extends ServiceImpl<DocumentChunkMapper
             DocumentChunkDO chunkDO = new DocumentChunkDO();
             chunkDO.setDocumentId(documentId);
             chunkDO.setChunkText(chunk.chunkText());
+            chunkDO.setSearchText(chineseTextTokenizer.tokenize(chunk.chunkText()));
             chunkDO.setChunkOrder(chunk.chunkOrder());
             chunkDO.setTokenCount(chunk.tokenCount());
             chunkDOs.add(chunkDO);

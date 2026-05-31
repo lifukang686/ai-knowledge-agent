@@ -28,6 +28,33 @@ public record EmbeddingResult(
         boolean allSucceeded
 ) {
 
+    public Long modelId() {
+        Object value = metadata != null ? metadata.get("modelId") : null;
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        if (value instanceof String text && !text.isBlank()) {
+            return Long.valueOf(text);
+        }
+        return null;
+    }
+
+    public int dimension() {
+        Object value = metadata != null ? metadata.get("vectorDimension") : null;
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        if (value instanceof String text && !text.isBlank()) {
+            return Integer.parseInt(text);
+        }
+        return embeddings.isEmpty() ? 0 : embeddings.get(0).dimension();
+    }
+
+    public String modelVersion() {
+        Object value = metadata != null ? metadata.get("modelVersion") : null;
+        return value != null ? String.valueOf(value) : modelName;
+    }
+
     /**
      * 单个向量嵌入数据
      * <p>映射 chunkOrder → vector 的对应关系</p>

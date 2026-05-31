@@ -1,11 +1,22 @@
 package com.fukang.knowledge.agent.application.agent;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fukang.knowledge.agent.api.agent.dto.AgentCreateReq;
+import com.fukang.knowledge.agent.api.agent.dto.AgentResp;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.enums.ModelTypeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
-import com.fukang.knowledge.agent.domain.agent.model.*;
+import com.fukang.knowledge.agent.domain.agent.model.AgentContext;
+import com.fukang.knowledge.agent.domain.agent.model.AgentRunEvent;
+import com.fukang.knowledge.agent.domain.agent.model.AgentRunResult;
+import com.fukang.knowledge.agent.domain.agent.model.AgentStep;
+import com.fukang.knowledge.agent.domain.agent.model.AgentStepRecord;
+import com.fukang.knowledge.agent.domain.agent.model.ExecutionStrategy;
+import com.fukang.knowledge.agent.domain.agent.model.Observation;
+import com.fukang.knowledge.agent.domain.agent.model.PlanStep;
+import com.fukang.knowledge.agent.domain.agent.model.ReasoningResult;
 import com.fukang.knowledge.agent.infrastructure.ai.AgentMemoryFactory;
 import com.fukang.knowledge.agent.infrastructure.ai.DynamicModelManager;
 import com.fukang.knowledge.agent.infrastructure.config.AgentProperties;
@@ -21,29 +32,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
-/**
- * Agent 应用服务
- * <p>编排完整的 Agent 执行流程，是 Agent 模块的入口服务。
- * 核心流程：规划 → [执行 → 推理 → 循环] → 返回结果
- *
- * <pre>
- * 完整执行流程:
- * 1. 校验 Agent 配置是否存在
- * 2. 创建 agent_run 运行记录
- * 3. 调用 Planner 生成 PlanStep 列表
- * 4. 进入执行-推理循环：
- *    a. 调用 Reasoner 决策下一步动作
- *    b. 如果是 CONTINUE: 获取下一个 PlanStep，调用 Executor 执行
- *    c. 如果是 FINAL_ANSWER: 完成任务，输出结果
- *    d. 如果是 RETRY: 重试上一步
- *    e. 如果是 ABORT: 终止任务
- * 5. 达到最大步数或异常时终止
- * 6. 更新 agent_run 记录，返回 AgentRunResult
- * </pre>
- * </p>
- */
 @Slf4j
 @Service
 public class AgentAppService {
@@ -79,169 +71,118 @@ public class AgentAppService {
         this.agentProperties = agentProperties;
     }
 
-    /**
-     * 执行 Agent 任务
-     *
-     * @param agentId  Agent 配置 ID
-     * @param task     用户任务描述
-     * @param strategy 执行策略
-     * @return Agent 运行结果
-     * @throws BaseException Agent 配置不存在时抛出
-     */
+    @Transactional
+    public AgentResp create(AgentCreateReq req) {
+        if (req.name() == null || req.name().isBlank()) {
+            throw new BaseException(ErrorCodeEnum.BAD_REQUEST.getCode(), "Agent name cannot be blank");
+        }
+
+        AgentDO agentDO = new AgentDO();
+        agentDO.setName(req.name());
+        agentDO.setDescription(req.description());
+        agentDO.setToolIds(serializeToolIds(req.toolIds()));
+        agentDO.setSystemPrompt(req.systemPrompt());
+        agentDO.setMaxSteps(req.maxSteps());
+        agentMapper.insert(agentDO);
+
+        log.info("Agent created: id={}, name={}, toolCount={}",
+                agentDO.getId(), agentDO.getName(), req.toolIds() != null ? req.toolIds().size() : 0);
+        return toAgentResp(agentDO, req.toolIds());
+    }
+
     @Transactional
     public AgentRunResult run(Long agentId, String task, ExecutionStrategy strategy) {
         ExecutionStrategy execStrategy = strategy != null ? strategy : ExecutionStrategy.PLAN_EXECUTE;
-
         if (execStrategy == ExecutionStrategy.AI_SERVICES) {
             return runWithAiServices(agentId, task);
         }
         return runWithPlanExecute(agentId, task);
     }
 
-    /**
-     * 执行 Agent 任务（默认 Plan-Execute 策略）
-     */
     @Transactional
     public AgentRunResult run(Long agentId, String task) {
         return run(agentId, task, ExecutionStrategy.PLAN_EXECUTE);
     }
 
-    /**
-     * Plan-Then-Execute 策略（已有逻辑不变）
-     */
     private AgentRunResult runWithPlanExecute(Long agentId, String task) {
         AgentDO agentDO = agentMapper.selectById(agentId);
         if (agentDO == null) {
             throw new BaseException(ErrorCodeEnum.AGENT_NOT_EXIST);
         }
 
-        int maxSteps = agentDO.getMaxSteps() != null ? agentDO.getMaxSteps()
-                : agentProperties.getMaxSteps();
-
+        int maxSteps = agentDO.getMaxSteps() != null ? agentDO.getMaxSteps() : agentProperties.getMaxSteps();
         AgentRunDO runDO = createRunRecord(agentId, task);
         AgentContext context = new AgentContext(task);
         context.setChatMemory(memoryFactory.createDefault());
-
+        List<AgentRunEvent> events = new ArrayList<>();
         long startTime = System.currentTimeMillis();
 
         try {
-            // 1. 规划阶段
             context.setStatus(AgentContext.AgentContextStatus.PLANNING);
-            log.info("Agent 开始规划: runId={}, agentId={}, task={}", runDO.getId(), agentId, task);
             List<PlanStep> plan = agentPlanner.plan(task);
             context.setPlanSteps(plan);
-            log.info("Agent 规划完成: runId={}, 步骤数={}", runDO.getId(), plan.size());
+            events.add(event(AgentRunEvent.EventType.PLAN, null, null,
+                    Map.of("steps", plan), true, null, "Plan generated"));
 
-            // 2. 执行-推理循环
             context.setStatus(AgentContext.AgentContextStatus.EXECUTING);
             int stepCount = 0;
-
             while (stepCount < maxSteps) {
                 ReasoningResult reasoning = agentReasoner.reason(context);
+                recordReasoning(events, reasoning, "Reasoning decision");
 
                 if (reasoning.decision() == ReasoningResult.Decision.FINAL_ANSWER) {
-                    log.info("Agent 任务完成: runId={}, 总步数={}", runDO.getId(), stepCount);
-                    context.setStatus(AgentContext.AgentContextStatus.COMPLETED);
-                    updateRunRecord(runDO, "COMPLETED", reasoning.content(), context);
-                    long totalDuration = System.currentTimeMillis() - startTime;
-                    return buildResult(runDO.getId(), reasoning.content(),
-                            "COMPLETED", context.getSteps(), totalDuration);
+                    return completeRun(runDO, context, events, reasoning.content(), startTime);
                 }
-
                 if (reasoning.decision() == ReasoningResult.Decision.ABORT) {
-                    log.warn("Agent 任务终止: runId={}, reason={}", runDO.getId(), reasoning.content());
-                    context.setStatus(AgentContext.AgentContextStatus.FAILED);
-                    updateRunRecord(runDO, "FAILED", reasoning.content(), context);
-                    long totalDuration = System.currentTimeMillis() - startTime;
-                    return buildResult(runDO.getId(), reasoning.content(),
-                            "FAILED", context.getSteps(), totalDuration);
+                    return failRun(runDO, context, events, reasoning.content(), startTime, "Agent aborted");
                 }
-
                 if (reasoning.decision() == ReasoningResult.Decision.RETRY) {
-                    log.info("Agent 重试上一步: runId={}", runDO.getId());
                     AgentStep lastStep = context.getLastStep();
                     if (lastStep != null) {
                         PlanStep retryStep = new PlanStep(lastStep.stepOrder(),
-                                lastStep.toolName(), lastStep.parameters(), "重试");
-                        executeAndRecord(context, retryStep);
+                                lastStep.toolName(), lastStep.parameters(), "Retry previous step");
+                        executeAndRecord(context, retryStep, events);
                         stepCount++;
                     }
                     continue;
                 }
 
-                // CONTINUE: 执行下一个计划步骤
                 if (context.getRemainingSteps().isEmpty()) {
                     ReasoningResult finalReason = agentReasoner.reason(context);
+                    recordReasoning(events, finalReason, "Final reasoning decision");
                     if (finalReason.decision() == ReasoningResult.Decision.FINAL_ANSWER) {
-                        context.setStatus(AgentContext.AgentContextStatus.COMPLETED);
-                        updateRunRecord(runDO, "COMPLETED", finalReason.content(), context);
-                        long totalDuration = System.currentTimeMillis() - startTime;
-                        return buildResult(runDO.getId(), finalReason.content(),
-                                "COMPLETED", context.getSteps(), totalDuration);
+                        return completeRun(runDO, context, events, finalReason.content(), startTime);
                     }
-                    log.warn("无剩余步骤但推理未返回 FINAL_ANSWER: runId={}", runDO.getId());
                     break;
                 }
 
                 PlanStep nextStep = context.getRemainingSteps().get(0);
-                executeAndRecord(context, nextStep);
+                executeAndRecord(context, nextStep, events);
                 stepCount++;
-                log.info("步骤执行完成: runId={}, step={}/{}, tool={}, completedSteps={}",
-                        runDO.getId(), stepCount, context.getTotalStepCount(),
-                        nextStep.toolName(), context.getCompletedStepCount());
             }
 
-            // 3. 达到最大步数限制
-            log.warn("Agent 达到最大步数限制: runId={}, maxSteps={}", runDO.getId(), maxSteps);
-            context.setStatus(AgentContext.AgentContextStatus.FAILED);
-            String errorMsg = "达到最大执行步数限制 (" + maxSteps + ")，任务未完成";
-            updateRunRecord(runDO, "FAILED", errorMsg, context);
-            long totalDuration = System.currentTimeMillis() - startTime;
-            return buildResult(runDO.getId(), errorMsg, "FAILED",
-                    context.getSteps(), totalDuration);
-
+            String errorMsg = "Agent reached max steps limit: " + maxSteps;
+            return failRun(runDO, context, events, errorMsg, startTime, "Max steps exceeded");
         } catch (BaseException e) {
-            log.error("Agent 执行异常: runId={}, agentId={}", runDO.getId(), agentId, e);
-            context.setStatus(AgentContext.AgentContextStatus.FAILED);
-            updateRunRecord(runDO, "FAILED", e.getMessage(), context);
-            return buildResult(runDO.getId(), e.getMessage(), "FAILED",
-                    context.getSteps(), System.currentTimeMillis() - startTime);
+            return failRun(runDO, context, events, e.getMessage(), startTime, e.getClass().getSimpleName());
         } catch (Exception e) {
-            log.error("Agent 执行未知异常: runId={}, agentId={}", runDO.getId(), agentId, e);
-            context.setStatus(AgentContext.AgentContextStatus.FAILED);
-            String errorMsg = "系统异常: " + e.getMessage();
-            updateRunRecord(runDO, "FAILED", errorMsg, context);
-            return buildResult(runDO.getId(), errorMsg, "FAILED",
-                    context.getSteps(), System.currentTimeMillis() - startTime);
+            log.error("Agent execution failed: runId={}, agentId={}", runDO.getId(), agentId, e);
+            return failRun(runDO, context, events, "System error: " + e.getMessage(),
+                    startTime, e.getClass().getSimpleName());
         }
     }
 
-    /**
-     * 查询 Agent 运行状态
-     *
-     * @param runId 运行记录 ID
-     * @return Agent 运行结果
-     */
     public AgentRunResult getRunStatus(Long runId) {
         AgentRunDO runDO = agentRunMapper.selectById(runId);
         if (runDO == null) {
             throw new BaseException(ErrorCodeEnum.AGENT_RUN_NOT_EXIST);
         }
-        List<AgentStep> steps = parseSteps(runDO.getLog());
+        List<AgentRunEvent> events = parseEvents(runDO.getLog());
+        List<AgentStep> steps = eventsToSteps(events);
         return buildResult(runId, runDO.getOutputAnswer(), runDO.getStatus(),
-                steps, calculateDuration(runDO.getStartTime(), runDO.getEndTime()));
+                steps, events, calculateDuration(runDO.getStartTime(), runDO.getEndTime()));
     }
 
-    /**
-     * AiServices 轻量执行策略（ReAct 模式）
-     * <p>利用 LangChain4j 的 {@link AiServices} 框架，让 LLM 通过 Function Calling
-     * 自主决定何时调用哪个工具。框架自动管理 Thought → Action → Observation 循环，
-     * 无需手动编写工具调用循环逻辑</p>
-     *
-     * @param agentId Agent 配置 ID
-     * @param task    用户任务描述
-     * @return Agent 运行结果
-     */
     @Transactional
     public AgentRunResult runWithAiServices(Long agentId, String task) {
         AgentDO agentDO = agentMapper.selectById(agentId);
@@ -253,51 +194,82 @@ public class AgentAppService {
         runDO.setStatus("EXECUTING");
         agentRunMapper.updateById(runDO);
 
-        log.info("Agent [AI_SERVICES] 开始执行: runId={}, agentId={}, task={}", runDO.getId(), agentId, task);
-
+        List<AgentRunEvent> events = new ArrayList<>();
         long startTime = System.currentTimeMillis();
 
-        try {
+        try (AgentRunEventCollector collector = AgentRunEventCollector.open()) {
+            collector.add(event(AgentRunEvent.EventType.REASONING, null, null,
+                    Map.of("strategy", ExecutionStrategy.AI_SERVICES.name()), true, null,
+                    "AiServices execution started"));
+
             AgentAiService aiService = AiServices
                     .builder(AgentAiService.class)
                     .chatLanguageModel(dynamicModelManager.getChatModel(ModelTypeEnum.CHAT))
                     .systemMessageProvider(memoryId ->
                             agentDO.getSystemPrompt() != null && !agentDO.getSystemPrompt().isBlank()
                                     ? agentDO.getSystemPrompt()
-                                    : "你是一个智能助手，能够根据需要调用工具来帮助用户完成任务。")
+                                    : "You are an intelligent assistant. Use tools when needed to complete the task.")
                     .toolProvider(dynamicToolProvider)
                     .chatMemory(memoryFactory.createDefault())
                     .build();
 
             String answer = aiService.chat(task);
+            events.addAll(collector.events());
+            events.add(event(AgentRunEvent.EventType.FINAL_ANSWER, null, null,
+                    Map.of("answer", answer), true, null, "Final answer"));
 
             long totalDuration = System.currentTimeMillis() - startTime;
-            AgentContext context = new AgentContext(task);
-            context.setStatus(AgentContext.AgentContextStatus.COMPLETED);
-            updateRunRecord(runDO, "COMPLETED", answer, context);
-
-            log.info("Agent [AI_SERVICES] 执行完成: runId={}, duration={}ms", runDO.getId(), totalDuration);
-            return buildResult(runDO.getId(), answer, "COMPLETED", List.of(), totalDuration);
-
+            updateRunRecord(runDO, "COMPLETED", answer, events);
+            return buildResult(runDO.getId(), answer, "COMPLETED", eventsToSteps(events), events, totalDuration);
         } catch (Exception e) {
-            log.error("Agent [AI_SERVICES] 执行异常: runId={}, agentId={}", runDO.getId(), agentId, e);
+            log.error("AiServices agent execution failed: runId={}, agentId={}", runDO.getId(), agentId, e);
+            String errorMsg = "Execution error: " + e.getMessage();
+            events.add(event(AgentRunEvent.EventType.ERROR, null, null,
+                    Map.of("exception", e.getClass().getSimpleName()), false, null, errorMsg));
             long totalDuration = System.currentTimeMillis() - startTime;
-            String errorMsg = "执行异常: " + e.getMessage();
-            AgentContext context = new AgentContext(task);
-            context.setStatus(AgentContext.AgentContextStatus.FAILED);
-            updateRunRecord(runDO, "FAILED", errorMsg, context);
-            return buildResult(runDO.getId(), errorMsg, "FAILED", List.of(), totalDuration);
+            updateRunRecord(runDO, "FAILED", errorMsg, events);
+            return buildResult(runDO.getId(), errorMsg, "FAILED", eventsToSteps(events), events, totalDuration);
         }
     }
 
-    private void executeAndRecord(AgentContext context, PlanStep step) {
+    private AgentRunResult completeRun(AgentRunDO runDO, AgentContext context,
+                                       List<AgentRunEvent> events, String answer, long startTime) {
+        context.setStatus(AgentContext.AgentContextStatus.COMPLETED);
+        events.add(event(AgentRunEvent.EventType.FINAL_ANSWER, null, null,
+                Map.of("answer", answer), true, null, "Final answer"));
+        updateRunRecord(runDO, "COMPLETED", answer, events);
+        long totalDuration = System.currentTimeMillis() - startTime;
+        return buildResult(runDO.getId(), answer, "COMPLETED", context.getSteps(), events, totalDuration);
+    }
+
+    private AgentRunResult failRun(AgentRunDO runDO, AgentContext context,
+                                   List<AgentRunEvent> events, String message,
+                                   long startTime, String reason) {
+        context.setStatus(AgentContext.AgentContextStatus.FAILED);
+        events.add(event(AgentRunEvent.EventType.ERROR, null, null,
+                Map.of("reason", reason), false, null, message));
+        updateRunRecord(runDO, "FAILED", message, events);
+        long totalDuration = System.currentTimeMillis() - startTime;
+        return buildResult(runDO.getId(), message, "FAILED", context.getSteps(), events, totalDuration);
+    }
+
+    private void executeAndRecord(AgentContext context, PlanStep step, List<AgentRunEvent> events) {
+        events.add(event(AgentRunEvent.EventType.TOOL_CALL, step.stepOrder(), step.toolName(),
+                Map.of("parameters", step.parameters() != null ? step.parameters() : Map.of(),
+                        "reasoning", step.reasoning() != null ? step.reasoning() : ""),
+                null, null, "Plan-Execute tool call"));
+
         Observation observation = agentExecutor.executeStep(step);
-        AgentStep agentStep = new AgentStep(
+        events.add(event(AgentRunEvent.EventType.OBSERVATION, observation.stepOrder(), observation.toolName(),
+                Map.of("result", observation.result() != null ? observation.result() : "",
+                        "errorMessage", observation.errorMessage() != null ? observation.errorMessage() : ""),
+                observation.success(), observation.durationMs(), "Tool observation"));
+
+        context.addStep(new AgentStep(
                 step.stepOrder(), step.toolName(), step.parameters(),
                 observation.result(), observation.durationMs(),
                 observation.success(), observation.errorMessage()
-        );
-        context.addStep(agentStep);
+        ));
     }
 
     private AgentRunDO createRunRecord(Long agentId, String task) {
@@ -308,38 +280,87 @@ public class AgentAppService {
         runDO.setStartTime(LocalDateTime.now());
         runDO.setCreateTime(LocalDateTime.now());
         agentRunMapper.insert(runDO);
-        log.info("创建 Agent 运行记录: runId={}, agentId={}", runDO.getId(), agentId);
         return runDO;
     }
 
-    private void updateRunRecord(AgentRunDO runDO, String status, String output,
-                                  AgentContext context) {
+    private void updateRunRecord(AgentRunDO runDO, String status, String output, List<AgentRunEvent> events) {
         runDO.setStatus(status);
         runDO.setOutputAnswer(output);
         runDO.setEndTime(LocalDateTime.now());
-        runDO.setLog(serializeSteps(context.getSteps()));
+        runDO.setLog(serializeEvents(events));
         agentRunMapper.updateById(runDO);
     }
 
-    private String serializeSteps(List<AgentStep> steps) {
+    private void recordReasoning(List<AgentRunEvent> events, ReasoningResult reasoning, String message) {
+        events.add(event(AgentRunEvent.EventType.REASONING, null, null,
+                Map.of("decision", reasoning.decision().name(), "content", reasoning.content()),
+                true, null, message));
+    }
+
+    private AgentRunEvent event(AgentRunEvent.EventType type, Integer stepOrder, String toolName,
+                                Map<String, Object> payload, Boolean success,
+                                Long durationMs, String message) {
+        return AgentRunEvent.of(type, stepOrder, toolName, payload, success, durationMs, message);
+    }
+
+    private String serializeEvents(List<AgentRunEvent> events) {
         try {
-            return objectMapper.writeValueAsString(steps);
+            return objectMapper.writeValueAsString(events);
         } catch (Exception e) {
-            log.error("序列化步骤日志失败", e);
+            log.error("Failed to serialize agent run events", e);
             return "[]";
         }
     }
 
-    private List<AgentStep> parseSteps(String logJson) {
+    private List<AgentRunEvent> parseEvents(String logJson) {
         if (logJson == null || logJson.isBlank()) {
             return List.of();
         }
         try {
-            return objectMapper.readValue(logJson, new TypeReference<List<AgentStep>>() {});
+            List<AgentRunEvent> events = objectMapper.readValue(logJson, new TypeReference<List<AgentRunEvent>>() {});
+            if (events.isEmpty() || events.get(0).type() != null) {
+                return events;
+            }
         } catch (Exception e) {
-            log.error("解析步骤日志失败", e);
+            log.debug("Agent run log is not event format, trying legacy step format");
+        }
+        try {
+            List<AgentStep> legacySteps = objectMapper.readValue(logJson, new TypeReference<List<AgentStep>>() {});
+            return stepsToEvents(legacySteps);
+        } catch (Exception e) {
+            log.error("Failed to parse agent run log", e);
             return List.of();
         }
+    }
+
+    private List<AgentStep> eventsToSteps(List<AgentRunEvent> events) {
+        return events.stream()
+                .filter(e -> AgentRunEvent.EventType.OBSERVATION.code().equals(e.type()))
+                .map(e -> new AgentStep(
+                        e.stepOrder(),
+                        e.toolName(),
+                        Map.of(),
+                        stringPayload(e, "result", e.message()),
+                        e.durationMs(),
+                        e.success(),
+                        stringPayload(e, "errorMessage", null)
+                ))
+                .toList();
+    }
+
+    private List<AgentRunEvent> stepsToEvents(List<AgentStep> steps) {
+        return steps.stream()
+                .map(step -> event(AgentRunEvent.EventType.OBSERVATION,
+                        step.stepOrder(), step.toolName(),
+                        Map.of("result", step.observation() != null ? step.observation() : "",
+                                "errorMessage", step.errorMessage() != null ? step.errorMessage() : ""),
+                        step.success(), step.durationMs(), "Legacy step observation"))
+                .toList();
+    }
+
+    private String stringPayload(AgentRunEvent event, String key, String defaultValue) {
+        Object value = event.payload() != null ? event.payload().get(key) : null;
+        return value != null ? String.valueOf(value) : defaultValue;
     }
 
     private long calculateDuration(LocalDateTime start, LocalDateTime end) {
@@ -350,16 +371,36 @@ public class AgentAppService {
     }
 
     private AgentRunResult buildResult(Long runId, String result, String status,
-                                        List<AgentStep> steps, long totalDuration) {
+                                       List<AgentStep> steps, List<AgentRunEvent> events,
+                                       long totalDuration) {
         List<AgentStepRecord> stepRecords = steps.stream()
                 .map(s -> new AgentStepRecord(
-                        s.stepOrder(),
+                        s.stepOrder() != null ? s.stepOrder() : 0,
                         s.toolName(),
                         s.observation() != null ? s.observation() : "",
                         Boolean.TRUE.equals(s.success()),
                         s.durationMs() != null ? s.durationMs() : 0
                 ))
                 .toList();
-        return new AgentRunResult(runId, result, status, stepRecords, totalDuration);
+        return new AgentRunResult(runId, result, status, stepRecords, events, totalDuration);
+    }
+
+    private String serializeToolIds(List<Long> toolIds) {
+        if (toolIds == null || toolIds.isEmpty()) {
+            return "[]";
+        }
+        try {
+            return objectMapper.writeValueAsString(toolIds);
+        } catch (JsonProcessingException e) {
+            log.warn("Failed to serialize agent tool ids", e);
+            return "[]";
+        }
+    }
+
+    private AgentResp toAgentResp(AgentDO agentDO, List<Long> toolIds) {
+        return new AgentResp(agentDO.getId(), agentDO.getName(),
+                agentDO.getDescription(), toolIds != null ? toolIds : List.of(), agentDO.getSystemPrompt(),
+                agentDO.getMaxSteps(), agentDO.getCreateTime() != null
+                        ? agentDO.getCreateTime().toString() : null);
     }
 }

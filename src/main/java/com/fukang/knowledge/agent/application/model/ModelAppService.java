@@ -99,6 +99,10 @@ public class ModelAppService {
         );
     }
 
+    public ModelConfigDO findModelById(Long id) {
+        return id != null ? modelConfigMapper.selectById(id) : null;
+    }
+
     /**
      * 查询默认模型提供商
      *

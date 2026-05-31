@@ -2,7 +2,9 @@ package com.fukang.knowledge.agent.infrastructure.tool;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fukang.knowledge.agent.application.agent.AgentRunEventCollector;
 import com.fukang.knowledge.agent.application.agent.ToolRegistry;
+import com.fukang.knowledge.agent.domain.agent.model.AgentRunEvent;
 import com.fukang.knowledge.agent.domain.agent.model.ToolDefinition;
 import com.fukang.knowledge.agent.domain.agent.model.ToolExecutionResult;
 import com.fukang.knowledge.agent.domain.agent.model.ToolInfo;
@@ -41,12 +43,15 @@ public class DynamicToolProvider implements ToolProvider {
 
     private final ToolRegistry toolRegistry;
     private final ToolExecutorFactory executorFactory;
+    private final ToolSchemaConverter toolSchemaConverter;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public DynamicToolProvider(ToolRegistry toolRegistry,
-                               ToolExecutorFactory executorFactory) {
+                               ToolExecutorFactory executorFactory,
+                               ToolSchemaConverter toolSchemaConverter) {
         this.toolRegistry = toolRegistry;
         this.executorFactory = executorFactory;
+        this.toolSchemaConverter = toolSchemaConverter;
     }
 
     /**
@@ -65,6 +70,7 @@ public class DynamicToolProvider implements ToolProvider {
             ToolSpecification spec = ToolSpecification.builder()
                     .name(info.name())
                     .description(info.description())
+                    .parameters(toolSchemaConverter.fromJsonSchema(info.parametersSchema()))
                     .build();
 
             dev.langchain4j.service.tool.ToolExecutor lc4jExecutor =
@@ -93,10 +99,19 @@ public class DynamicToolProvider implements ToolProvider {
         ToolDefinition tool = toolOpt.get();
         ToolExecutor executor = executorFactory.getExecutor(tool.executorType());
         Map<String, Object> params = parseArguments(request.arguments());
+        AgentRunEventCollector.record(AgentRunEvent.of(
+                AgentRunEvent.EventType.TOOL_CALL, null, toolName,
+                Map.of("arguments", params), null, null, "AiServices tool call"));
 
         long start = System.currentTimeMillis();
         ToolExecutionResult result = executor.execute(tool, params);
         long duration = System.currentTimeMillis() - start;
+        AgentRunEventCollector.record(AgentRunEvent.of(
+                AgentRunEvent.EventType.OBSERVATION, null, toolName,
+                Map.of("output", result.output() != null ? result.output() : "",
+                        "errorMessage", result.errorMessage() != null ? result.errorMessage() : ""),
+                result.success(), duration,
+                result.success() ? "Tool execution succeeded" : "Tool execution failed"));
 
         if (result.success()) {
             log.info("工具执行成功: tool={}, duration={}ms", toolName, duration);

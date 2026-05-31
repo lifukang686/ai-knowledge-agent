@@ -29,6 +29,10 @@ public class DocumentChunkDO extends BaseEntity {
     @Column(name = "chunk_text", nullable = false, columnDefinition = "TEXT")
     private String chunkText;
 
+    @Lob
+    @Column(name = "search_text", columnDefinition = "TEXT")
+    private String searchText;
+
     /** 块在文档中的顺序号，从 0 开始递增 */
     @Column(name = "chunk_order", nullable = false)
     private Integer chunkOrder;
@@ -36,4 +40,13 @@ public class DocumentChunkDO extends BaseEntity {
     /** 块的 token 估算数量 */
     @Column(name = "token_count")
     private Integer tokenCount;
+
+    @Column(name = "embedding_model_id")
+    private Long embeddingModelId;
+
+    @Column(name = "embedding_dimension")
+    private Integer embeddingDimension;
+
+    @Column(name = "embedding_version", length = 64)
+    private String embeddingVersion;
 }

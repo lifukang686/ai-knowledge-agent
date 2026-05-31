@@ -50,4 +50,13 @@ public class DocumentDO extends BaseEntity {
     /** 处理耗时（毫秒），处理完成后填充 */
     @Column(name = "processing_duration_ms")
     private Long processingDurationMs;
+
+    @Column(name = "embedding_model_id")
+    private Long embeddingModelId;
+
+    @Column(name = "embedding_dimension")
+    private Integer embeddingDimension;
+
+    @Column(name = "embedding_version", length = 64)
+    private String embeddingVersion;
 }

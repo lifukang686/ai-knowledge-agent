@@ -70,6 +70,9 @@ public class EmbeddingIndexStorageService {
                 metadata.put("document_id", String.valueOf(chunk.getDocumentId()));
                 metadata.put("chunk_index", String.valueOf(chunk.getChunkOrder()));
                 metadata.put("total_chunks", String.valueOf(chunks.size()));
+                metadata.put("embedding_model_id", String.valueOf(embeddingResult.modelId()));
+                metadata.put("embedding_dimension", String.valueOf(embeddingResult.dimension()));
+                metadata.put("embedding_version", embeddingResult.modelVersion());
 
                 TextSegment segment = TextSegment.from(chunk.getChunkText(), metadata);
                 Embedding embedding = Embedding.from(embeddingVector.vector());

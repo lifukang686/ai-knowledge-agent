@@ -21,16 +21,17 @@ public class FullTextSearchService {
 
     private static final String SEARCH_SQL = """
             SELECT c.id AS chunk_id, c.chunk_text,
-                   ts_rank(to_tsvector('simple', c.chunk_text), plainto_tsquery('simple', ?)) AS score
+                   ts_rank(to_tsvector('simple', COALESCE(c.search_text, c.chunk_text)), plainto_tsquery('simple', ?)) AS score
             FROM document_chunk c
             JOIN document d ON d.id = c.document_id
-            WHERE to_tsvector('simple', c.chunk_text) @@ plainto_tsquery('simple', ?)
+            WHERE to_tsvector('simple', COALESCE(c.search_text, c.chunk_text)) @@ plainto_tsquery('simple', ?)
               AND (?::bigint IS NULL OR d.knowledge_base_id = ?)
             ORDER BY score DESC
             LIMIT ?
             """;
 
     private final JdbcTemplate jdbcTemplate;
+    private final ChineseTextTokenizer chineseTextTokenizer;
 
     /**
      * 执行 PostgreSQL 全文检索
@@ -43,12 +44,16 @@ public class FullTextSearchService {
      */
     public List<SearchResult> search(String queryText, Long knowledgeBaseId, int topK, double minScore) {
         long start = System.currentTimeMillis();
+        String tokenizedQuery = chineseTextTokenizer.tokenize(queryText);
+        if (tokenizedQuery.isBlank()) {
+            return List.of();
+        }
 
         List<SearchResult> results = jdbcTemplate.query(
                 SEARCH_SQL,
                 ps -> {
-                    ps.setString(1, queryText);
-                    ps.setString(2, queryText);
+                    ps.setString(1, tokenizedQuery);
+                    ps.setString(2, tokenizedQuery);
                     if (knowledgeBaseId != null) {
                         ps.setLong(3, knowledgeBaseId);
                         ps.setLong(4, knowledgeBaseId);

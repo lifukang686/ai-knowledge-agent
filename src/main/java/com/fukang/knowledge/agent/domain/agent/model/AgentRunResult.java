@@ -17,5 +17,6 @@ public record AgentRunResult(
     String result,
     String status,
     List<AgentStepRecord> steps,
+    List<AgentRunEvent> events,
     Long totalDurationMs
 ) {}
