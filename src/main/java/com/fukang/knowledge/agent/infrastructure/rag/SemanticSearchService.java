@@ -101,7 +101,8 @@ public class SemanticSearchService {
             String chunkText = segment.text();
             String metadataStr = metadata.toMap().toString();
 
-            searchResults.add(new SearchResult(chunkId, chunkText, match.score(), metadataStr));
+            searchResults.add(new SearchResult(chunkId, chunkText, match.score(), metadataStr)
+                    .withScores(match.score(), null, null, null));
         }
 
         long elapsedMs = System.currentTimeMillis() - startTime;

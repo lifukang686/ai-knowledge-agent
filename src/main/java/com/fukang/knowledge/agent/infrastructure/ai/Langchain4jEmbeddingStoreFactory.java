@@ -53,20 +53,6 @@ public class Langchain4jEmbeddingStoreFactory {
                 .dropTableFirst(vectorStoreProperties.isDropTableFirst())
                 .build();
         log.info("pgvector 向量表初始化完成: table={}", vectorStoreProperties.getTableName());
-
-        initFullTextIndex();
-    }
-
-    private void initFullTextIndex() {
-        try (Connection conn = dataSource.getConnection();
-             PreparedStatement ps = conn.prepareStatement(
-                     "CREATE INDEX IF NOT EXISTS idx_document_chunk_fts " +
-                     "ON document_chunk USING GIN(to_tsvector('simple', chunk_text))")) {
-            ps.execute();
-            log.info("全文索引初始化完成: idx_document_chunk_fts");
-        } catch (SQLException e) {
-            log.warn("全文索引创建失败（可能表尚未创建），将在下次启动重试: {}", e.getMessage());
-        }
     }
 
     public PgVectorEmbeddingStore createEmbeddingStore(EmbeddingModel embeddingModel) {

@@ -67,7 +67,8 @@ public class FullTextSearchService {
                             rs.getLong("chunk_id"),
                             rs.getString("chunk_text"),
                             score,
-                            null);
+                            null
+                    ).withScores(null, score, null, null);
                 }
         );
 

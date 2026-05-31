@@ -1,85 +1,54 @@
 spring:
   application:
     name: knowledge-agent
-  datasource:
-    url: jdbc:postgresql://127.0.0.1:5432/postgres?currentSchema=knowledge_agent
-    username: postgres
-    password: root
-    driver-class-name: org.postgresql.Driver
-  quartz:
-    job-store-type: memory
+  profiles:
+    default: ${SPRING_PROFILES_ACTIVE:dev}
   jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: true
     open-in-view: false
+    hibernate:
+      ddl-auto: none
     properties:
       hibernate:
-        format_sql: true
-  data:
-    redis:
-      port: 6379
-      host: 127.0.0.1
+        format_sql: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    clean-disabled: true
 
-# ============================================================
-# 动态模型配置（knowledge-agent 自定义）
-# ============================================================
 knowledge-agent:
   model:
-    # 模型实例本地缓存过期时间（秒），默认 300 秒 = 5 分钟
-    cache-ttl-seconds: 300
-    # 缓存最大容量，默认 50 个模型实例
-    cache-max-size: 50
-  # 语义检索配置
+    cache-ttl-seconds: ${MODEL_CACHE_TTL_SECONDS:300}
+    cache-max-size: ${MODEL_CACHE_MAX_SIZE:50}
   retrieval:
-    # 以下为默认值，仅需配置与默认值不同的项
-    # top-k: 8
-    # similarity-threshold: 0.6
-    # hybrid-enabled: true
-    # bm25-threshold: 0.1
-    # rrf-k: 60
-  # pgvector 向量存储配置（langchain4j 集成）
+    top-k: ${RAG_TOP_K:8}
+    similarity-threshold: ${RAG_SIMILARITY_THRESHOLD:0.6}
+    hybrid-enabled: ${RAG_HYBRID_ENABLED:true}
+    bm25-threshold: ${RAG_BM25_THRESHOLD:0.1}
+    rrf-k: ${RAG_RRF_K:60}
   vector-store:
-    table-name: vector_embedding
-    dimension: 1024
-    index-type: hnsw
-    create-table: true
+    table-name: ${VECTOR_STORE_TABLE:vector_embedding}
+    dimension: ${VECTOR_STORE_DIMENSION:1024}
+    index-type: ${VECTOR_STORE_INDEX_TYPE:hnsw}
+    create-table: ${VECTOR_STORE_CREATE_TABLE:true}
     drop-table-first: false
-  # 文档后处理管道配置
   document-processing:
-    # 核心线程数：同时处理最多2个文档
-    core-pool-size: 2
-    # 最大线程数
-    max-pool-size: 4
-    # 队列容量
-    queue-capacity: 100
-    # 嵌入阶段最大重试次数
-    embed-retry-max: 3
-    # 嵌入阶段重试基础退避秒数
-    embed-retry-base-seconds: 2
-  # 文档分块配置
+    core-pool-size: ${DOCUMENT_PROCESSING_CORE_POOL_SIZE:2}
+    max-pool-size: ${DOCUMENT_PROCESSING_MAX_POOL_SIZE:4}
+    queue-capacity: ${DOCUMENT_PROCESSING_QUEUE_CAPACITY:100}
+    embed-retry-max: ${DOCUMENT_PROCESSING_EMBED_RETRY_MAX:3}
+    embed-retry-base-seconds: ${DOCUMENT_PROCESSING_EMBED_RETRY_BASE_SECONDS:2}
   chunking:
-    chunk-size: 500
-    overlap-size: 200
-    strategy: paragraph
-    max-segment-size: 500
+    chunk-size: ${CHUNK_SIZE:500}
+    overlap-size: ${CHUNK_OVERLAP_SIZE:200}
+    strategy: ${CHUNK_STRATEGY:paragraph}
+    max-segment-size: ${CHUNK_MAX_SEGMENT_SIZE:500}
 
 mybatis-plus:
   mapper-locations: classpath:mapper/**/*.xml
   global-config:
     db-config:
-      id-type: assign_id # 雪花算法
+      id-type: assign_id
   configuration:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
     map-underscore-to-camel-case: true
-
-minio:
-  endpoint: http://localhost:9000
-  access-key: minioadmin
-  secret-key: minioadmin
-  bucket-name: knowledge-agent
-
-logging:
-  level:
-    com.fukang.knowledge.agent: DEBUG
-    dev.langchain4j: DEBUG
