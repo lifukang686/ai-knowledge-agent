@@ -1,4 +1,4 @@
-package com.fukang.knowledge.agent.domain.knowledge.service;
+package com.fukang.knowledge.agent.application.knowledge.processing;
 
 import com.fukang.knowledge.agent.domain.knowledge.event.DocumentUploadedEvent;
 import lombok.RequiredArgsConstructor;
@@ -9,12 +9,8 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 /**
- * 文档上传后处理事件监听器
- * <p>使用 @TransactionalEventListener(phase = AFTER_COMMIT) 确保：
- * <ol>
- *   <li>事件在上传事务成功提交后才被消费，避免读不到文档记录</li>
- *   <li>@Async 使处理在独立线程池中执行，不阻塞上传 API 响应</li>
- * </ol>
+ * 文档上传事件监听器。
+ * <p>上传事务提交后异步触发处理管道，避免上传接口被解析和向量化阻塞。</p>
  */
 @Slf4j
 @Component
@@ -24,9 +20,7 @@ public class DocumentProcessingListener {
     private final DocumentProcessingPipeline pipeline;
 
     /**
-     * 监听文档上传完成事件，异步触发处理管道
-     *
-     * @param event 文档上传完成事件
+     * 上传事务提交后，异步启动文档处理。
      */
     @Async("documentProcessingExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)

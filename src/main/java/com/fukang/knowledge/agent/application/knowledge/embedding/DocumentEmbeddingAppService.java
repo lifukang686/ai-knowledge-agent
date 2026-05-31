@@ -6,10 +6,11 @@ import com.fukang.knowledge.agent.domain.knowledge.model.ChunkStorageResult;
 import com.fukang.knowledge.agent.domain.knowledge.model.EmbeddingResult;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
+import com.fukang.knowledge.agent.application.knowledge.port.DocumentRepository;
+import com.fukang.knowledge.agent.application.knowledge.port.KnowledgeBaseRepository;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.DocumentChunkDO;
+import com.fukang.knowledge.agent.infrastructure.persistence.entity.DocumentDO;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.KnowledgeBaseDO;
-import com.fukang.knowledge.agent.infrastructure.persistence.mapper.DocumentMapper;
-import com.fukang.knowledge.agent.infrastructure.persistence.mapper.KnowledgeBaseMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -46,8 +47,8 @@ public class DocumentEmbeddingAppService {
     private final EmbeddingService embeddingService;
     private final EmbeddingIndexStorageService embeddingIndexStorageService;
     private final DocumentChunkStorageService chunkStorageService;
-    private final KnowledgeBaseMapper knowledgeBaseMapper;
-    private final DocumentMapper documentMapper;
+    private final KnowledgeBaseRepository knowledgeBaseRepository;
+    private final DocumentRepository documentRepository;
 
     /**
      * 对文档块执行向量嵌入并存储（全事务模式）
@@ -221,7 +222,7 @@ public class DocumentEmbeddingAppService {
     }
 
     private Long resolveEmbeddingModelId(Long knowledgeBaseId) {
-        KnowledgeBaseDO knowledgeBase = knowledgeBaseMapper.selectById(knowledgeBaseId);
+        KnowledgeBaseDO knowledgeBase = knowledgeBaseRepository.findById(knowledgeBaseId);
         return knowledgeBase != null ? knowledgeBase.getEmbeddingModelId() : null;
     }
 
@@ -242,13 +243,12 @@ public class DocumentEmbeddingAppService {
         }
 
         Long documentId = chunks.get(0).getDocumentId();
-        com.fukang.knowledge.agent.infrastructure.persistence.entity.DocumentDO document =
-                documentMapper.selectById(documentId);
+        DocumentDO document = documentRepository.findById(documentId);
         if (document != null) {
             document.setEmbeddingModelId(modelId);
             document.setEmbeddingDimension(dimension);
             document.setEmbeddingVersion(version);
-            documentMapper.updateById(document);
+            documentRepository.updateById(document);
         }
     }
 }

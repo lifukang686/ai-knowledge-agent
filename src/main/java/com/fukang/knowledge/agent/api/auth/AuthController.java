@@ -3,6 +3,8 @@ package com.fukang.knowledge.agent.api.auth;
 import com.fukang.knowledge.agent.api.auth.dto.LoginReq;
 import com.fukang.knowledge.agent.api.auth.dto.LoginResp;
 import com.fukang.knowledge.agent.application.auth.AuthAppService;
+import com.fukang.knowledge.agent.application.auth.command.LoginCommand;
+import com.fukang.knowledge.agent.application.auth.result.LoginResult;
 import com.fukang.knowledge.agent.common.result.Result;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
@@ -30,6 +32,7 @@ public class AuthController {
      */
     @PostMapping("/login")
     public Result<LoginResp> login(@RequestBody @Validated LoginReq req) {
-        return Result.success(authAppService.login(req));
+        LoginResult result = authAppService.login(new LoginCommand(req.username(), req.password()));
+        return Result.success(new LoginResp(result.token(), result.userId(), result.username()));
     }
 }

@@ -1,23 +1,17 @@
 package com.fukang.knowledge.agent.application.rag;
 
-import com.fukang.knowledge.agent.api.qa.dto.QaResp;
+import com.fukang.knowledge.agent.application.ai.port.ChatCompletionPort;
+import com.fukang.knowledge.agent.application.rag.result.QaResult;
+import com.fukang.knowledge.agent.application.knowledge.port.KnowledgeBaseRepository;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
-import com.fukang.knowledge.agent.common.enums.ModelTypeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.domain.rag.model.SearchResult;
 import com.fukang.knowledge.agent.domain.rag.service.AnswerGenerator;
 import com.fukang.knowledge.agent.domain.rag.service.QueryRewritePort;
 import com.fukang.knowledge.agent.domain.rag.service.Reranker;
 import com.fukang.knowledge.agent.domain.rag.service.RetrievalStrategy;
-import com.fukang.knowledge.agent.infrastructure.ai.DynamicModelManager;
 import com.fukang.knowledge.agent.infrastructure.ai.PromptTemplateManager;
 import com.fukang.knowledge.agent.infrastructure.config.RetrievalProperties;
-import com.fukang.knowledge.agent.infrastructure.persistence.mapper.KnowledgeBaseMapper;
-import dev.langchain4j.data.message.AiMessage;
-import dev.langchain4j.data.message.ChatMessage;
-import dev.langchain4j.data.message.UserMessage;
-import dev.langchain4j.model.chat.ChatLanguageModel;
-import dev.langchain4j.model.output.Response;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -50,17 +44,17 @@ public class RagAppService {
     private final RetrievalStrategy retrievalStrategy;
     private final Reranker reranker;
     private final AnswerGenerator answerGenerator;
-    private final KnowledgeBaseMapper knowledgeBaseMapper;
+    private final KnowledgeBaseRepository knowledgeBaseRepository;
     private final RetrievalProperties retrievalProperties;
-    private final DynamicModelManager dynamicModelManager;
     private final PromptTemplateManager promptTemplateManager;
+    private final ChatCompletionPort chatCompletionPort;
 
-    public QaResp answer(String question, Long knowledgeBaseId, Long conversationId) {
+    public QaResult answer(String question, Long knowledgeBaseId, Long conversationId) {
         validateKnowledgeBase(knowledgeBaseId);
 
         if (isChitchat(question)) {
             log.info("检测到非知识库提问，直接使用 LLM 回答: {}", question);
-            return new QaResp(directChat(question), question, "success");
+            return new QaResult(directChat(question), question, "success");
         }
 
         String rewrittenQuery = queryRewritePort.rewrite(question);
@@ -68,17 +62,17 @@ public class RagAppService {
 
         if (retrieved.isEmpty() && isChitchat(rewrittenQuery)) {
             log.info("检索无结果且改写后为闲聊类问题，降级为直接 LLM 回答");
-            return new QaResp(directChat(rewrittenQuery), rewrittenQuery, "success");
+            return new QaResult(directChat(rewrittenQuery), rewrittenQuery, "success");
         }
 
         List<SearchResult> reranked = reranker.rerank(retrieved, question);
         String answer = answerGenerator.generateAnswer(reranked, rewrittenQuery);
         String status = reranked.isEmpty() ? "no_results" : "success";
-        return new QaResp(answer, rewrittenQuery, status);
+        return new QaResult(answer, rewrittenQuery, status);
     }
 
     private void validateKnowledgeBase(Long knowledgeBaseId) {
-        if (knowledgeBaseId != null && knowledgeBaseMapper.selectById(knowledgeBaseId) == null) {
+        if (knowledgeBaseId != null && knowledgeBaseRepository.findById(knowledgeBaseId) == null) {
             log.warn("知识库不存在: id={}", knowledgeBaseId);
             throw new BaseException(ErrorCodeEnum.KNOWLEDGE_BASE_NOT_EXIST);
         }
@@ -93,13 +87,10 @@ public class RagAppService {
 
     private String directChat(String question) {
         try {
-            ChatLanguageModel chatModel = dynamicModelManager.getChatModel(ModelTypeEnum.CHAT);
-            List<ChatMessage> messages = List.of(
-                    promptTemplateManager.renderSystem(CHITCHAT_SYSTEM_TEMPLATE, null),
-                    UserMessage.from(question)
-            );
-            Response<AiMessage> response = chatModel.generate(messages);
-            String answer = response.content().text();
+            String answer = chatCompletionPort.complete(List.of(
+                    ChatCompletionPort.Message.system(promptTemplateManager.renderText(CHITCHAT_SYSTEM_TEMPLATE, null)),
+                    ChatCompletionPort.Message.user(question)
+            ));
             return answer == null || answer.isBlank()
                     ? "你好！有什么可以帮您的吗？"
                     : answer;

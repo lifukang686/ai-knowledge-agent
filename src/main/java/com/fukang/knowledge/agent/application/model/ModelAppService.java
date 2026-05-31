@@ -1,17 +1,16 @@
 package com.fukang.knowledge.agent.application.model;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
-import com.fukang.knowledge.agent.api.model.dto.ModelConfigReq;
-import com.fukang.knowledge.agent.api.model.dto.ModelConfigUpdateReq;
-import com.fukang.knowledge.agent.api.model.dto.ProviderReq;
+import com.fukang.knowledge.agent.application.model.command.ModelConfigCommand;
+import com.fukang.knowledge.agent.application.model.command.ModelConfigUpdateCommand;
+import com.fukang.knowledge.agent.application.model.command.ProviderCommand;
+import com.fukang.knowledge.agent.application.model.command.ProviderUpdateCommand;
+import com.fukang.knowledge.agent.application.model.port.ModelConfigRepository;
+import com.fukang.knowledge.agent.application.model.port.ModelProviderRepository;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.enums.ModelTypeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.ModelConfigDO;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.ModelProviderDO;
-import com.fukang.knowledge.agent.infrastructure.persistence.mapper.ModelConfigMapper;
-import com.fukang.knowledge.agent.infrastructure.persistence.mapper.ModelProviderMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -28,8 +27,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ModelAppService {
 
-    private final ModelProviderMapper providerMapper;
-    private final ModelConfigMapper modelConfigMapper;
+    private final ModelProviderRepository providerRepository;
+    private final ModelConfigRepository modelConfigRepository;
 
     /**
      * 创建模型提供商
@@ -38,13 +37,13 @@ public class ModelAppService {
      * @return 新创建的提供商ID
      */
     @Transactional(rollbackFor = Exception.class)
-    public Long createProvider(ProviderReq req) {
+    public Long createProvider(ProviderCommand req) {
         ModelProviderDO provider = new ModelProviderDO();
         provider.setName(req.name());
         provider.setApiBaseUrl(req.apiBaseUrl());
         provider.setApiKey(req.apiKey());
         provider.setDescription(req.description());
-        providerMapper.insert(provider);
+        providerRepository.insert(provider);
         return provider.getId();
     }
 
@@ -54,7 +53,7 @@ public class ModelAppService {
      * @return 提供商列表
      */
     public List<ModelProviderDO> listProviders() {
-        return providerMapper.selectList(new LambdaQueryWrapper<>());
+        return providerRepository.findAll();
     }
 
     /**
@@ -67,8 +66,8 @@ public class ModelAppService {
      * @throws BaseException 模型类型无效时抛出 MODEL_TYPE_INVALID
      */
     @Transactional(rollbackFor = Exception.class)
-    public Long createModelConfig(ModelConfigReq req) {
-        ModelProviderDO provider = providerMapper.selectById(req.providerId());
+    public Long createModelConfig(ModelConfigCommand req) {
+        ModelProviderDO provider = providerRepository.findById(req.providerId());
         if (provider == null) {
             throw new BaseException(ErrorCodeEnum.PROVIDER_NOT_EXIST);
         }
@@ -82,7 +81,7 @@ public class ModelAppService {
         if (req.defaultParams() != null && !req.defaultParams().isBlank()) {
             config.setDefaultParams(req.defaultParams());
         }
-        modelConfigMapper.insert(config);
+        modelConfigRepository.insert(config);
         return config.getId();
     }
 
@@ -93,14 +92,11 @@ public class ModelAppService {
      * @return 该提供商下的模型配置列表
      */
     public List<ModelConfigDO> listModelConfigs(Long providerId) {
-        return modelConfigMapper.selectList(
-                new LambdaQueryWrapper<ModelConfigDO>()
-                        .eq(ModelConfigDO::getProviderId, providerId)
-        );
+        return modelConfigRepository.findByProviderId(providerId);
     }
 
     public ModelConfigDO findModelById(Long id) {
-        return id != null ? modelConfigMapper.selectById(id) : null;
+        return id != null ? modelConfigRepository.findById(id) : null;
     }
 
     /**
@@ -109,10 +105,7 @@ public class ModelAppService {
      * @return 默认模型提供商，如果系统中未设置默认提供商则返回 null
      */
     public ModelProviderDO findDefaultProvider() {
-        return providerMapper.selectOne(
-                new LambdaQueryWrapper<ModelProviderDO>()
-                        .eq(ModelProviderDO::getIsDefault, true)
-        );
+        return providerRepository.findDefault();
     }
 
     /**
@@ -122,10 +115,7 @@ public class ModelAppService {
      * @return 指定类型的模型配置列表
      */
     public List<ModelConfigDO> findModelsByType(ModelTypeEnum modelType) {
-        return modelConfigMapper.selectList(
-                new LambdaQueryWrapper<ModelConfigDO>()
-                        .eq(ModelConfigDO::getModelType, modelType.getCode())
-        );
+        return modelConfigRepository.findByType(modelType);
     }
 
     /**
@@ -136,11 +126,7 @@ public class ModelAppService {
      * @return 指定提供商下指定类型的模型配置列表
      */
     public List<ModelConfigDO> findModelsByProviderAndType(Long providerId, ModelTypeEnum modelType) {
-        return modelConfigMapper.selectList(
-                new LambdaQueryWrapper<ModelConfigDO>()
-                        .eq(ModelConfigDO::getProviderId, providerId)
-                        .eq(ModelConfigDO::getModelType, modelType.getCode())
-        );
+        return modelConfigRepository.findByProviderAndType(providerId, modelType);
     }
 
     /**
@@ -152,11 +138,11 @@ public class ModelAppService {
      */
     @Transactional(rollbackFor = Exception.class)
     public void deleteModelConfig(Long id) {
-        ModelConfigDO config = modelConfigMapper.selectById(id);
+        ModelConfigDO config = modelConfigRepository.findById(id);
         if (config == null) {
             throw new BaseException(ErrorCodeEnum.MODEL_NOT_EXIST);
         }
-        modelConfigMapper.deleteById(id);
+        modelConfigRepository.deleteById(id);
     }
 
     /**
@@ -169,8 +155,8 @@ public class ModelAppService {
      * @throws BaseException 模型类型无效时抛出 MODEL_TYPE_INVALID
      */
     @Transactional(rollbackFor = Exception.class)
-    public void updateModelConfig(Long id, ModelConfigUpdateReq req) {
-        ModelConfigDO config = modelConfigMapper.selectById(id);
+    public void updateModelConfig(Long id, ModelConfigUpdateCommand req) {
+        ModelConfigDO config = modelConfigRepository.findById(id);
         if (config == null) {
             throw new BaseException(ErrorCodeEnum.MODEL_NOT_EXIST);
         }
@@ -187,7 +173,7 @@ public class ModelAppService {
         if (req.defaultParams() != null && !req.defaultParams().isBlank()) {
             config.setDefaultParams(req.defaultParams());
         }
-        modelConfigMapper.updateById(config);
+        modelConfigRepository.updateById(config);
     }
 
     /**
@@ -199,16 +185,13 @@ public class ModelAppService {
      */
     @Transactional(rollbackFor = Exception.class)
     public void deleteProvider(Long id) {
-        ModelProviderDO provider = providerMapper.selectById(id);
+        ModelProviderDO provider = providerRepository.findById(id);
         if (provider == null) {
             throw new BaseException(ErrorCodeEnum.PROVIDER_NOT_EXIST);
         }
 
-        LambdaQueryWrapper<ModelConfigDO> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(ModelConfigDO::getProviderId, id);
-        modelConfigMapper.delete(wrapper);
-
-        providerMapper.deleteById(id);
+        modelConfigRepository.deleteByProviderId(id);
+        providerRepository.deleteById(id);
     }
 
     /**
@@ -220,8 +203,8 @@ public class ModelAppService {
      * @throws BaseException 模型提供商不存在时抛出 PROVIDER_NOT_EXIST
      */
     @Transactional(rollbackFor = Exception.class)
-    public void updateProvider(Long id, com.fukang.knowledge.agent.api.model.dto.ProviderUpdateReq req) {
-        ModelProviderDO provider = providerMapper.selectById(id);
+    public void updateProvider(Long id, ProviderUpdateCommand req) {
+        ModelProviderDO provider = providerRepository.findById(id);
         if (provider == null) {
             throw new BaseException(ErrorCodeEnum.PROVIDER_NOT_EXIST);
         }
@@ -237,7 +220,7 @@ public class ModelAppService {
         if (req.description() != null && !req.description().isBlank()) {
             provider.setDescription(req.description());
         }
-        providerMapper.updateById(provider);
+        providerRepository.updateById(provider);
     }
 
     /**
@@ -251,16 +234,14 @@ public class ModelAppService {
      */
     @Transactional(rollbackFor = Exception.class)
     public void setDefaultProvider(Long id) {
-        ModelProviderDO provider = providerMapper.selectById(id);
+        ModelProviderDO provider = providerRepository.findById(id);
         if (provider == null) {
             throw new BaseException(ErrorCodeEnum.PROVIDER_NOT_EXIST);
         }
 
-        providerMapper.update(null,
-                new LambdaUpdateWrapper<ModelProviderDO>()
-                        .set(ModelProviderDO::getIsDefault, false));
+        providerRepository.clearDefault();
         provider.setIsDefault(true);
-        providerMapper.updateById(provider);
+        providerRepository.updateById(provider);
 
         log.info("已将模型提供商 [{}] 设为默认", provider.getName());
     }
@@ -273,13 +254,13 @@ public class ModelAppService {
      */
     @Transactional(rollbackFor = Exception.class)
     public void cancelDefaultProvider(Long id) {
-        ModelProviderDO provider = providerMapper.selectById(id);
+        ModelProviderDO provider = providerRepository.findById(id);
         if (provider == null) {
             throw new BaseException(ErrorCodeEnum.PROVIDER_NOT_EXIST);
         }
 
         provider.setIsDefault(false);
-        providerMapper.updateById(provider);
+        providerRepository.updateById(provider);
 
         log.info("已取消模型提供商 [{}] 的默认状态", provider.getName());
     }

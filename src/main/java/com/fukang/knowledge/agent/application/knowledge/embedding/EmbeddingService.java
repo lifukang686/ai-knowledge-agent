@@ -2,20 +2,16 @@ package com.fukang.knowledge.agent.application.knowledge.embedding;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fukang.knowledge.agent.application.ai.port.EmbeddingPort;
 import com.fukang.knowledge.agent.domain.knowledge.model.EmbeddingResult;
 import com.fukang.knowledge.agent.domain.knowledge.model.EmbeddingResult.EmbeddingVector;
 import com.fukang.knowledge.agent.application.model.ModelAppService;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.enums.ModelTypeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
-import com.fukang.knowledge.agent.infrastructure.ai.DynamicModelManager;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.ModelConfigDO;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.ModelProviderDO;
 import lombok.extern.slf4j.Slf4j;
-import dev.langchain4j.data.embedding.Embedding;
-import dev.langchain4j.data.segment.TextSegment;
-import dev.langchain4j.model.embedding.EmbeddingModel;
-import dev.langchain4j.model.output.Response;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -36,14 +32,14 @@ public class EmbeddingService {
     private static final int DEFAULT_MAX_BATCH_SIZE = 100;
 
     private final ModelAppService modelAppService;
-    private final DynamicModelManager modelManager;
+    private final EmbeddingPort embeddingPort;
     private final ObjectMapper objectMapper;
 
     public EmbeddingService(ModelAppService modelAppService,
-                            DynamicModelManager modelManager,
+                            EmbeddingPort embeddingPort,
                             ObjectMapper objectMapper) {
         this.modelAppService = modelAppService;
-        this.modelManager = modelManager;
+        this.embeddingPort = embeddingPort;
         this.objectMapper = objectMapper;
     }
 
@@ -69,14 +65,13 @@ public class EmbeddingService {
         }
 
         ModelConfigDO embeddingModel = findEmbeddingModel(embeddingModelId);
-        ModelProviderDO provider = modelManager.resolveProvider();
+        ModelProviderDO provider = resolveProvider();
         int maxBatchSize = parseMaxBatchSize(embeddingModel);
 
         log.info("使用嵌入模型 [{}] 对 {} 个文本块分批向量化，batchSize={}",
                 embeddingModel.getModelName(), texts.size(), maxBatchSize);
 
         try {
-            EmbeddingModel embeddingClient = modelManager.getEmbeddingModel(provider, embeddingModel);
             List<List<String>> batches = partition(texts, maxBatchSize);
             String apiUrl = provider.getApiBaseUrl();
             if (apiUrl == null || apiUrl.isBlank()) {
@@ -94,16 +89,11 @@ public class EmbeddingService {
                         batchIndex + 1, batches.size(), apiUrl,
                         embeddingModel.getModelName(), batch.size(), batchOffset);
 
-                // LangChain4j embedding 接口按 TextSegment 批量提交，batchOffset 用于还原原始 chunkOrder。
-                List<TextSegment> segments = batch.stream().map(TextSegment::from).toList();
-                Response<List<Embedding>> response = embeddingClient.embedAll(segments);
-
-                List<EmbeddingVector> batchVectors = extractVectors(response, batchOffset);
-                allVectors.addAll(batchVectors);
-
-                if (response.tokenUsage() != null) {
-                    totalTokens += response.tokenUsage().totalTokenCount();
-                }
+                // batchOffset 用于把批次内序号还原为文档 chunkOrder。
+                EmbeddingPort.BatchResult batchResult = embeddingPort.embedBatch(
+                        provider, embeddingModel, batch, batchOffset);
+                allVectors.addAll(batchResult.vectors());
+                totalTokens += batchResult.totalTokens();
             }
 
             return buildBatchResult(allVectors, embeddingModel, totalTokens);
@@ -161,19 +151,6 @@ public class EmbeddingService {
     }
 
     /**
-     * 从单个嵌入响应中提取向量，使用 batchOffset 修正 chunkOrder
-     */
-    private List<EmbeddingVector> extractVectors(Response<List<Embedding>> response, int batchOffset) {
-        List<Embedding> embeddings = response.content();
-        List<EmbeddingVector> vectors = new ArrayList<>(embeddings.size());
-        for (int i = 0; i < embeddings.size(); i++) {
-            float[] embeddingArray = embeddings.get(i).vector();
-            vectors.add(new EmbeddingVector(batchOffset + i, embeddingArray, embeddingArray.length));
-        }
-        return vectors;
-    }
-
-    /**
      * 根据所有批次的合并结果构建 EmbeddingResult
      */
     private EmbeddingResult buildBatchResult(List<EmbeddingVector> allVectors,
@@ -199,6 +176,20 @@ public class EmbeddingService {
      */
     private ModelConfigDO findEmbeddingModel() {
         return findEmbeddingModel(null);
+    }
+
+    private ModelProviderDO resolveProvider() {
+        ModelProviderDO defaultProvider = modelAppService.findDefaultProvider();
+        if (defaultProvider != null) {
+            return defaultProvider;
+        }
+        List<ModelProviderDO> allProviders = modelAppService.listProviders();
+        if (allProviders.isEmpty()) {
+            log.error("系统中未配置任何模型提供商");
+            throw new BaseException(ErrorCodeEnum.NO_MODEL_PROVIDER_AVAILABLE);
+        }
+        log.info("系统中未设置默认模型提供商，使用第一个可用提供商 [{}]", allProviders.get(0).getName());
+        return allProviders.get(0);
     }
 
     private ModelConfigDO findEmbeddingModel(Long embeddingModelId) {

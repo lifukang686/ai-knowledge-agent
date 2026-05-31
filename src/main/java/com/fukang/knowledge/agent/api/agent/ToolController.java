@@ -5,6 +5,7 @@ import com.fukang.knowledge.agent.api.agent.dto.ToolCreateReq;
 import com.fukang.knowledge.agent.api.agent.dto.ToolResp;
 import com.fukang.knowledge.agent.api.agent.dto.ToolUpdateReq;
 import com.fukang.knowledge.agent.application.agent.ToolRegistry;
+import com.fukang.knowledge.agent.application.agent.result.ToolResult;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.common.result.PageResponse;
@@ -81,8 +82,8 @@ public class ToolController {
         ToolDefinition definition = new ToolDefinition(Long.valueOf(id), req.name(),
                 req.description(), req.executorType(), req.executorConfig(),
                 req.parametersSchema(), true);
-        ToolResp resp = toolRegistry.update(Long.valueOf(id), definition);
-        return Result.success(resp);
+        ToolResult result = toolRegistry.update(Long.valueOf(id), definition);
+        return Result.success(toToolResp(result));
     }
 
     /**
@@ -122,6 +123,14 @@ public class ToolController {
     public Result<PageResponse<ToolResp>> listPage(
             Page<?> pageQuery,
             @RequestParam(value = "keyword", required = false) String keyword) {
-        return Result.success(toolRegistry.listTools(pageQuery, keyword));
+        PageResponse<ToolResult> page = toolRegistry.listTools(
+                pageQuery.getCurrent(), pageQuery.getSize(), keyword);
+        List<ToolResp> items = page.getItems().stream().map(this::toToolResp).toList();
+        return Result.success(new PageResponse<>(items, page.getTotal(), page.getPage(), page.getPageSize()));
+    }
+
+    private ToolResp toToolResp(ToolResult result) {
+        return new ToolResp(result.id(), result.name(), result.description(), result.executorType(),
+                result.executorConfig(), result.parametersSchema(), result.enabled());
     }
 }

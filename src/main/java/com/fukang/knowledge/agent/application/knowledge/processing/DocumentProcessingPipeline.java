@@ -1,17 +1,17 @@
-package com.fukang.knowledge.agent.domain.knowledge.service;
+package com.fukang.knowledge.agent.application.knowledge.processing;
 
+import com.fukang.knowledge.agent.application.knowledge.chunk.DocumentChunkAppService;
+import com.fukang.knowledge.agent.application.knowledge.embedding.DocumentEmbeddingAppService;
+import com.fukang.knowledge.agent.application.knowledge.parsing.DocumentProcessingService;
+import com.fukang.knowledge.agent.application.knowledge.port.DocumentRepository;
+import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
+import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.domain.knowledge.model.ChunkResult;
 import com.fukang.knowledge.agent.domain.knowledge.model.ChunkStorageResult;
 import com.fukang.knowledge.agent.domain.knowledge.model.DocumentParseResult;
 import com.fukang.knowledge.agent.domain.knowledge.model.DocumentStatus;
-import com.fukang.knowledge.agent.application.knowledge.chunk.DocumentChunkAppService;
-import com.fukang.knowledge.agent.application.knowledge.embedding.DocumentEmbeddingAppService;
-import com.fukang.knowledge.agent.application.knowledge.parsing.DocumentProcessingService;
-import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
-import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.infrastructure.config.DocumentProcessingProperties;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.DocumentDO;
-import com.fukang.knowledge.agent.infrastructure.persistence.mapper.DocumentMapper;
 import com.fukang.knowledge.agent.infrastructure.storage.MinioStorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,24 +22,15 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- * 文档处理管道编排器
- * <p>负责串联文档上传后四个异步处理阶段：
- * <ol>
- *   <li>文档解析 — 从 MinIO 读取文件 → 提取纯文本</li>
- *   <li>文本分块 — 根据策略拆分文本 → 持久化块</li>
- *   <li>嵌入向量 — 调用嵌入模型生成向量 → 持久化向量索引</li>
- *   <li>完成标记 — 更新文档状态为 COMPLETED，记录耗时和块数</li>
- * </ol>
- *
- * <p>每阶段开始前更新文档状态，失败时记录错误信息并标记 FAILED。
- * 嵌入阶段支持指数退避重试，其他阶段失败不重试（直接标记失败）</p>
+ * 文档处理管道编排器。
+ * <p>串联解析、分块、向量化和状态更新四个阶段，属于应用层流程编排。</p>
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class DocumentProcessingPipeline {
 
-    private final DocumentMapper documentMapper;
+    private final DocumentRepository documentRepository;
     private final MinioStorageService minioStorageService;
     private final DocumentProcessingService processingService;
     private final DocumentChunkAppService chunkAppService;
@@ -47,12 +38,7 @@ public class DocumentProcessingPipeline {
     private final DocumentProcessingProperties properties;
 
     /**
-     * 执行完整的文档处理管道
-     *
-     * @param documentId      文档ID
-     * @param knowledgeBaseId 知识库ID
-     * @param filePath        MinIO 文件存储路径
-     * @param fileName        原始文件名
+     * 执行完整的文档处理管道。
      */
     public void execute(Long documentId, Long knowledgeBaseId,
                         String filePath, String fileName) {
@@ -70,8 +56,7 @@ public class DocumentProcessingPipeline {
     }
 
     /**
-     * Phase 1: 文档解析
-     * <p>从 MinIO 读取文件字节数据 → 调用解析器提取纯文本</p>
+     * Phase 1: 从 MinIO 读取原文件并解析为纯文本。
      */
     private DocumentParseResult phaseParse(Long documentId, String filePath, String fileName) {
         updateStatus(documentId, DocumentStatus.PARSING, null);
@@ -82,16 +67,13 @@ public class DocumentProcessingPipeline {
             throw new BaseException(ErrorCodeEnum.FILE_EMPTY);
         }
 
-        DocumentParseResult result = processingService.parseDocument(
-                fileBytes, fileName, fileBytes.length);
-        log.info("Phase 1/4 解析完成: documentId={}, charCount={}",
-                documentId, result.characterCount());
+        DocumentParseResult result = processingService.parseDocument(fileBytes, fileName, fileBytes.length);
+        log.info("Phase 1/4 解析完成: documentId={}, charCount={}", documentId, result.characterCount());
         return result;
     }
 
     /**
-     * Phase 2: 文本分块与存储
-     * <p>对解析结果分块 → 替换式存储到 document_chunk 表</p>
+     * Phase 2: 对解析文本分块，并替换式写入 document_chunk。
      */
     private List<Long> phaseChunk(Long documentId, DocumentParseResult parseResult) {
         updateStatus(documentId, DocumentStatus.CHUNKING, null);
@@ -99,14 +81,12 @@ public class DocumentProcessingPipeline {
 
         ChunkResult chunkResult = processingService.chunkDocument(parseResult);
         List<Long> chunkIds = chunkAppService.replaceAndStoreChunks(chunkResult, documentId);
-        log.info("Phase 2/4 分块完成: documentId={}, chunkCount={}",
-                documentId, chunkResult.totalChunks());
+        log.info("Phase 2/4 分块完成: documentId={}, chunkCount={}", documentId, chunkResult.totalChunks());
         return chunkIds;
     }
 
     /**
-     * Phase 3: 嵌入向量与入库（带重试）
-     * <p>对文档块执行向量嵌入，失败时指数退避重试，最多重试 N 次</p>
+     * Phase 3: 对文档块生成 embedding，并按配置执行指数退避重试。
      */
     private void phaseEmbed(Long documentId, Long knowledgeBaseId) {
         updateStatus(documentId, DocumentStatus.EMBEDDING, null);
@@ -114,35 +94,23 @@ public class DocumentProcessingPipeline {
 
         int maxRetries = properties.getEmbedRetryMax();
         long baseSeconds = properties.getEmbedRetryBaseSeconds();
-
         for (int attempt = 0; attempt <= maxRetries; attempt++) {
             try {
-                ChunkStorageResult result = embeddingAppService.embedAndStore(
-                        documentId, knowledgeBaseId);
+                ChunkStorageResult result = embeddingAppService.embedAndStore(documentId, knowledgeBaseId);
                 log.info("Phase 3/4 嵌入完成: documentId={}, total={}, success={}",
                         documentId, result.totalCount(), result.successCount());
                 return;
             } catch (Exception e) {
-                if (attempt < maxRetries) {
-                    long delaySeconds = baseSeconds * (1L << attempt);
-                    log.warn("Phase 3/4 嵌入失败（第 {} 次重试），{} 秒后重试: documentId={}",
-                            attempt + 1, delaySeconds, documentId, e);
-                    try {
-                        Thread.sleep(delaySeconds * 1000);
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                        throw new BaseException(ErrorCodeEnum.EMBEDDING_FAILED);
-                    }
-                } else {
+                if (attempt >= maxRetries) {
                     throw new BaseException(ErrorCodeEnum.EMBEDDING_FAILED);
                 }
+                sleepBeforeRetry(documentId, attempt, baseSeconds, e);
             }
         }
     }
 
     /**
-     * Phase 4: 完成标记
-     * <p>标记文档为 COMPLETED，记录块数和处理耗时</p>
+     * Phase 4: 标记文档处理完成，记录块数和耗时。
      */
     private void phaseComplete(Long documentId, int chunkCount, Instant startTime) {
         long duration = Duration.between(startTime, Instant.now()).toMillis();
@@ -151,51 +119,59 @@ public class DocumentProcessingPipeline {
         doc.setChunkCount(chunkCount);
         doc.setProcessingDurationMs(duration);
         doc.setErrorMessage(null);
-        documentMapper.updateById(doc);
+        documentRepository.updateById(doc);
         log.info("Phase 4/4 文档处理完成: documentId={}, chunkCount={}, duration={}ms",
                 documentId, chunkCount, duration);
     }
 
     /**
-     * 处理失败统一标记
-     * <p>截断过长的错误信息以防止数据库字段溢出</p>
+     * 失败统一标记，避免异步线程吞掉错误状态。
      */
     private void phaseFailed(Long documentId, Exception e) {
         log.error("文档处理管道失败: documentId={}", documentId, e);
         try {
             DocumentDO doc = findDocument(documentId);
             doc.setStatus(DocumentStatus.FAILED.getCode());
-            String errorMsg = e.getMessage();
-            if (errorMsg != null && errorMsg.length() > 2000) {
-                errorMsg = errorMsg.substring(0, 1997) + "...";
-            }
-            doc.setErrorMessage(errorMsg);
-            documentMapper.updateById(doc);
+            doc.setErrorMessage(truncateErrorMessage(e.getMessage()));
+            documentRepository.updateById(doc);
         } catch (Exception updateEx) {
             log.error("更新文档失败状态异常: documentId={}", documentId, updateEx);
         }
     }
 
-    /**
-     * 更新文档状态（仅状态字段）
-     */
     private void updateStatus(Long documentId, DocumentStatus status, String errorMessage) {
         DocumentDO doc = findDocument(documentId);
         doc.setStatus(status.getCode());
         if (errorMessage != null) {
             doc.setErrorMessage(errorMessage);
         }
-        documentMapper.updateById(doc);
+        documentRepository.updateById(doc);
     }
 
-    /**
-     * 查询文档，不存在时抛出异常
-     */
     private DocumentDO findDocument(Long documentId) {
-        DocumentDO doc = documentMapper.selectById(documentId);
+        DocumentDO doc = documentRepository.findById(documentId);
         if (doc == null) {
             throw new BaseException(ErrorCodeEnum.DOCUMENT_NOT_EXIST);
         }
         return doc;
+    }
+
+    private void sleepBeforeRetry(Long documentId, int attempt, long baseSeconds, Exception e) {
+        long delaySeconds = baseSeconds * (1L << attempt);
+        log.warn("Phase 3/4 嵌入失败（第 {} 次重试），{} 秒后重试: documentId={}",
+                attempt + 1, delaySeconds, documentId, e);
+        try {
+            Thread.sleep(delaySeconds * 1000);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            throw new BaseException(ErrorCodeEnum.EMBEDDING_FAILED);
+        }
+    }
+
+    private String truncateErrorMessage(String errorMsg) {
+        if (errorMsg != null && errorMsg.length() > 2000) {
+            return errorMsg.substring(0, 1997) + "...";
+        }
+        return errorMsg;
     }
 }

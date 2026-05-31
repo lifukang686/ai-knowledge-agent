@@ -1,9 +1,8 @@
 package com.fukang.knowledge.agent.application.agent;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.fukang.knowledge.agent.api.agent.dto.ToolResp;
+import com.fukang.knowledge.agent.application.agent.port.ToolDefinitionRepository;
+import com.fukang.knowledge.agent.application.agent.result.ToolResult;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.enums.ExecutorTypeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
@@ -11,12 +10,10 @@ import com.fukang.knowledge.agent.common.result.PageResponse;
 import com.fukang.knowledge.agent.domain.agent.model.ToolDefinition;
 import com.fukang.knowledge.agent.domain.agent.model.ToolInfo;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.ToolDefinitionDO;
-import com.fukang.knowledge.agent.infrastructure.persistence.mapper.ToolDefinitionMapper;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.Optional;
@@ -33,11 +30,11 @@ import java.util.stream.Collectors;
 @Component
 public class ToolRegistry {
 
-    private final ToolDefinitionMapper toolDefinitionMapper;
+    private final ToolDefinitionRepository toolDefinitionRepository;
     private final Cache<String, ToolDefinition> toolCache;
 
-    public ToolRegistry(ToolDefinitionMapper toolDefinitionMapper) {
-        this.toolDefinitionMapper = toolDefinitionMapper;
+    public ToolRegistry(ToolDefinitionRepository toolDefinitionRepository) {
+        this.toolDefinitionRepository = toolDefinitionRepository;
         this.toolCache = Caffeine.newBuilder()
                 .expireAfterWrite(5, TimeUnit.MINUTES)
                 .maximumSize(100)
@@ -51,10 +48,7 @@ public class ToolRegistry {
      * @return 启用工具的信息列表
      */
     public List<ToolInfo> listAvailableTools() {
-        List<ToolDefinitionDO> dos = toolDefinitionMapper.selectList(
-                new LambdaQueryWrapper<ToolDefinitionDO>()
-                        .eq(ToolDefinitionDO::getEnabled, true)
-        );
+        List<ToolDefinitionDO> dos = toolDefinitionRepository.findEnabled();
         return dos.stream()
                 .map(this::toToolInfo)
                 .toList();
@@ -64,25 +58,16 @@ public class ToolRegistry {
      * 分页查询工具列表
      * <p>支持按关键字模糊搜索名称和描述，返回含完整信息的工具分页数据</p>
      *
-     * @param pageQuery 分页参数对象，包含 current(页码) 和 size(每页条数)
+     * @param current   当前页码
+     * @param size      每页条数
      * @param keyword   搜索关键字，可选，模糊匹配名称和描述
      * @return 分页响应，包含工具信息列表
      */
-    public PageResponse<ToolResp> listTools(Page<?> pageQuery, String keyword) {
-        LambdaQueryWrapper<ToolDefinitionDO> wrapper = new LambdaQueryWrapper<>();
-        if (StringUtils.hasText(keyword)) {
-            wrapper.and(w -> w
-                    .like(ToolDefinitionDO::getName, keyword)
-                    .or()
-                    .like(ToolDefinitionDO::getDescription, keyword));
-        }
-        wrapper.orderByDesc(ToolDefinitionDO::getCreateTime);
+    public PageResponse<ToolResult> listTools(long current, long size, String keyword) {
+        IPage<ToolDefinitionDO> resultPage = toolDefinitionRepository.page(current, size, keyword);
 
-        IPage<ToolDefinitionDO> resultPage = toolDefinitionMapper.selectPage(
-                new Page<>(pageQuery.getCurrent(), pageQuery.getSize()), wrapper);
-
-        List<ToolResp> items = resultPage.getRecords().stream()
-                .map(this::toToolResp)
+        List<ToolResult> items = resultPage.getRecords().stream()
+                .map(this::toToolResult)
                 .collect(Collectors.toList());
 
         return new PageResponse<>(items, resultPage.getTotal(),
@@ -101,11 +86,7 @@ public class ToolRegistry {
         if (cached != null) {
             return Optional.of(cached);
         }
-        ToolDefinitionDO toolDO = toolDefinitionMapper.selectOne(
-                new LambdaQueryWrapper<ToolDefinitionDO>()
-                        .eq(ToolDefinitionDO::getName, name)
-                        .eq(ToolDefinitionDO::getEnabled, true)
-        );
+        ToolDefinitionDO toolDO = toolDefinitionRepository.findEnabledByName(name);
         if (toolDO == null) {
             return Optional.empty();
         }
@@ -122,7 +103,7 @@ public class ToolRegistry {
      */
     public void register(ToolDefinition toolDefinition) {
         ToolDefinitionDO toolDO = toDO(toolDefinition);
-        toolDefinitionMapper.insert(toolDO);
+        toolDefinitionRepository.insert(toolDO);
         toolCache.invalidate(toolDefinition.name());
         log.info("工具注册成功: name={}, type={}", toolDefinition.name(), toolDefinition.executorType());
     }
@@ -135,8 +116,8 @@ public class ToolRegistry {
      * @param toolDefinition 工具定义更新信息
      * @return 更新后的工具响应对象
      */
-    public ToolResp update(Long id, ToolDefinition toolDefinition) {
-        ToolDefinitionDO oldDO = toolDefinitionMapper.selectById(id);
+    public ToolResult update(Long id, ToolDefinition toolDefinition) {
+        ToolDefinitionDO oldDO = toolDefinitionRepository.findById(id);
         if (oldDO == null) {
             throw new BaseException(
                     ErrorCodeEnum.NOT_FOUND.getCode(),
@@ -146,7 +127,7 @@ public class ToolRegistry {
         String oldName = oldDO.getName();
         ToolDefinitionDO updatedDO = toDO(toolDefinition);
         updatedDO.setId(id);
-        toolDefinitionMapper.updateById(updatedDO);
+        toolDefinitionRepository.updateById(updatedDO);
 
         toolCache.invalidate(oldName);
         if (!oldName.equals(toolDefinition.name())) {
@@ -154,9 +135,9 @@ public class ToolRegistry {
         }
 
         log.info("工具更新成功: id={}, oldName={}, newName={}", id, oldName, toolDefinition.name());
-        return new ToolResp(id, toolDefinition.name(), toolDefinition.description(),
-                toolDefinition.executorType(), toolDefinition.parametersSchema(),
-                toolDefinition.executorConfig(),
+        return new ToolResult(id, toolDefinition.name(), toolDefinition.description(),
+                toolDefinition.executorType(), toolDefinition.executorConfig(),
+                toolDefinition.parametersSchema(),
                 toolDefinition.enabled());
     }
 
@@ -167,13 +148,13 @@ public class ToolRegistry {
      * @param id 工具 ID
      */
     public void deleteById(Long id) {
-        ToolDefinitionDO toolDO = toolDefinitionMapper.selectById(id);
+        ToolDefinitionDO toolDO = toolDefinitionRepository.findById(id);
         if (toolDO == null) {
             throw new BaseException(
                     ErrorCodeEnum.NOT_FOUND.getCode(),
                     "工具不存在");
         }
-        toolDefinitionMapper.deleteById(id);
+        toolDefinitionRepository.deleteById(id);
         toolCache.invalidate(toolDO.getName());
         log.info("工具已删除: id={}, name={}", id, toolDO.getName());
     }
@@ -189,7 +170,7 @@ public class ToolRegistry {
         if (ids == null || ids.isEmpty()) {
             return List.of();
         }
-        List<ToolDefinitionDO> toolDOs = toolDefinitionMapper.selectBatchIds(ids);
+        List<ToolDefinitionDO> toolDOs = toolDefinitionRepository.findByIds(ids);
         return toolDOs.stream()
                 .map(this::toDomain)
                 .toList();
@@ -202,10 +183,7 @@ public class ToolRegistry {
      * @param name 工具名称
      */
     public void unregister(String name) {
-        toolDefinitionMapper.delete(
-                new LambdaQueryWrapper<ToolDefinitionDO>()
-                        .eq(ToolDefinitionDO::getName, name)
-        );
+        toolDefinitionRepository.deleteByName(name);
         toolCache.invalidate(name);
         log.info("工具已注销: name={}", name);
     }
@@ -222,8 +200,8 @@ public class ToolRegistry {
         return new ToolInfo(toolDO.getName(), toolDO.getDescription(), toolDO.getParametersSchema());
     }
 
-    private ToolResp toToolResp(ToolDefinitionDO toolDO) {
-        return new ToolResp(
+    private ToolResult toToolResult(ToolDefinitionDO toolDO) {
+        return new ToolResult(
                 toolDO.getId(),
                 toolDO.getName(),
                 toolDO.getDescription(),

@@ -1,6 +1,5 @@
 package com.fukang.knowledge.agent.domain.agent.model;
 
-import dev.langchain4j.memory.ChatMemory;
 import lombok.Data;
 
 import java.util.ArrayList;
@@ -29,8 +28,8 @@ public class AgentContext {
     /** 累计 Token 消耗 */
     private int totalTokens;
 
-    /** LLM 对话记忆 — 管理 System/User/AI 消息的滑动窗口 */
-    private ChatMemory chatMemory;
+    /** Agent 推理过程中的 LLM 对话窗口 */
+    private AgentChatSession chatSession;
 
     public AgentContext(String task) {
         this.task = task;

@@ -2,6 +2,7 @@ package com.fukang.knowledge.agent.api.qa;
 
 import com.fukang.knowledge.agent.api.qa.dto.QaReq;
 import com.fukang.knowledge.agent.api.qa.dto.QaResp;
+import com.fukang.knowledge.agent.application.rag.result.QaResult;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.common.result.Result;
@@ -37,7 +38,7 @@ public class QaController {
             throw new BaseException(ErrorCodeEnum.QUESTION_EMPTY);
         }
 
-        QaResp qaResp = ragAppService.answer(req.question(), req.knowledgeBaseId(), req.conversationId());
-        return Result.success(qaResp);
+        QaResult qaResult = ragAppService.answer(req.question(), req.knowledgeBaseId(), req.conversationId());
+        return Result.success(new QaResp(qaResult.answer(), qaResult.rewrittenQuery(), qaResult.status()));
     }
 }

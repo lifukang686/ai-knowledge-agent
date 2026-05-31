@@ -2,20 +2,14 @@ package com.fukang.knowledge.agent.application.agent;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fukang.knowledge.agent.application.agent.port.AgentChatClient;
+import com.fukang.knowledge.agent.domain.agent.model.AgentChatMessage;
+import com.fukang.knowledge.agent.domain.agent.model.AgentChatSession;
 import com.fukang.knowledge.agent.domain.agent.model.AgentContext;
 import com.fukang.knowledge.agent.domain.agent.model.AgentStep;
 import com.fukang.knowledge.agent.domain.agent.model.PlanStep;
 import com.fukang.knowledge.agent.domain.agent.model.ReasoningResult;
-import com.fukang.knowledge.agent.common.enums.ModelTypeEnum;
-import com.fukang.knowledge.agent.infrastructure.ai.AgentMemoryFactory;
-import com.fukang.knowledge.agent.infrastructure.ai.DynamicModelManager;
 import com.fukang.knowledge.agent.infrastructure.ai.PromptTemplateManager;
-import dev.langchain4j.data.message.AiMessage;
-import dev.langchain4j.data.message.SystemMessage;
-import dev.langchain4j.data.message.UserMessage;
-import dev.langchain4j.memory.ChatMemory;
-import dev.langchain4j.model.chat.ChatLanguageModel;
-import dev.langchain4j.model.output.Response;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -57,16 +51,13 @@ public class AgentReasoner {
             3. RETRY — 上一步失败但错误可恢复（如网络超时），content 说明重试原因
             4. ABORT — 上一步失败的不可恢复错误（如参数错误、资源不存在），content 说明终止原因""";
 
-    private final DynamicModelManager dynamicModelManager;
-    private final AgentMemoryFactory memoryFactory;
+    private final AgentChatClient agentChatClient;
     private final PromptTemplateManager promptTemplateManager;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public AgentReasoner(DynamicModelManager dynamicModelManager,
-                         AgentMemoryFactory memoryFactory,
+    public AgentReasoner(AgentChatClient agentChatClient,
                          PromptTemplateManager promptTemplateManager) {
-        this.dynamicModelManager = dynamicModelManager;
-        this.memoryFactory = memoryFactory;
+        this.agentChatClient = agentChatClient;
         this.promptTemplateManager = promptTemplateManager;
     }
 
@@ -97,20 +88,17 @@ public class AgentReasoner {
                 "lastStepDetail", lastStepDetail
         ));
 
-        ChatMemory chatMemory = context.getChatMemory();
-        if (chatMemory == null) {
-            chatMemory = memoryFactory.createDefault();
-            context.setChatMemory(chatMemory);
-            chatMemory.add(SystemMessage.from(REASONING_SYSTEM_PROMPT));
+        AgentChatSession chatSession = context.getChatSession();
+        if (chatSession == null) {
+            chatSession = agentChatClient.newDefaultSession();
+            context.setChatSession(chatSession);
+            chatSession.add(AgentChatMessage.system(REASONING_SYSTEM_PROMPT));
         }
-        chatMemory.add(UserMessage.from(userPrompt));
 
         String jsonResponse;
         try {
-            ChatLanguageModel chatModel = dynamicModelManager.getChatModel(ModelTypeEnum.CHAT);
-            Response<AiMessage> response = chatModel.generate(chatMemory.messages());
-            chatMemory.add(response.content());
-            jsonResponse = extractJson(response.content().text());
+            String responseText = agentChatClient.generate(chatSession, List.of(AgentChatMessage.user(userPrompt)));
+            jsonResponse = extractJson(responseText);
             log.debug("LLM 推理响应: {}", jsonResponse);
             return parseReasoningResult(jsonResponse);
         } catch (Exception e) {

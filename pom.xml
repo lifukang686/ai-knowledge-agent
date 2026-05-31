@@ -148,7 +148,7 @@
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
-            <optional>true</optional>
+            <scope>provided</scope>
         </dependency>
 
         <!-- Test -->
@@ -157,12 +157,6 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
@@ -185,7 +179,7 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
-                <!-- 2. 移除了版本号，交由父级或依赖管理自动匹配，更加稳定 -->
+                <version>${spring-boot.version}</version>
                 <configuration>
                     <mainClass>com.fukang.knowledge.agent.KnowledgeAgentApplication</mainClass>
                 </configuration>

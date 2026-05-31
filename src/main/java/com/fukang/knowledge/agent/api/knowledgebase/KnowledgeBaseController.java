@@ -3,6 +3,9 @@ package com.fukang.knowledge.agent.api.knowledgebase;
 import com.fukang.knowledge.agent.api.knowledgebase.dto.CreateKnowledgeBaseReq;
 import com.fukang.knowledge.agent.api.knowledgebase.dto.KnowledgeBaseResp;
 import com.fukang.knowledge.agent.api.knowledgebase.dto.UpdateKnowledgeBaseReq;
+import com.fukang.knowledge.agent.application.knowledge.command.CreateKnowledgeBaseCommand;
+import com.fukang.knowledge.agent.application.knowledge.command.UpdateKnowledgeBaseCommand;
+import com.fukang.knowledge.agent.application.knowledge.result.KnowledgeBaseResult;
 import com.fukang.knowledge.agent.application.knowledge.KnowledgeBaseAppService;
 import com.fukang.knowledge.agent.common.result.PageResponse;
 import com.fukang.knowledge.agent.common.result.Result;
@@ -38,7 +41,8 @@ public class KnowledgeBaseController {
      */
     @PostMapping
     public Result<Long> createKnowledgeBase(@RequestBody @Validated CreateKnowledgeBaseReq req) {
-        return Result.success(knowledgeBaseAppService.createKnowledgeBase(req));
+        return Result.success(knowledgeBaseAppService.createKnowledgeBase(
+                new CreateKnowledgeBaseCommand(req.name(), req.description(), req.embeddingModelId())));
     }
 
     /**
@@ -55,7 +59,13 @@ public class KnowledgeBaseController {
             @RequestParam(value = "page", defaultValue = "1") long page,
             @RequestParam(value = "pageSize", defaultValue = "20") long pageSize,
             @RequestParam(value = "keyword", required = false) String keyword) {
-        return Result.success(knowledgeBaseAppService.listKnowledgeBases(page, pageSize, keyword));
+        PageResponse<KnowledgeBaseResult> pageResult =
+                knowledgeBaseAppService.listKnowledgeBases(page, pageSize, keyword);
+        return Result.success(new PageResponse<>(
+                pageResult.getItems().stream().map(this::toKnowledgeBaseResp).toList(),
+                pageResult.getTotal(),
+                pageResult.getPage(),
+                pageResult.getPageSize()));
     }
 
     /**
@@ -66,7 +76,7 @@ public class KnowledgeBaseController {
      */
     @GetMapping("/{id}")
     public Result<KnowledgeBaseResp> getKnowledgeBase(@PathVariable("id") Long id) {
-        return Result.success(knowledgeBaseAppService.getKnowledgeBase(id));
+        return Result.success(toKnowledgeBaseResp(knowledgeBaseAppService.getKnowledgeBase(id)));
     }
 
     /**
@@ -81,7 +91,8 @@ public class KnowledgeBaseController {
     public Result<Void> updateKnowledgeBase(
             @PathVariable("id") Long id,
             @RequestBody @Validated UpdateKnowledgeBaseReq req) {
-        knowledgeBaseAppService.updateKnowledgeBase(id, req);
+        knowledgeBaseAppService.updateKnowledgeBase(id,
+                new UpdateKnowledgeBaseCommand(req.name(), req.description(), req.embeddingModelId()));
         return Result.success();
     }
 
@@ -95,5 +106,12 @@ public class KnowledgeBaseController {
     public Result<Void> deleteKnowledgeBase(@PathVariable("id") Long id) {
         knowledgeBaseAppService.deleteKnowledgeBase(id);
         return Result.success();
+    }
+
+    private KnowledgeBaseResp toKnowledgeBaseResp(KnowledgeBaseResult result) {
+        return new KnowledgeBaseResp(result.id(), result.name(), result.description(),
+                result.documentCount(), result.status(), result.embeddingModelId(),
+                result.embeddingDimension(), result.embeddingVersion(),
+                result.createTime(), result.updateTime());
     }
 }

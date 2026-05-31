@@ -3,6 +3,8 @@ package com.fukang.knowledge.agent.api.agent;
 import com.fukang.knowledge.agent.api.agent.dto.AgentCreateReq;
 import com.fukang.knowledge.agent.api.agent.dto.AgentResp;
 import com.fukang.knowledge.agent.api.agent.dto.AgentRunReq;
+import com.fukang.knowledge.agent.application.agent.command.AgentCreateCommand;
+import com.fukang.knowledge.agent.application.agent.result.AgentConfigResult;
 import com.fukang.knowledge.agent.application.agent.AgentAppService;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
@@ -40,6 +42,9 @@ public class AgentController {
 
     @PostMapping
     public Result<AgentResp> create(@RequestBody AgentCreateReq req) {
-        return Result.success(agentAppService.create(req));
+        AgentConfigResult result = agentAppService.create(new AgentCreateCommand(
+                req.name(), req.description(), req.toolIds(), req.systemPrompt(), req.maxSteps()));
+        return Result.success(new AgentResp(result.id(), result.name(), result.description(),
+                result.toolIds(), result.systemPrompt(), result.maxSteps(), result.createTime()));
     }
 }

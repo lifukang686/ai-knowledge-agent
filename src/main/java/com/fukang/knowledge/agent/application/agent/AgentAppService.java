@@ -3,10 +3,12 @@ package com.fukang.knowledge.agent.application.agent;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fukang.knowledge.agent.api.agent.dto.AgentCreateReq;
-import com.fukang.knowledge.agent.api.agent.dto.AgentResp;
+import com.fukang.knowledge.agent.application.agent.command.AgentCreateCommand;
+import com.fukang.knowledge.agent.application.agent.port.AgentRepository;
+import com.fukang.knowledge.agent.application.agent.port.AgentRunRepository;
+import com.fukang.knowledge.agent.application.agent.port.AiServicesAgentRuntime;
+import com.fukang.knowledge.agent.application.agent.result.AgentConfigResult;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
-import com.fukang.knowledge.agent.common.enums.ModelTypeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.domain.agent.model.AgentContext;
 import com.fukang.knowledge.agent.domain.agent.model.AgentRunEvent;
@@ -17,15 +19,9 @@ import com.fukang.knowledge.agent.domain.agent.model.ExecutionStrategy;
 import com.fukang.knowledge.agent.domain.agent.model.Observation;
 import com.fukang.knowledge.agent.domain.agent.model.PlanStep;
 import com.fukang.knowledge.agent.domain.agent.model.ReasoningResult;
-import com.fukang.knowledge.agent.infrastructure.ai.AgentMemoryFactory;
-import com.fukang.knowledge.agent.infrastructure.ai.DynamicModelManager;
 import com.fukang.knowledge.agent.infrastructure.config.AgentProperties;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.AgentDO;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.AgentRunDO;
-import com.fukang.knowledge.agent.infrastructure.persistence.mapper.AgentMapper;
-import com.fukang.knowledge.agent.infrastructure.persistence.mapper.AgentRunMapper;
-import com.fukang.knowledge.agent.infrastructure.tool.DynamicToolProvider;
-import dev.langchain4j.service.AiServices;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,55 +41,49 @@ import java.util.Map;
 @Service
 public class AgentAppService {
 
-    private final AgentMapper agentMapper;
-    private final AgentRunMapper agentRunMapper;
+    private final AgentRepository agentRepository;
+    private final AgentRunRepository agentRunRepository;
     private final AgentPlanner agentPlanner;
     private final AgentExecutor agentExecutor;
     private final AgentReasoner agentReasoner;
-    private final DynamicToolProvider dynamicToolProvider;
-    private final DynamicModelManager dynamicModelManager;
-    private final AgentMemoryFactory memoryFactory;
+    private final AiServicesAgentRuntime aiServicesAgentRuntime;
     private final AgentProperties agentProperties;
     /** 负责序列化 toolIds 和 agent_run.log 中的结构化事件。 */
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public AgentAppService(AgentMapper agentMapper,
-                           AgentRunMapper agentRunMapper,
+    public AgentAppService(AgentRepository agentRepository,
+                           AgentRunRepository agentRunRepository,
                            AgentPlanner agentPlanner,
                            AgentExecutor agentExecutor,
                            AgentReasoner agentReasoner,
-                           DynamicToolProvider dynamicToolProvider,
-                           DynamicModelManager dynamicModelManager,
-                           AgentMemoryFactory memoryFactory,
+                           AiServicesAgentRuntime aiServicesAgentRuntime,
                            AgentProperties agentProperties) {
-        this.agentMapper = agentMapper;
-        this.agentRunMapper = agentRunMapper;
+        this.agentRepository = agentRepository;
+        this.agentRunRepository = agentRunRepository;
         this.agentPlanner = agentPlanner;
         this.agentExecutor = agentExecutor;
         this.agentReasoner = agentReasoner;
-        this.dynamicToolProvider = dynamicToolProvider;
-        this.dynamicModelManager = dynamicModelManager;
-        this.memoryFactory = memoryFactory;
+        this.aiServicesAgentRuntime = aiServicesAgentRuntime;
         this.agentProperties = agentProperties;
     }
 
     @Transactional
-    public AgentResp create(AgentCreateReq req) {
-        if (req.name() == null || req.name().isBlank()) {
+    public AgentConfigResult create(AgentCreateCommand command) {
+        if (command.name() == null || command.name().isBlank()) {
             throw new BaseException(ErrorCodeEnum.BAD_REQUEST.getCode(), "Agent name cannot be blank");
         }
 
         AgentDO agentDO = new AgentDO();
-        agentDO.setName(req.name());
-        agentDO.setDescription(req.description());
-        agentDO.setToolIds(serializeToolIds(req.toolIds()));
-        agentDO.setSystemPrompt(req.systemPrompt());
-        agentDO.setMaxSteps(req.maxSteps());
-        agentMapper.insert(agentDO);
+        agentDO.setName(command.name());
+        agentDO.setDescription(command.description());
+        agentDO.setToolIds(serializeToolIds(command.toolIds()));
+        agentDO.setSystemPrompt(command.systemPrompt());
+        agentDO.setMaxSteps(command.maxSteps());
+        agentRepository.insert(agentDO);
 
         log.info("Agent created: id={}, name={}, toolCount={}",
-                agentDO.getId(), agentDO.getName(), req.toolIds() != null ? req.toolIds().size() : 0);
-        return toAgentResp(agentDO, req.toolIds());
+                agentDO.getId(), agentDO.getName(), command.toolIds() != null ? command.toolIds().size() : 0);
+        return toAgentConfigResult(agentDO, command.toolIds());
     }
 
     /**
@@ -120,7 +110,7 @@ public class AgentAppService {
      * <p>流程为：生成计划 → Reasoner 判断下一步 → 调用工具 → 记录观察结果 → 循环直至最终答案。</p>
      */
     private AgentRunResult runWithPlanExecute(Long agentId, String task) {
-        AgentDO agentDO = agentMapper.selectById(agentId);
+        AgentDO agentDO = agentRepository.findById(agentId);
         if (agentDO == null) {
             throw new BaseException(ErrorCodeEnum.AGENT_NOT_EXIST);
         }
@@ -128,7 +118,6 @@ public class AgentAppService {
         int maxSteps = agentDO.getMaxSteps() != null ? agentDO.getMaxSteps() : agentProperties.getMaxSteps();
         AgentRunDO runDO = createRunRecord(agentId, task);
         AgentContext context = new AgentContext(task);
-        context.setChatMemory(memoryFactory.createDefault());
         List<AgentRunEvent> events = new ArrayList<>();
         long startTime = System.currentTimeMillis();
 
@@ -192,7 +181,7 @@ public class AgentAppService {
     }
 
     public AgentRunResult getRunStatus(Long runId) {
-        AgentRunDO runDO = agentRunMapper.selectById(runId);
+        AgentRunDO runDO = agentRunRepository.findById(runId);
         if (runDO == null) {
             throw new BaseException(ErrorCodeEnum.AGENT_RUN_NOT_EXIST);
         }
@@ -204,37 +193,26 @@ public class AgentAppService {
 
     @Transactional
     public AgentRunResult runWithAiServices(Long agentId, String task) {
-        AgentDO agentDO = agentMapper.selectById(agentId);
+        AgentDO agentDO = agentRepository.findById(agentId);
         if (agentDO == null) {
             throw new BaseException(ErrorCodeEnum.AGENT_NOT_EXIST);
         }
 
         AgentRunDO runDO = createRunRecord(agentId, task);
         runDO.setStatus("EXECUTING");
-        agentRunMapper.updateById(runDO);
+        agentRunRepository.updateById(runDO);
 
         List<AgentRunEvent> events = new ArrayList<>();
         long startTime = System.currentTimeMillis();
 
-        try (AgentRunEventCollector collector = AgentRunEventCollector.open()) {
-            // AiServices 内部的工具回调通过 ThreadLocal collector 汇总到同一个运行日志。
-            collector.add(event(AgentRunEvent.EventType.REASONING, null, null,
-                    Map.of("strategy", ExecutionStrategy.AI_SERVICES.name()), true, null,
-                    "AiServices execution started"));
-
-            AgentAiService aiService = AiServices
-                    .builder(AgentAiService.class)
-                    .chatLanguageModel(dynamicModelManager.getChatModel(ModelTypeEnum.CHAT))
-                    .systemMessageProvider(memoryId ->
-                            agentDO.getSystemPrompt() != null && !agentDO.getSystemPrompt().isBlank()
-                                    ? agentDO.getSystemPrompt()
-                                    : "You are an intelligent assistant. Use tools when needed to complete the task.")
-                    .toolProvider(dynamicToolProvider)
-                    .chatMemory(memoryFactory.createDefault())
-                    .build();
-
-            String answer = aiService.chat(task);
-            events.addAll(collector.events());
+        try {
+            String systemPrompt = agentDO.getSystemPrompt() != null && !agentDO.getSystemPrompt().isBlank()
+                    ? agentDO.getSystemPrompt()
+                    : "You are an intelligent assistant. Use tools when needed to complete the task.";
+            AiServicesAgentRuntime.ExecutionResult executionResult =
+                    aiServicesAgentRuntime.execute(task, systemPrompt);
+            String answer = executionResult.answer();
+            events.addAll(executionResult.events());
             events.add(event(AgentRunEvent.EventType.FINAL_ANSWER, null, null,
                     Map.of("answer", answer), true, null, "Final answer"));
 
@@ -300,7 +278,7 @@ public class AgentAppService {
         runDO.setStatus("PLANNING");
         runDO.setStartTime(LocalDateTime.now());
         runDO.setCreateTime(LocalDateTime.now());
-        agentRunMapper.insert(runDO);
+        agentRunRepository.insert(runDO);
         return runDO;
     }
 
@@ -309,7 +287,7 @@ public class AgentAppService {
         runDO.setOutputAnswer(output);
         runDO.setEndTime(LocalDateTime.now());
         runDO.setLog(serializeEvents(events));
-        agentRunMapper.updateById(runDO);
+        agentRunRepository.updateById(runDO);
     }
 
     private void recordReasoning(List<AgentRunEvent> events, ReasoningResult reasoning, String message) {
@@ -420,8 +398,8 @@ public class AgentAppService {
         }
     }
 
-    private AgentResp toAgentResp(AgentDO agentDO, List<Long> toolIds) {
-        return new AgentResp(agentDO.getId(), agentDO.getName(),
+    private AgentConfigResult toAgentConfigResult(AgentDO agentDO, List<Long> toolIds) {
+        return new AgentConfigResult(agentDO.getId(), agentDO.getName(),
                 agentDO.getDescription(), toolIds != null ? toolIds : List.of(), agentDO.getSystemPrompt(),
                 agentDO.getMaxSteps(), agentDO.getCreateTime() != null
                         ? agentDO.getCreateTime().toString() : null);

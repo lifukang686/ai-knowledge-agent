@@ -4,6 +4,10 @@ import com.fukang.knowledge.agent.api.model.dto.ModelConfigReq;
 import com.fukang.knowledge.agent.api.model.dto.ModelConfigUpdateReq;
 import com.fukang.knowledge.agent.api.model.dto.ProviderReq;
 import com.fukang.knowledge.agent.api.model.dto.ProviderUpdateReq;
+import com.fukang.knowledge.agent.application.model.command.ModelConfigCommand;
+import com.fukang.knowledge.agent.application.model.command.ModelConfigUpdateCommand;
+import com.fukang.knowledge.agent.application.model.command.ProviderCommand;
+import com.fukang.knowledge.agent.application.model.command.ProviderUpdateCommand;
 import com.fukang.knowledge.agent.application.model.ModelAppService;
 import com.fukang.knowledge.agent.common.result.Result;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.ModelConfigDO;
@@ -34,7 +38,8 @@ public class ModelController {
      */
     @PostMapping("/providers")
     public Result<Long> createProvider(@RequestBody @Validated ProviderReq req) {
-        return Result.success(modelAppService.createProvider(req));
+        return Result.success(modelAppService.createProvider(
+                new ProviderCommand(req.name(), req.apiBaseUrl(), req.apiKey(), req.description())));
     }
 
     /**
@@ -70,7 +75,8 @@ public class ModelController {
      */
     @PutMapping("/providers/{id}")
     public Result<Void> updateProvider(@PathVariable("id") Long id, @RequestBody @Validated ProviderUpdateReq req) {
-        modelAppService.updateProvider(id, req);
+        modelAppService.updateProvider(id,
+                new ProviderUpdateCommand(req.name(), req.apiBaseUrl(), req.apiKey(), req.description()));
         return Result.success();
     }
 
@@ -81,7 +87,8 @@ public class ModelController {
      */
     @PostMapping("/configs")
     public Result<Long> createModelConfig(@RequestBody @Validated ModelConfigReq req) {
-        return Result.success(modelAppService.createModelConfig(req));
+        return Result.success(modelAppService.createModelConfig(
+                new ModelConfigCommand(req.providerId(), req.modelName(), req.modelType(), req.defaultParams())));
     }
 
     /**
@@ -106,7 +113,8 @@ public class ModelController {
      */
     @PutMapping("/configs/{id}")
     public Result<Void> updateModelConfig(@PathVariable("id") Long id, @RequestBody @Validated ModelConfigUpdateReq req) {
-        modelAppService.updateModelConfig(id, req);
+        modelAppService.updateModelConfig(id,
+                new ModelConfigUpdateCommand(req.providerId(), req.modelName(), req.modelType(), req.defaultParams()));
         return Result.success();
     }
 

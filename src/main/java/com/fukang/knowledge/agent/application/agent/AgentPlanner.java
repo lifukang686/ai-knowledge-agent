@@ -3,19 +3,14 @@ package com.fukang.knowledge.agent.application.agent;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fukang.knowledge.agent.application.agent.port.AgentChatClient;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
-import com.fukang.knowledge.agent.common.enums.ModelTypeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
+import com.fukang.knowledge.agent.domain.agent.model.AgentChatMessage;
+import com.fukang.knowledge.agent.domain.agent.model.AgentChatSession;
 import com.fukang.knowledge.agent.domain.agent.model.ToolInfo;
 import com.fukang.knowledge.agent.domain.agent.model.PlanStep;
-import com.fukang.knowledge.agent.infrastructure.ai.AgentMemoryFactory;
-import com.fukang.knowledge.agent.infrastructure.ai.DynamicModelManager;
 import com.fukang.knowledge.agent.infrastructure.ai.PromptTemplateManager;
-import dev.langchain4j.data.message.AiMessage;
-import dev.langchain4j.data.message.UserMessage;
-import dev.langchain4j.memory.ChatMemory;
-import dev.langchain4j.model.chat.ChatLanguageModel;
-import dev.langchain4j.model.output.Response;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -33,19 +28,16 @@ import java.util.Map;
 @Component
 public class AgentPlanner {
 
-    private final DynamicModelManager dynamicModelManager;
+    private final AgentChatClient agentChatClient;
     private final ToolRegistry toolRegistry;
-    private final AgentMemoryFactory memoryFactory;
     private final PromptTemplateManager promptTemplateManager;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public AgentPlanner(DynamicModelManager dynamicModelManager,
+    public AgentPlanner(AgentChatClient agentChatClient,
                         ToolRegistry toolRegistry,
-                        AgentMemoryFactory memoryFactory,
                         PromptTemplateManager promptTemplateManager) {
-        this.dynamicModelManager = dynamicModelManager;
+        this.agentChatClient = agentChatClient;
         this.toolRegistry = toolRegistry;
-        this.memoryFactory = memoryFactory;
         this.promptTemplateManager = promptTemplateManager;
     }
 
@@ -64,14 +56,14 @@ public class AgentPlanner {
 
         String jsonResponse;
         try {
-            ChatLanguageModel chatModel = dynamicModelManager.getChatModel(ModelTypeEnum.CHAT);
-            ChatMemory chatMemory = memoryFactory.createMessageWindowMemory(5);
-            chatMemory.add(promptTemplateManager.renderSystem("agent/planning",
-                    Map.of("tools", toolsDesc, "task", task)));
-            chatMemory.add(UserMessage.from("请生成执行计划"));
-            Response<AiMessage> response = chatModel.generate(chatMemory.messages());
-            chatMemory.add(response.content());
-            jsonResponse = extractJson(response.content().text());
+            AgentChatSession chatSession = agentChatClient.newSession(5);
+            String systemPrompt = promptTemplateManager.renderText("agent/planning",
+                    Map.of("tools", toolsDesc, "task", task));
+            String responseText = agentChatClient.generate(chatSession, List.of(
+                    AgentChatMessage.system(systemPrompt),
+                    AgentChatMessage.user("请生成执行计划")
+            ));
+            jsonResponse = extractJson(responseText);
             log.debug("LLM 规划响应: {}", jsonResponse);
         } catch (Exception e) {
             log.error("LLM 规划调用失败", e);

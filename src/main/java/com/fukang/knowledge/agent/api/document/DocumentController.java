@@ -4,7 +4,10 @@ import com.fukang.knowledge.agent.api.document.dto.DocumentDetailResp;
 import com.fukang.knowledge.agent.api.document.dto.DocumentResp;
 import com.fukang.knowledge.agent.api.document.dto.DocumentStatusResp;
 import com.fukang.knowledge.agent.api.document.dto.DocumentUploadResp;
-import com.fukang.knowledge.agent.application.knowledge.KnowledgeBaseAppService;
+import com.fukang.knowledge.agent.application.knowledge.DocumentAppService;
+import com.fukang.knowledge.agent.application.knowledge.result.DocumentDetailResult;
+import com.fukang.knowledge.agent.application.knowledge.result.DocumentResult;
+import com.fukang.knowledge.agent.application.knowledge.result.DocumentUploadResult;
 import com.fukang.knowledge.agent.common.result.PageResponse;
 import com.fukang.knowledge.agent.common.result.Result;
 import lombok.RequiredArgsConstructor;
@@ -27,7 +30,7 @@ import org.springframework.web.multipart.MultipartFile;
 @RequiredArgsConstructor
 public class DocumentController {
 
-    private final KnowledgeBaseAppService knowledgeBaseAppService;
+    private final DocumentAppService documentAppService;
 
     /**
      * 上传文档
@@ -42,8 +45,8 @@ public class DocumentController {
     public Result<DocumentUploadResp> uploadDocument(
             @RequestParam("knowledgeBaseId") Long knowledgeBaseId,
             @RequestPart("file") MultipartFile file) {
-        DocumentUploadResp resp = knowledgeBaseAppService.uploadDocument(knowledgeBaseId, file);
-        return Result.success(resp);
+        DocumentUploadResult result = documentAppService.uploadDocument(knowledgeBaseId, file);
+        return Result.success(new DocumentUploadResp(result.documentId(), result.status()));
     }
 
     /**
@@ -66,7 +69,13 @@ public class DocumentController {
             @RequestParam(value = "knowledgeBaseId", required = false) Long knowledgeBaseId,
             @RequestParam(value = "page", defaultValue = "1") long page,
             @RequestParam(value = "pageSize", defaultValue = "20") long pageSize) {
-        return Result.success(knowledgeBaseAppService.listDocuments(knowledgeBaseId, page, pageSize));
+        PageResponse<DocumentResult> pageResult =
+                documentAppService.listDocuments(knowledgeBaseId, page, pageSize);
+        return Result.success(new PageResponse<>(
+                pageResult.getItems().stream().map(this::toDocumentResp).toList(),
+                pageResult.getTotal(),
+                pageResult.getPage(),
+                pageResult.getPageSize()));
     }
 
     /**
@@ -79,7 +88,7 @@ public class DocumentController {
      */
     @GetMapping("/{id}/detail")
     public Result<DocumentDetailResp> getDocumentDetail(@PathVariable("id") Long id) {
-        return Result.success(knowledgeBaseAppService.getDocumentDetail(id));
+        return Result.success(toDocumentDetailResp(documentAppService.getDocumentDetail(id)));
     }
 
     /**
@@ -91,7 +100,7 @@ public class DocumentController {
      */
     @GetMapping("/{id}/status")
     public Result<DocumentStatusResp> getDocumentStatus(@PathVariable("id") Long id) {
-        DocumentStatusResp resp = knowledgeBaseAppService.getDocumentStatus(id);
+        DocumentStatusResp resp = new DocumentStatusResp(documentAppService.getDocumentStatus(id).status());
         return Result.success(resp);
     }
 
@@ -104,7 +113,20 @@ public class DocumentController {
      */
     @DeleteMapping("/{id}")
     public Result<Void> deleteDocument(@PathVariable("id") Long id) {
-        knowledgeBaseAppService.deleteDocument(id);
+        documentAppService.deleteDocument(id);
         return Result.success();
+    }
+
+    private DocumentResp toDocumentResp(DocumentResult result) {
+        return new DocumentResp(result.id(), result.title(), result.filePath(), result.knowledgeBaseId(),
+                result.status(), result.uploadedBy(), result.chunkCount(), result.fileSize(),
+                result.createTime(), result.updateTime());
+    }
+
+    private DocumentDetailResp toDocumentDetailResp(DocumentDetailResult result) {
+        return new DocumentDetailResp(result.id(), result.title(), result.content(), result.filePath(),
+                result.knowledgeBaseId(), result.status(), result.uploadedBy(), result.chunkCount(),
+                result.fileSize(), result.embeddingModelId(), result.embeddingDimension(),
+                result.embeddingVersion(), result.createTime(), result.updateTime());
     }
 }
