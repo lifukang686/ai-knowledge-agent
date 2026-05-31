@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import axios from 'axios';
 import { Book, RefreshCw, Trash2, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { ChatMessage, QaResp } from '@/types/qa';
@@ -27,6 +28,13 @@ const saveMessages = (messages: ChatMessage[]) => {
 
 const generateId = (): string =>
   `msg_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+
+const formatQaError = (error: any): string => {
+  if (axios.isAxiosError(error) && error.code === 'ECONNABORTED') {
+    return '问答生成时间较长，前端等待超时。请稍后重试，或缩小知识库范围后再问。';
+  }
+  return error?.message || '网络异常，请稍后重试';
+};
 
 const QAPage: React.FC = () => {
   const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>([]);
@@ -93,14 +101,15 @@ const QAPage: React.FC = () => {
         toast.info('未找到相关文档内容');
       }
     } catch (error: any) {
+      const failureReason = formatQaError(error);
       const errorMessage: ChatMessage = {
         id: generateId(),
         role: 'assistant',
-        content: `抱歉，请求失败：${error?.message || '网络异常，请稍后重试'}`,
+        content: `抱歉，请求失败：${failureReason}`,
         timestamp: Date.now(),
       };
       setMessages((prev) => [...prev, errorMessage]);
-      toast.error('问答请求失败');
+      toast.error(failureReason);
     } finally {
       setSending(false);
     }
