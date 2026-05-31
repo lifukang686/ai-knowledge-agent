@@ -8,6 +8,7 @@ export interface QaResp {
   answer: string;
   rewrittenQuery: string;
   status: 'success' | 'no_results' | 'error';
+  conversationId?: string;
 }
 
 export interface QaStreamStage {

@@ -10,6 +10,12 @@ import ChatHistory from './components/ChatHistory';
 import QuestionInput from './components/QuestionInput';
 
 const STORAGE_KEY = 'rag_qa_messages';
+const CONVERSATION_STORAGE_KEY = 'rag_qa_conversation';
+
+interface ConversationState {
+  id: string;
+  knowledgeBaseId?: string;
+}
 
 const loadMessages = (): ChatMessage[] => {
   try {
@@ -23,6 +29,21 @@ const loadMessages = (): ChatMessage[] => {
 const saveMessages = (messages: ChatMessage[]) => {
   try {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+  } catch { /* storage full, ignore */ }
+};
+
+const loadConversation = (): ConversationState | null => {
+  try {
+    const raw = sessionStorage.getItem(CONVERSATION_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
+const saveConversation = (conversation: ConversationState) => {
+  try {
+    sessionStorage.setItem(CONVERSATION_STORAGE_KEY, JSON.stringify(conversation));
   } catch { /* storage full, ignore */ }
 };
 
@@ -40,6 +61,7 @@ const QAPage: React.FC = () => {
   const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>([]);
   const [selectedKB, setSelectedKB] = useState<string>('');
   const [messages, setMessages] = useState<ChatMessage[]>(loadMessages);
+  const [conversation, setConversation] = useState<ConversationState | null>(loadConversation);
   const [sending, setSending] = useState(false);
   const [loadingKB, setLoadingKB] = useState(true);
   const [kbDropdownOpen, setKbDropdownOpen] = useState(false);
@@ -93,10 +115,15 @@ const QAPage: React.FC = () => {
     setSending(true);
 
     try {
+      const activeConversationId = conversation?.knowledgeBaseId === selectedKB
+        ? conversation.id
+        : undefined;
+
       await qaService.askStream(
         {
           question: question.trim(),
           knowledgeBaseId: selectedKB || undefined,
+          conversationId: activeConversationId,
         },
         {
           onStage: (event) => {
@@ -114,6 +141,14 @@ const QAPage: React.FC = () => {
             )));
           },
           onDone: (resp: QaResp) => {
+            if (resp.conversationId) {
+              const nextConversation = {
+                id: String(resp.conversationId),
+                knowledgeBaseId: selectedKB || undefined,
+              };
+              setConversation(nextConversation);
+              saveConversation(nextConversation);
+            }
             setMessages((prev) => prev.map((message) => (
               message.id === assistantMessageId
                 ? {
@@ -163,11 +198,13 @@ const QAPage: React.FC = () => {
     } finally {
       setSending(false);
     }
-  }, [selectedKB, sending]);
+  }, [conversation, selectedKB, sending]);
 
   const handleClearHistory = () => {
     setMessages([]);
+    setConversation(null);
     sessionStorage.removeItem(STORAGE_KEY);
+    sessionStorage.removeItem(CONVERSATION_STORAGE_KEY);
     toast.success('对话历史已清空');
   };
 
