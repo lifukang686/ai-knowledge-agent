@@ -10,5 +10,6 @@ package com.fukang.knowledge.agent.api.qa.dto;
 public record QaResp(
         String answer,
         String rewrittenQuery,
-        String status
+        String status,
+        Long conversationId
 ) {}

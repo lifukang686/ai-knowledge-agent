@@ -6,4 +6,6 @@ import java.util.List;
 
 public interface AnswerGenerator {
     String generateAnswer(List<SearchResult> results, String query);
+
+    String generateAnswer(List<SearchResult> results, String query, String conversationMemory);
 }

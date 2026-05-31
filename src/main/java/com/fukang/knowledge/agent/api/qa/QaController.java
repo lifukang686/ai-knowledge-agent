@@ -58,7 +58,11 @@ public class QaController {
         }
 
         QaResult qaResult = ragAppService.answer(req.question(), req.knowledgeBaseId(), req.conversationId());
-        return Result.success(new QaResp(qaResult.answer(), qaResult.rewrittenQuery(), qaResult.status()));
+        return Result.success(new QaResp(
+                qaResult.answer(),
+                qaResult.rewrittenQuery(),
+                qaResult.status(),
+                qaResult.conversationId()));
     }
 
     /**
@@ -113,6 +117,7 @@ public class QaController {
             payload.put("answer", result.answer() != null ? result.answer() : "");
             payload.put("rewrittenQuery", result.rewrittenQuery() != null ? result.rewrittenQuery() : "");
             payload.put("status", result.status() != null ? result.status() : "success");
+            payload.put("conversationId", result.conversationId());
             send("done", payload);
             complete();
         }

@@ -16,6 +16,10 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+/**
+ * 基于 LLM 的 RAG 答案生成器。
+ * <p>会话记忆只用于理解用户指代，事实依据仍来自检索到的文档片段。</p>
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -29,11 +33,16 @@ public class LlmAnswerGenerator implements AnswerGenerator {
 
     @Override
     public String generateAnswer(List<SearchResult> results, String query) {
+        return generateAnswer(results, query, "");
+    }
+
+    @Override
+    public String generateAnswer(List<SearchResult> results, String query, String conversationMemory) {
         if (results.isEmpty()) {
             return NOT_FOUND_MESSAGE;
         }
 
-        String userPrompt = buildUserPrompt(results, query);
+        String userPrompt = buildRagUserPrompt(results, query, conversationMemory);
         try {
             ChatLanguageModel chatModel = dynamicModelManager.getChatModel(ModelTypeEnum.CHAT);
             List<ChatMessage> messages = List.of(
@@ -58,9 +67,16 @@ public class LlmAnswerGenerator implements AnswerGenerator {
     }
 
     /**
-     * 构造 RAG 回答的用户消息，供同步和流式生成复用。
+     * 构造不带会话记忆的 RAG 用户消息，供旧调用路径复用。
      */
     public String buildRagUserPrompt(List<SearchResult> results, String query) {
+        return buildRagUserPrompt(results, query, "");
+    }
+
+    /**
+     * 构造带会话记忆的 RAG 用户消息。
+     */
+    public String buildRagUserPrompt(List<SearchResult> results, String query, String conversationMemory) {
         StringBuilder context = new StringBuilder();
         for (int i = 0; i < results.size(); i++) {
             SearchResult result = results.get(i);
@@ -68,7 +84,10 @@ public class LlmAnswerGenerator implements AnswerGenerator {
                     .append(result.chunkText())
                     .append("\n");
         }
-        return String.format("【文档内容】%n%s%n【用户问题】%n%s", context, query);
+
+        String memoryBlock = conversationMemory == null || conversationMemory.isBlank() ? "无" : conversationMemory;
+        return String.format("【会话记忆】%n%s%n%n【文档内容】%n%s%n【用户问题】%n%s",
+                memoryBlock, context, query);
     }
 
     private String formatFallbackAnswer(List<SearchResult> results) {
