@@ -13,9 +13,6 @@ import java.time.LocalDateTime;
  * @param description   知识库描述
  * @param documentCount 文档数量
  * @param status        知识库状态
- * @param embeddingModelId 绑定的 embedding 模型配置 ID
- * @param embeddingDimension 最近一次入库使用的向量维度
- * @param embeddingVersion embedding 模型版本标识
  * @param createTime    创建时间（格式化: yyyy-MM-dd HH:mm:ss）
  * @param updateTime    更新时间（格式化: yyyy-MM-dd HH:mm:ss）
  */
@@ -25,9 +22,6 @@ public record KnowledgeBaseResp(
         String description,
         long documentCount,
         String status,
-        Long embeddingModelId,
-        Integer embeddingDimension,
-        String embeddingVersion,
         @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
         LocalDateTime createTime,
         @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")

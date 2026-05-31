@@ -9,6 +9,5 @@ package com.fukang.knowledge.agent.api.knowledgebase.dto;
  */
 public record UpdateKnowledgeBaseReq(
         String name,
-        String description,
-        Long embeddingModelId
+        String description
 ) {}

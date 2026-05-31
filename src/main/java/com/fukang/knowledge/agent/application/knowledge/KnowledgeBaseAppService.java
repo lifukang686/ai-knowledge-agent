@@ -121,9 +121,6 @@ public class KnowledgeBaseAppService {
                 kb.getDescription(),
                 documentCount,
                 "completed",
-                kb.getEmbeddingModelId(),
-                kb.getEmbeddingDimension(),
-                kb.getEmbeddingVersion(),
                 kb.getCreateTime(),
                 kb.getUpdateTime()
         );

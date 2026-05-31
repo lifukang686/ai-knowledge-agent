@@ -50,21 +50,12 @@ public class EmbeddingService {
      * @return 嵌入计算结果，包含向量列表和元数据
      */
     public EmbeddingResult embed(List<String> texts) {
-        return embed(texts, null);
-    }
-
-    /**
-     * 使用指定或默认的 embedding 模型生成向量。
-     *
-     * @param embeddingModelId 知识库绑定的 embedding 模型 ID；为空时按全局默认策略解析
-     */
-    public EmbeddingResult embed(List<String> texts, Long embeddingModelId) {
         if (texts == null || texts.isEmpty()) {
             log.warn("待嵌入的文本列表为空，无法执行向量化");
             throw new BaseException(ErrorCodeEnum.CHUNK_DATA_EMPTY);
         }
 
-        ModelConfigDO embeddingModel = findEmbeddingModel(embeddingModelId);
+        ModelConfigDO embeddingModel = findEmbeddingModel();
         ModelProviderDO provider = resolveProvider();
         int maxBatchSize = parseMaxBatchSize(embeddingModel);
 
@@ -170,14 +161,6 @@ public class EmbeddingService {
         return EmbeddingResult.allSuccess(allVectors, embeddingModel.getModelName(), totalTokens, metadata);
     }
 
-    /**
-     * 查找可用的嵌入模型配置
-     * <p>策略：默认提供商下的嵌入模型 → 全局嵌入模型</p>
-     */
-    private ModelConfigDO findEmbeddingModel() {
-        return findEmbeddingModel(null);
-    }
-
     private ModelProviderDO resolveProvider() {
         ModelProviderDO defaultProvider = modelAppService.findDefaultProvider();
         if (defaultProvider != null) {
@@ -192,19 +175,12 @@ public class EmbeddingService {
         return allProviders.get(0);
     }
 
-    private ModelConfigDO findEmbeddingModel(Long embeddingModelId) {
-        // 知识库绑定模型优先，确保同库文档使用一致的向量空间。
-        if (embeddingModelId != null) {
-            ModelConfigDO configuredModel = modelAppService.findModelById(embeddingModelId);
-            if (configuredModel == null) {
-                throw new BaseException(ErrorCodeEnum.MODEL_NOT_EXIST);
-            }
-            if (!ModelTypeEnum.EMBEDDING.getCode().equals(configuredModel.getModelType())) {
-                throw new BaseException(ErrorCodeEnum.MODEL_TYPE_INVALID);
-            }
-            return configuredModel;
-        }
-        // 未绑定时保持原有默认策略：默认 provider 下的 embedding 模型优先。
+    /**
+     * 查找可用的嵌入模型配置。
+     * <p>策略：默认提供商下的嵌入模型 → 全局嵌入模型。</p>
+     */
+    private ModelConfigDO findEmbeddingModel() {
+        // 使用动态模型配置：默认 provider 下的 embedding 模型优先。
         ModelProviderDO defaultProvider = modelAppService.findDefaultProvider();
         if (defaultProvider != null) {
             List<ModelConfigDO> defaultProviderModels = modelAppService

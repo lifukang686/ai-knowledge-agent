@@ -42,7 +42,7 @@ public class KnowledgeBaseController {
     @PostMapping
     public Result<Long> createKnowledgeBase(@RequestBody @Validated CreateKnowledgeBaseReq req) {
         return Result.success(knowledgeBaseAppService.createKnowledgeBase(
-                new CreateKnowledgeBaseCommand(req.name(), req.description(), req.embeddingModelId())));
+                new CreateKnowledgeBaseCommand(req.name(), req.description())));
     }
 
     /**
@@ -92,7 +92,7 @@ public class KnowledgeBaseController {
             @PathVariable("id") Long id,
             @RequestBody @Validated UpdateKnowledgeBaseReq req) {
         knowledgeBaseAppService.updateKnowledgeBase(id,
-                new UpdateKnowledgeBaseCommand(req.name(), req.description(), req.embeddingModelId()));
+                new UpdateKnowledgeBaseCommand(req.name(), req.description()));
         return Result.success();
     }
 
@@ -110,8 +110,6 @@ public class KnowledgeBaseController {
 
     private KnowledgeBaseResp toKnowledgeBaseResp(KnowledgeBaseResult result) {
         return new KnowledgeBaseResp(result.id(), result.name(), result.description(),
-                result.documentCount(), result.status(), result.embeddingModelId(),
-                result.embeddingDimension(), result.embeddingVersion(),
-                result.createTime(), result.updateTime());
+                result.documentCount(), result.status(), result.createTime(), result.updateTime());
     }
 }

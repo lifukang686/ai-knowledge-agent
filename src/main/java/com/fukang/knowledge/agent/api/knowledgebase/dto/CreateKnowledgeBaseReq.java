@@ -11,6 +11,5 @@ import jakarta.validation.constraints.NotBlank;
 public record CreateKnowledgeBaseReq(
         @NotBlank(message = "知识库名称不能为空")
         String name,
-        String description,
-        Long embeddingModelId
+        String description
 ) {}

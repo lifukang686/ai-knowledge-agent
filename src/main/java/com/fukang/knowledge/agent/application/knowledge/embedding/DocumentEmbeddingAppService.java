@@ -7,10 +7,8 @@ import com.fukang.knowledge.agent.domain.knowledge.model.EmbeddingResult;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.application.knowledge.port.DocumentRepository;
-import com.fukang.knowledge.agent.application.knowledge.port.KnowledgeBaseRepository;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.DocumentChunkDO;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.DocumentDO;
-import com.fukang.knowledge.agent.infrastructure.persistence.entity.KnowledgeBaseDO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -47,7 +45,6 @@ public class DocumentEmbeddingAppService {
     private final EmbeddingService embeddingService;
     private final EmbeddingIndexStorageService embeddingIndexStorageService;
     private final DocumentChunkStorageService chunkStorageService;
-    private final KnowledgeBaseRepository knowledgeBaseRepository;
     private final DocumentRepository documentRepository;
 
     /**
@@ -84,8 +81,7 @@ public class DocumentEmbeddingAppService {
         List<String> texts = extractTexts(chunks);
         log.info("开始文档块向量化与存储: chunkCount={}, knowledgeBaseId={}", texts.size(), knowledgeBaseId);
 
-        Long embeddingModelId = resolveEmbeddingModelId(knowledgeBaseId);
-        EmbeddingResult embeddingResult = embeddingService.embed(texts, embeddingModelId);
+        EmbeddingResult embeddingResult = embeddingService.embed(texts);
         updateEmbeddingMetadata(chunks, embeddingResult);
 
         return embeddingIndexStorageService.saveVectorsToPgVector(chunks, embeddingResult, knowledgeBaseId);
@@ -107,8 +103,7 @@ public class DocumentEmbeddingAppService {
         log.info("开始文档块向量化与存储（允许部分失败）: chunkCount={}, knowledgeBaseId={}",
                 texts.size(), knowledgeBaseId);
 
-        Long embeddingModelId = resolveEmbeddingModelId(knowledgeBaseId);
-        EmbeddingResult embeddingResult = embeddingService.embed(texts, embeddingModelId);
+        EmbeddingResult embeddingResult = embeddingService.embed(texts);
         updateEmbeddingMetadata(chunks, embeddingResult);
 
         return embeddingIndexStorageService.saveVectorsToPgVector(chunks, embeddingResult, knowledgeBaseId);
@@ -131,8 +126,7 @@ public class DocumentEmbeddingAppService {
         log.info("开始文档块向量化与批量存储: chunkCount={}, knowledgeBaseId={}",
                 texts.size(), knowledgeBaseId);
 
-        Long embeddingModelId = resolveEmbeddingModelId(knowledgeBaseId);
-        EmbeddingResult embeddingResult = embeddingService.embed(texts, embeddingModelId);
+        EmbeddingResult embeddingResult = embeddingService.embed(texts);
         updateEmbeddingMetadata(chunks, embeddingResult);
 
         return embeddingIndexStorageService.saveVectorsToPgVector(chunks, embeddingResult, knowledgeBaseId);
@@ -221,14 +215,9 @@ public class DocumentEmbeddingAppService {
         return texts;
     }
 
-    private Long resolveEmbeddingModelId(Long knowledgeBaseId) {
-        KnowledgeBaseDO knowledgeBase = knowledgeBaseRepository.findById(knowledgeBaseId);
-        return knowledgeBase != null ? knowledgeBase.getEmbeddingModelId() : null;
-    }
-
     /**
      * 将实际使用的 embedding 元数据回写到 document/chunk。
-     * <p>这些字段用于审计和后续支持多知识库不同 embedding 配置。</p>
+     * <p>这些字段用于审计实际使用的动态模型配置。</p>
      */
     private void updateEmbeddingMetadata(List<DocumentChunkDO> chunks, EmbeddingResult embeddingResult) {
         Long modelId = embeddingResult.modelId();

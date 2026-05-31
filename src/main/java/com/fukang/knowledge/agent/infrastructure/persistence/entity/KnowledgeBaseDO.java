@@ -27,12 +27,4 @@ public class KnowledgeBaseDO extends BaseEntity {
     @Column(name = "description", length = 500)
     private String description;
 
-    @Column(name = "embedding_model_id")
-    private Long embeddingModelId;
-
-    @Column(name = "embedding_dimension")
-    private Integer embeddingDimension;
-
-    @Column(name = "embedding_version", length = 64)
-    private String embeddingVersion;
 }

@@ -8,9 +8,6 @@ public record KnowledgeBaseResult(
         String description,
         long documentCount,
         String status,
-        Long embeddingModelId,
-        Integer embeddingDimension,
-        String embeddingVersion,
         LocalDateTime createTime,
         LocalDateTime updateTime
 ) {}
