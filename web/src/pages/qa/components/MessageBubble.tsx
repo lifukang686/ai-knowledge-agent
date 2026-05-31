@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bot, User, Clock, RefreshCw } from 'lucide-react';
+import { Bot, User, Clock, RefreshCw, Loader2 } from 'lucide-react';
 import { ChatMessage } from '@/types/qa';
 
 interface MessageBubbleProps {
@@ -47,8 +47,22 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
                 : 'bg-white border border-gray-200 text-gray-800 rounded-tl-sm shadow-sm'
             }`}
           >
-            <div className="whitespace-pre-wrap break-words">{message.content}</div>
+            {message.content ? (
+              <div className="whitespace-pre-wrap break-words">{message.content}</div>
+            ) : (
+              <div className="flex items-center gap-2 text-gray-500">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>{message.streamStageMessage || 'AI 正在思考'}</span>
+              </div>
+            )}
           </div>
+
+          {!isUser && message.streaming && message.content && (
+            <div className="flex items-center gap-1 mt-1 text-xs text-gray-400">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              <span>{message.streamStageMessage || '正在生成回答'}</span>
+            </div>
+          )}
 
           {!isUser && message.rewrittenQuery && (
             <div className="flex items-center gap-1 mt-1">

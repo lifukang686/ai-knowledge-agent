@@ -78,37 +78,87 @@ const QAPage: React.FC = () => {
       timestamp: Date.now(),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    const assistantMessageId = generateId();
+    const assistantPlaceholder: ChatMessage = {
+      id: assistantMessageId,
+      role: 'assistant',
+      content: '',
+      timestamp: Date.now(),
+      streaming: true,
+      streamStage: 'start',
+      streamStageMessage: '请求已发送，正在准备回答',
+    };
+
+    setMessages((prev) => [...prev, userMessage, assistantPlaceholder]);
     setSending(true);
 
     try {
-      const resp: QaResp = await qaService.ask({
-        question: question.trim(),
-        knowledgeBaseId: selectedKB || undefined,
-      });
-
-      const assistantMessage: ChatMessage = {
-        id: generateId(),
-        role: 'assistant',
-        content: resp.answer,
-        timestamp: Date.now(),
-        rewrittenQuery: resp.rewrittenQuery,
-      };
-
-      setMessages((prev) => [...prev, assistantMessage]);
-
-      if (resp.status === 'no_results') {
-        toast.info('未找到相关文档内容');
-      }
+      await qaService.askStream(
+        {
+          question: question.trim(),
+          knowledgeBaseId: selectedKB || undefined,
+        },
+        {
+          onStage: (event) => {
+            setMessages((prev) => prev.map((message) => (
+              message.id === assistantMessageId
+                ? { ...message, streamStage: event.stage, streamStageMessage: event.message }
+                : message
+            )));
+          },
+          onToken: (event) => {
+            setMessages((prev) => prev.map((message) => (
+              message.id === assistantMessageId
+                ? { ...message, content: message.content + event.text }
+                : message
+            )));
+          },
+          onDone: (resp: QaResp) => {
+            setMessages((prev) => prev.map((message) => (
+              message.id === assistantMessageId
+                ? {
+                    ...message,
+                    content: resp.answer || message.content,
+                    rewrittenQuery: resp.rewrittenQuery,
+                    streaming: false,
+                    streamStage: undefined,
+                    streamStageMessage: undefined,
+                  }
+                : message
+            )));
+            if (resp.status === 'no_results') {
+              toast.info('未找到相关文档内容');
+            }
+          },
+          onError: (event) => {
+            setMessages((prev) => prev.map((message) => (
+              message.id === assistantMessageId
+                ? {
+                    ...message,
+                    content: `抱歉，请求失败：${event.message}`,
+                    streaming: false,
+                    streamStage: undefined,
+                    streamStageMessage: undefined,
+                  }
+                : message
+            )));
+            toast.error(event.message);
+          },
+        }
+      );
     } catch (error: any) {
       const failureReason = formatQaError(error);
-      const errorMessage: ChatMessage = {
-        id: generateId(),
-        role: 'assistant',
-        content: `抱歉，请求失败：${failureReason}`,
-        timestamp: Date.now(),
-      };
-      setMessages((prev) => [...prev, errorMessage]);
+      setMessages((prev) => prev.map((message) => (
+        message.id === assistantMessageId
+          ? {
+              ...message,
+              content: `抱歉，请求失败：${failureReason}`,
+              streaming: false,
+              streamStage: undefined,
+              streamStageMessage: undefined,
+            }
+          : message
+      )));
       toast.error(failureReason);
     } finally {
       setSending(false);

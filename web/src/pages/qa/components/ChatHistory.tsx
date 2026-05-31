@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { Loader2, MessageSquare } from 'lucide-react';
+import { MessageSquare } from 'lucide-react';
 import { ChatMessage } from '@/types/qa';
 import MessageBubble from './MessageBubble';
 
@@ -37,27 +37,6 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ messages, loading }) => {
         {messages.map((message) => (
           <MessageBubble key={message.id} message={message} />
         ))}
-
-        {loading && (
-          <div className="flex justify-start mb-4">
-            <div className="flex items-start gap-2">
-              <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-                <Loader2 className="w-4 h-4 text-green-600 animate-spin" />
-              </div>
-              <div className="px-4 py-3 rounded-2xl rounded-tl-sm bg-white border border-gray-200 shadow-sm">
-                <div className="flex items-center gap-2 text-sm text-gray-500">
-                  <span>AI 正在思考</span>
-                  <span className="inline-flex gap-1">
-                    <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
         <div ref={bottomRef} />
       </div>
     </div>
