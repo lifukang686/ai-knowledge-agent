@@ -1,6 +1,5 @@
 package com.fukang.knowledge.agent.api.servicedesk;
 
-import com.fukang.knowledge.agent.api.servicedesk.dto.ServiceDeskAnswerResp;
 import com.fukang.knowledge.agent.api.servicedesk.dto.ServiceDeskAskReq;
 import com.fukang.knowledge.agent.api.servicedesk.dto.ServiceDeskFeedbackReq;
 import com.fukang.knowledge.agent.api.servicedesk.dto.ServiceDeskFeedbackResp;
@@ -13,7 +12,6 @@ import com.fukang.knowledge.agent.application.servicedesk.command.ServiceDeskAsk
 import com.fukang.knowledge.agent.application.servicedesk.command.SubmitFeedbackCommand;
 import com.fukang.knowledge.agent.application.servicedesk.result.ServiceDeskAnswerResult;
 import com.fukang.knowledge.agent.application.servicedesk.result.ServiceDeskFeedbackResult;
-import com.fukang.knowledge.agent.application.servicedesk.result.ServiceDeskRunResult;
 import com.fukang.knowledge.agent.application.servicedesk.result.ServiceTicketEventResult;
 import com.fukang.knowledge.agent.application.servicedesk.result.ServiceTicketResult;
 import com.fukang.knowledge.agent.common.context.UserContextHolder;
@@ -63,13 +61,6 @@ public class ServiceDeskController {
         this.qaStreamExecutor = qaStreamExecutor;
     }
 
-    @PostMapping("/ask")
-    public Result<ServiceDeskAnswerResp> ask(@RequestBody ServiceDeskAskReq req) {
-        validateQuestion(req);
-        ServiceDeskAnswerResult result = serviceDeskAppService.ask(toCommand(req));
-        return Result.success(toAnswerResp(result));
-    }
-
     @PostMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter askStream(@RequestBody ServiceDeskAskReq req) {
         validateQuestion(req);
@@ -103,19 +94,9 @@ public class ServiceDeskController {
                 tickets.getPageSize()));
     }
 
-    @GetMapping("/tickets/{id}")
-    public Result<ServiceTicketResp> getTicket(@PathVariable("id") Long id) {
-        return Result.success(toTicketResp(ticketAppService.getTicket(id, currentUserId())));
-    }
-
     @PostMapping("/tickets/{id}/confirm")
     public Result<ServiceTicketResp> confirmTicket(@PathVariable("id") Long id) {
         return Result.success(toTicketResp(serviceDeskAppService.confirmTicket(id)));
-    }
-
-    @GetMapping("/runs/{runId}")
-    public Result<ServiceDeskRunResult> getRun(@PathVariable("runId") Long runId) {
-        return Result.success(serviceDeskAppService.getRun(runId));
     }
 
     @PostMapping("/runs/{runId}/feedback")
@@ -145,13 +126,6 @@ public class ServiceDeskController {
 
     private ServiceDeskAskCommand toCommand(ServiceDeskAskReq req) {
         return new ServiceDeskAskCommand(req.question(), req.serviceType(), req.knowledgeBaseId(), req.conversationId());
-    }
-
-    private ServiceDeskAnswerResp toAnswerResp(ServiceDeskAnswerResult result) {
-        return new ServiceDeskAnswerResp(result.answer(), result.intent(), result.serviceType(), result.status(),
-                result.runId(), result.ticketId(), result.ticketNo(), result.conversationId(),
-                result.approvalRequired(), result.pendingTicket() != null ? toTicketResp(result.pendingTicket()) : null,
-                result.events(), result.feedbackSubmitted());
     }
 
     private ServiceTicketResp toTicketResp(ServiceTicketResult ticket) {

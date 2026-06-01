@@ -160,11 +160,6 @@ const readSseStream = async (
 };
 
 export const serviceDeskService = {
-  ask: async (data: ServiceDeskAskReq): Promise<ServiceDeskAnswerResp> => {
-    const response = await request.post<any>('/service-desk/ask', data, { timeout: 90000 });
-    return mapAnswer(response);
-  },
-
   askStream: async (data: ServiceDeskAskReq, handlers: ServiceDeskStreamHandlers): Promise<void> => {
     const token = useAuthStore.getState().token;
     const response = await fetch('/api/service-desk/stream', {
@@ -206,11 +201,6 @@ export const serviceDeskService = {
     };
   },
 
-  getTicket: async (id: string): Promise<ServiceTicket> => {
-    const response = await request.get<any>(`/service-desk/tickets/${id}`);
-    return mapTicket(response);
-  },
-
   confirmTicket: async (id: string): Promise<ServiceTicket> => {
     const response = await request.post<any>(`/service-desk/tickets/${id}/confirm`);
     return mapTicket(response);
@@ -219,9 +209,5 @@ export const serviceDeskService = {
   submitFeedback: async (runId: string, data: ServiceDeskFeedbackReq): Promise<ServiceDeskFeedbackResp> => {
     const response = await request.post<any>(`/service-desk/runs/${runId}/feedback`, data);
     return mapFeedback(response);
-  },
-
-  getRun: async (runId: string) => {
-    return request.get<any>(`/service-desk/runs/${runId}`);
   },
 };
