@@ -14,10 +14,14 @@ public class ToolExecutorFactory {
 
     private final HttpToolExecutor httpExecutor;
     private final SqlToolExecutor sqlExecutor;
+    private final LocalMethodToolExecutor localMethodToolExecutor;
 
-    public ToolExecutorFactory(HttpToolExecutor httpExecutor, SqlToolExecutor sqlExecutor) {
+    public ToolExecutorFactory(HttpToolExecutor httpExecutor,
+                               SqlToolExecutor sqlExecutor,
+                               LocalMethodToolExecutor localMethodToolExecutor) {
         this.httpExecutor = httpExecutor;
         this.sqlExecutor = sqlExecutor;
+        this.localMethodToolExecutor = localMethodToolExecutor;
     }
 
     /**
@@ -34,8 +38,7 @@ public class ToolExecutorFactory {
         return switch (executorType) {
             case HTTP -> httpExecutor;
             case SQL -> sqlExecutor;
-            case LOCAL_METHOD ->
-                    throw new UnsupportedOperationException("本地方法执行器待后续版本实现");
+            case LOCAL_METHOD -> localMethodToolExecutor;
         };
     }
 }

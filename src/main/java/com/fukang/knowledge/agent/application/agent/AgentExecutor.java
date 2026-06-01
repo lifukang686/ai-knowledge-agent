@@ -33,13 +33,21 @@ public class AgentExecutor {
      * @return 观察结果（封装执行成功/失败、输出和耗时）
      */
     public Observation executeStep(PlanStep step) {
+        return executeStep(step, toolRegistry);
+    }
+
+    /**
+     * 在指定工具作用域内执行计划步骤，防止业务 Agent 调用未授权工具。
+     */
+    public Observation executeStep(PlanStep step, ToolScope toolScope) {
         long start = System.currentTimeMillis();
 
         try {
             log.info("执行步骤: step={}/{}, tool={}, params={}",
                     step.stepOrder(), step.toolName(), step.parameters());
 
-            Optional<ToolDefinition> toolOpt = toolRegistry.getTool(step.toolName());
+            ToolScope scope = toolScope != null ? toolScope : toolRegistry;
+            Optional<ToolDefinition> toolOpt = scope.getTool(step.toolName());
             if (toolOpt.isEmpty()) {
                 long duration = System.currentTimeMillis() - start;
                 log.warn("工具不存在: {}", step.toolName());

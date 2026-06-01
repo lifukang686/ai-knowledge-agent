@@ -7,8 +7,7 @@ import {
   Bot, 
   Workflow, 
   Clock,
-  MessageSquare,
-  Settings
+  MessageSquare
 } from 'lucide-react';
 
 const menuItems = [
@@ -19,6 +18,7 @@ const menuItems = [
   { path: '/workflows', icon: Workflow, label: '工作流管理' },
   { path: '/scheduler/jobs', icon: Clock, label: '定时任务' },
   { path: '/qa', icon: MessageSquare, label: 'RAG问答' },
+  { path: '/service-desk', icon: Bot, label: '服务台 Agent' },
 ];
 
 export const Sidebar: React.FC = () => {

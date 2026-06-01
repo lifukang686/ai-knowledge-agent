@@ -49,7 +49,19 @@ public class AgentPlanner {
      * @throws BaseException 规划生成失败或解析失败时抛出
      */
     public List<PlanStep> plan(String task) {
-        List<ToolInfo> tools = toolRegistry.listAvailableTools();
+        return plan(task, toolRegistry, null);
+    }
+
+    /**
+     * 在指定工具作用域内生成计划。
+     *
+     * @param task         用户任务
+     * @param toolScope    本次运行允许使用的工具集合
+     * @param systemPrompt 业务 Agent 的额外规划约束，可为空
+     */
+    public List<PlanStep> plan(String task, ToolScope toolScope, String systemPrompt) {
+        ToolScope scope = toolScope != null ? toolScope : toolRegistry;
+        List<ToolInfo> tools = scope.listAvailableTools();
         log.info("开始规划: 任务长度={}, 可用工具数={}", task.length(), tools.size());
 
         String toolsDesc = formatToolsForPrompt(tools);
@@ -57,10 +69,14 @@ public class AgentPlanner {
         String jsonResponse;
         try {
             AgentChatSession chatSession = agentChatClient.newSession(5);
-            String systemPrompt = promptTemplateManager.renderText("agent/planning",
-                    Map.of("tools", toolsDesc, "task", task));
+            String prompt = promptTemplateManager.renderText("agent/planning",
+                    Map.of(
+                            "tools", toolsDesc,
+                            "task", task,
+                            "extraInstructions", systemPrompt != null ? systemPrompt : ""
+                    ));
             String responseText = agentChatClient.generate(chatSession, List.of(
-                    AgentChatMessage.system(systemPrompt),
+                    AgentChatMessage.system(prompt),
                     AgentChatMessage.user("请生成执行计划")
             ));
             jsonResponse = extractJson(responseText);

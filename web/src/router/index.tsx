@@ -32,6 +32,9 @@ import DocumentDetail from '@/pages/knowledge-base/DocumentDetail';
 // RAG问答
 import QAPage from '@/pages/qa/QAPage';
 
+// 企业服务台
+import ServiceDeskPage from '@/pages/service-desk/ServiceDeskPage';
+
 // 定时任务
 import JobList from '@/pages/jobs/JobList';
 import JobDetail from '@/pages/jobs/JobDetail';
@@ -96,6 +99,9 @@ export const AppRouter: React.FC = () => {
         
         {/* RAG问答 */}
         <Route path="qa" element={<QAPage />} />
+
+        {/* 企业服务台 */}
+        <Route path="service-desk" element={<ServiceDeskPage />} />
         
         {/* 定时任务 */}
         <Route path="scheduler/jobs" element={<JobList />} />

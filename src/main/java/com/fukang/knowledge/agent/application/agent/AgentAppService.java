@@ -10,15 +10,11 @@ import com.fukang.knowledge.agent.application.agent.port.AiServicesAgentRuntime;
 import com.fukang.knowledge.agent.application.agent.result.AgentConfigResult;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
-import com.fukang.knowledge.agent.domain.agent.model.AgentContext;
 import com.fukang.knowledge.agent.domain.agent.model.AgentRunEvent;
 import com.fukang.knowledge.agent.domain.agent.model.AgentRunResult;
 import com.fukang.knowledge.agent.domain.agent.model.AgentStep;
 import com.fukang.knowledge.agent.domain.agent.model.AgentStepRecord;
 import com.fukang.knowledge.agent.domain.agent.model.ExecutionStrategy;
-import com.fukang.knowledge.agent.domain.agent.model.Observation;
-import com.fukang.knowledge.agent.domain.agent.model.PlanStep;
-import com.fukang.knowledge.agent.domain.agent.model.ReasoningResult;
 import com.fukang.knowledge.agent.infrastructure.config.AgentProperties;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.AgentDO;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.AgentRunDO;
@@ -43,9 +39,7 @@ public class AgentAppService {
 
     private final AgentRepository agentRepository;
     private final AgentRunRepository agentRunRepository;
-    private final AgentPlanner agentPlanner;
-    private final AgentExecutor agentExecutor;
-    private final AgentReasoner agentReasoner;
+    private final PlanExecuteAgentRuntime planExecuteAgentRuntime;
     private final AiServicesAgentRuntime aiServicesAgentRuntime;
     private final AgentProperties agentProperties;
     /** 负责序列化 toolIds 和 agent_run.log 中的结构化事件。 */
@@ -53,16 +47,12 @@ public class AgentAppService {
 
     public AgentAppService(AgentRepository agentRepository,
                            AgentRunRepository agentRunRepository,
-                           AgentPlanner agentPlanner,
-                           AgentExecutor agentExecutor,
-                           AgentReasoner agentReasoner,
+                           PlanExecuteAgentRuntime planExecuteAgentRuntime,
                            AiServicesAgentRuntime aiServicesAgentRuntime,
                            AgentProperties agentProperties) {
         this.agentRepository = agentRepository;
         this.agentRunRepository = agentRunRepository;
-        this.agentPlanner = agentPlanner;
-        this.agentExecutor = agentExecutor;
-        this.agentReasoner = agentReasoner;
+        this.planExecuteAgentRuntime = planExecuteAgentRuntime;
         this.aiServicesAgentRuntime = aiServicesAgentRuntime;
         this.agentProperties = agentProperties;
     }
@@ -117,66 +107,22 @@ public class AgentAppService {
 
         int maxSteps = agentDO.getMaxSteps() != null ? agentDO.getMaxSteps() : agentProperties.getMaxSteps();
         AgentRunDO runDO = createRunRecord(agentId, task);
-        AgentContext context = new AgentContext(task);
-        List<AgentRunEvent> events = new ArrayList<>();
         long startTime = System.currentTimeMillis();
 
         try {
-            context.setStatus(AgentContext.AgentContextStatus.PLANNING);
-            List<PlanStep> plan = agentPlanner.plan(task);
-            context.setPlanSteps(plan);
-            // plan 事件保留完整计划，前端可直接渲染计划树。
-            events.add(event(AgentRunEvent.EventType.PLAN, null, null,
-                    Map.of("steps", plan), true, null, "Plan generated"));
-
-            context.setStatus(AgentContext.AgentContextStatus.EXECUTING);
-            int stepCount = 0;
-            while (stepCount < maxSteps) {
-                // 每轮先让 Reasoner 基于上下文判断：继续、重试、终止或给最终答案。
-                ReasoningResult reasoning = agentReasoner.reason(context);
-                recordReasoning(events, reasoning, "Reasoning decision");
-
-                if (reasoning.decision() == ReasoningResult.Decision.FINAL_ANSWER) {
-                    return completeRun(runDO, context, events, reasoning.content(), startTime);
-                }
-                if (reasoning.decision() == ReasoningResult.Decision.ABORT) {
-                    return failRun(runDO, context, events, reasoning.content(), startTime, "Agent aborted");
-                }
-                if (reasoning.decision() == ReasoningResult.Decision.RETRY) {
-                    AgentStep lastStep = context.getLastStep();
-                    if (lastStep != null) {
-                        // RETRY 复用上一步工具与参数，仅在事件中标记为重试原因。
-                        PlanStep retryStep = new PlanStep(lastStep.stepOrder(),
-                                lastStep.toolName(), lastStep.parameters(), "Retry previous step");
-                        executeAndRecord(context, retryStep, events);
-                        stepCount++;
-                    }
-                    continue;
-                }
-
-                if (context.getRemainingSteps().isEmpty()) {
-                    // 计划耗尽后再给 Reasoner 一次汇总机会，避免已完成任务被误判失败。
-                    ReasoningResult finalReason = agentReasoner.reason(context);
-                    recordReasoning(events, finalReason, "Final reasoning decision");
-                    if (finalReason.decision() == ReasoningResult.Decision.FINAL_ANSWER) {
-                        return completeRun(runDO, context, events, finalReason.content(), startTime);
-                    }
-                    break;
-                }
-
-                PlanStep nextStep = context.getRemainingSteps().get(0);
-                executeAndRecord(context, nextStep, events);
-                stepCount++;
-            }
-
-            String errorMsg = "Agent reached max steps limit: " + maxSteps;
-            return failRun(runDO, context, events, errorMsg, startTime, "Max steps exceeded");
-        } catch (BaseException e) {
-            return failRun(runDO, context, events, e.getMessage(), startTime, e.getClass().getSimpleName());
+            PlanExecuteAgentRuntime.RuntimeResult result = planExecuteAgentRuntime.runTask(task,
+                    AgentRuntimeOptions.of(maxSteps, "", null));
+            updateRunRecord(runDO, result.status(), result.answer(), result.events());
+            return buildResult(runDO.getId(), result.answer(), result.status(), result.steps(),
+                    result.events(), result.totalDurationMs());
         } catch (Exception e) {
             log.error("Agent execution failed: runId={}, agentId={}", runDO.getId(), agentId, e);
-            return failRun(runDO, context, events, "System error: " + e.getMessage(),
-                    startTime, e.getClass().getSimpleName());
+            List<AgentRunEvent> events = List.of(event(AgentRunEvent.EventType.ERROR, null, null,
+                    Map.of("reason", e.getClass().getSimpleName()), false, null,
+                    "System error: " + e.getMessage()));
+            updateRunRecord(runDO, "FAILED", "System error: " + e.getMessage(), events);
+            return buildResult(runDO.getId(), "System error: " + e.getMessage(), "FAILED",
+                    List.of(), events, System.currentTimeMillis() - startTime);
         }
     }
 
@@ -230,47 +176,6 @@ public class AgentAppService {
         }
     }
 
-    private AgentRunResult completeRun(AgentRunDO runDO, AgentContext context,
-                                       List<AgentRunEvent> events, String answer, long startTime) {
-        context.setStatus(AgentContext.AgentContextStatus.COMPLETED);
-        events.add(event(AgentRunEvent.EventType.FINAL_ANSWER, null, null,
-                Map.of("answer", answer), true, null, "Final answer"));
-        updateRunRecord(runDO, "COMPLETED", answer, events);
-        long totalDuration = System.currentTimeMillis() - startTime;
-        return buildResult(runDO.getId(), answer, "COMPLETED", context.getSteps(), events, totalDuration);
-    }
-
-    private AgentRunResult failRun(AgentRunDO runDO, AgentContext context,
-                                   List<AgentRunEvent> events, String message,
-                                   long startTime, String reason) {
-        context.setStatus(AgentContext.AgentContextStatus.FAILED);
-        events.add(event(AgentRunEvent.EventType.ERROR, null, null,
-                Map.of("reason", reason), false, null, message));
-        updateRunRecord(runDO, "FAILED", message, events);
-        long totalDuration = System.currentTimeMillis() - startTime;
-        return buildResult(runDO.getId(), message, "FAILED", context.getSteps(), events, totalDuration);
-    }
-
-    private void executeAndRecord(AgentContext context, PlanStep step, List<AgentRunEvent> events) {
-        // tool_call 与 observation 分开记录，方便前端展示“调用参数”和“工具返回”。
-        events.add(event(AgentRunEvent.EventType.TOOL_CALL, step.stepOrder(), step.toolName(),
-                Map.of("parameters", step.parameters() != null ? step.parameters() : Map.of(),
-                        "reasoning", step.reasoning() != null ? step.reasoning() : ""),
-                null, null, "Plan-Execute tool call"));
-
-        Observation observation = agentExecutor.executeStep(step);
-        events.add(event(AgentRunEvent.EventType.OBSERVATION, observation.stepOrder(), observation.toolName(),
-                Map.of("result", observation.result() != null ? observation.result() : "",
-                        "errorMessage", observation.errorMessage() != null ? observation.errorMessage() : ""),
-                observation.success(), observation.durationMs(), "Tool observation"));
-
-        context.addStep(new AgentStep(
-                step.stepOrder(), step.toolName(), step.parameters(),
-                observation.result(), observation.durationMs(),
-                observation.success(), observation.errorMessage()
-        ));
-    }
-
     private AgentRunDO createRunRecord(Long agentId, String task) {
         AgentRunDO runDO = new AgentRunDO();
         runDO.setAgentId(agentId);
@@ -288,12 +193,6 @@ public class AgentAppService {
         runDO.setEndTime(LocalDateTime.now());
         runDO.setLog(serializeEvents(events));
         agentRunRepository.updateById(runDO);
-    }
-
-    private void recordReasoning(List<AgentRunEvent> events, ReasoningResult reasoning, String message) {
-        events.add(event(AgentRunEvent.EventType.REASONING, null, null,
-                Map.of("decision", reasoning.decision().name(), "content", reasoning.content()),
-                true, null, message));
     }
 
     private AgentRunEvent event(AgentRunEvent.EventType type, Integer stepOrder, String toolName,

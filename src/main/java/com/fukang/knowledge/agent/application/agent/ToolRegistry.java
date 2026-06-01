@@ -28,7 +28,7 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @Component
-public class ToolRegistry {
+public class ToolRegistry implements ToolScope {
 
     private final ToolDefinitionRepository toolDefinitionRepository;
     private final Cache<String, ToolDefinition> toolCache;
@@ -47,6 +47,7 @@ public class ToolRegistry {
      *
      * @return 启用工具的信息列表
      */
+    @Override
     public List<ToolInfo> listAvailableTools() {
         List<ToolDefinitionDO> dos = toolDefinitionRepository.findEnabled();
         return dos.stream()
@@ -81,6 +82,7 @@ public class ToolRegistry {
      * @param name 工具名称
      * @return 工具定义（不存在返回空 Optional）
      */
+    @Override
     public Optional<ToolDefinition> getTool(String name) {
         ToolDefinition cached = toolCache.getIfPresent(name);
         if (cached != null) {
