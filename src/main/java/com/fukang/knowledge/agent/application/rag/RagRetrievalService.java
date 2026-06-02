@@ -25,6 +25,9 @@ public class RagRetrievalService {
     private final RetrievalStrategy retrievalStrategy;
     private final RetrievalProperties retrievalProperties;
 
+    /**
+     * 优先使用改写查询召回；结果不足时用原始问题补召回并按相似度去重截断。
+     */
     public List<SearchResult> retrieveWithFallback(String rewrittenQuery, String originalQuery, Long knowledgeBaseId) {
         int topK = retrievalProperties.getTopK();
         double threshold = retrievalProperties.getSimilarityThreshold();
@@ -45,6 +48,7 @@ public class RagRetrievalService {
                 .map(SearchResult::chunkId)
                 .collect(Collectors.toSet());
 
+        // 同一个 chunk 只保留一次，避免改写查询和原始查询的重复召回污染上下文。
         List<SearchResult> allResults = new ArrayList<>(rewrittenResults);
         for (SearchResult result : originalResults) {
             if (!existingChunkIds.contains(result.chunkId())) {

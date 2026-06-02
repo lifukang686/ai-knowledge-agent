@@ -7,6 +7,9 @@ import com.fukang.knowledge.agent.infrastructure.persistence.mapper.ServiceDeskF
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+/**
+ * 服务台反馈仓储端口的 MyBatis 实现。
+ */
 @Repository
 @RequiredArgsConstructor
 public class MyBatisServiceDeskFeedbackRepository implements ServiceDeskFeedbackRepository {

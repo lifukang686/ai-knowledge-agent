@@ -19,6 +19,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * Agent 配置与运行接口。
+ */
 @RestController
 @RequestMapping("/api/agents")
 @RequiredArgsConstructor
@@ -26,6 +29,9 @@ public class AgentController {
 
     private final AgentAppService agentAppService;
 
+    /**
+     * 按指定执行策略运行 Agent 任务。
+     */
     @PostMapping("/{agentId}/run")
     public Result<AgentRunResult> run(@PathVariable Long agentId, @RequestBody AgentRunReq req) {
         if (req.task() == null || req.task().isBlank()) {
@@ -35,11 +41,17 @@ public class AgentController {
         return Result.success(agentAppService.run(agentId, req.task(), strategy));
     }
 
+    /**
+     * 查询 Agent 运行记录和执行事件。
+     */
     @GetMapping("/runs/{runId}")
     public Result<AgentRunResult> getRunStatus(@PathVariable Long runId) {
         return Result.success(agentAppService.getRunStatus(runId));
     }
 
+    /**
+     * 创建可复用的 Agent 配置。
+     */
     @PostMapping
     public Result<AgentResp> create(@RequestBody AgentCreateReq req) {
         AgentConfigResult result = agentAppService.create(new AgentCreateCommand(

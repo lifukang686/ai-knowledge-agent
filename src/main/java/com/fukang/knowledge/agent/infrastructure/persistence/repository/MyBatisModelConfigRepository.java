@@ -10,6 +10,9 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
+/**
+ * 模型配置仓储端口的 MyBatis 实现。
+ */
 @Repository
 @RequiredArgsConstructor
 public class MyBatisModelConfigRepository implements ModelConfigRepository {

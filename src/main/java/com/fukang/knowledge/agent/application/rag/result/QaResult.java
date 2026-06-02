@@ -1,5 +1,8 @@
 package com.fukang.knowledge.agent.application.rag.result;
 
+/**
+ * RAG 问答结果。
+ */
 public record QaResult(
         String answer,
         String rewrittenQuery,

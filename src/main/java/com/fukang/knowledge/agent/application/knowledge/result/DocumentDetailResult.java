@@ -2,6 +2,9 @@ package com.fukang.knowledge.agent.application.knowledge.result;
 
 import java.time.LocalDateTime;
 
+/**
+ * 文档详情查询结果，content 为解析后的 chunk 文本拼接。
+ */
 public record DocumentDetailResult(
         Long id,
         String title,

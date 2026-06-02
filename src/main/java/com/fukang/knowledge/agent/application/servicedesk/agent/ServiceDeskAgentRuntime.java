@@ -2,9 +2,9 @@ package com.fukang.knowledge.agent.application.servicedesk.agent;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fukang.knowledge.agent.application.agent.AgentRuntimeOptions;
-import com.fukang.knowledge.agent.application.agent.PlanExecuteAgentRuntime;
-import com.fukang.knowledge.agent.application.agent.ScopedToolRegistry;
+import com.fukang.knowledge.agent.application.agent.runtime.AgentRuntimeOptions;
+import com.fukang.knowledge.agent.application.agent.runtime.PlanExecuteAgentRuntime;
+import com.fukang.knowledge.agent.application.agent.tool.ScopedToolRegistry;
 import com.fukang.knowledge.agent.application.servicedesk.command.ServiceDeskAskCommand;
 import com.fukang.knowledge.agent.application.servicedesk.result.ServiceDeskAnswerResult;
 import com.fukang.knowledge.agent.application.servicedesk.result.ServiceTicketResult;
@@ -36,6 +36,9 @@ public class ServiceDeskAgentRuntime {
     private final PromptTemplateManager promptTemplateManager;
     private final ObjectMapper objectMapper;
 
+    /**
+     * 在服务台受控工具集合内执行一次用户问题处理。
+     */
     public ServiceDeskAnswerResult run(ServiceDeskAskCommand command, Long userId, Long runId) {
         ServiceType serviceType = ServiceType.from(command.serviceType());
         ServiceDeskAgentContext context = new ServiceDeskAgentContext(
@@ -88,6 +91,7 @@ public class ServiceDeskAgentRuntime {
         ToolOutcome outcome = ToolOutcome.empty();
         for (AgentStep step : steps) {
             Map<String, Object> output = parseObservation(step.observation());
+            // 多个工具结果按执行顺序合并，后续写操作结果优先覆盖普通问答结果。
             outcome = outcome.merge(toolOutcome(step.toolName(), output));
         }
         return outcome;
@@ -214,6 +218,7 @@ public class ServiceDeskAgentRuntime {
             if (next == null) {
                 return this;
             }
+            // 保留已有有效字段，同时让后执行的工具覆盖意图、答案和工单信息。
             return new ToolOutcome(
                     next.intent != null ? next.intent : intent,
                     next.answer != null ? next.answer : answer,

@@ -13,6 +13,9 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
+/**
+ * 服务台工单仓储端口的 MyBatis 实现。
+ */
 @Repository
 @RequiredArgsConstructor
 public class MyBatisServiceTicketRepository implements ServiceTicketRepository {
@@ -57,6 +60,7 @@ public class MyBatisServiceTicketRepository implements ServiceTicketRepository {
         LambdaQueryWrapper<ServiceTicketDO> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(ServiceTicketDO::getCreatorId, creatorId)
                 .orderByDesc(ServiceTicketDO::getCreateTime)
+                // limit 来自应用层参数，先做下限保护再拼接到 SQL 尾部。
                 .last("LIMIT " + Math.max(1, limit));
         return serviceTicketMapper.selectList(wrapper);
     }

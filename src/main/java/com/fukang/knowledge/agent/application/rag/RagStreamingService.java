@@ -19,6 +19,9 @@ public class RagStreamingService {
     private final StreamingChatCompletionPort streamingChatCompletionPort;
     private final RagConversationService ragConversationService;
 
+    /**
+     * 执行流式模型调用，并在完成或失败时写入会话记忆。
+     */
     public void stream(List<ChatCompletionPort.Message> messages,
                        String originalQuestion,
                        String rewrittenQuery,

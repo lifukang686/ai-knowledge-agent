@@ -6,6 +6,9 @@ import com.fukang.knowledge.agent.infrastructure.persistence.mapper.AgentMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+/**
+ * Agent 仓储端口的 MyBatis 实现。
+ */
 @Repository
 @RequiredArgsConstructor
 public class MyBatisAgentRepository implements AgentRepository {

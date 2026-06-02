@@ -29,6 +29,9 @@ public class RagDirectAnswerService {
     private final RagConversationService ragConversationService;
     private final RagStreamingService ragStreamingService;
 
+    /**
+     * 根据意图处理非知识库问题，如闲聊和记忆更新。
+     */
     public QaResult answerByIntent(String question, ConversationMemoryContext memory, QaIntent intent) {
         String answer = intent == QaIntent.MEMORY_UPDATE
                 ? MEMORY_UPDATE_ANSWER
@@ -37,6 +40,9 @@ public class RagDirectAnswerService {
         return new QaResult(answer, question, "success", memory.conversationId());
     }
 
+    /**
+     * 在检索无结果但判断为闲聊时，降级为直接对话回答。
+     */
     public QaResult answerDirectChat(String questionForAnswer,
                                      String originalQuestion,
                                      String rewrittenQuery,
@@ -46,6 +52,9 @@ public class RagDirectAnswerService {
         return new QaResult(answer, rewrittenQuery, "success", memory.conversationId());
     }
 
+    /**
+     * 流式处理非知识库问题。
+     */
     public void streamByIntent(String question,
                                ConversationMemoryContext memory,
                                QaIntent intent,

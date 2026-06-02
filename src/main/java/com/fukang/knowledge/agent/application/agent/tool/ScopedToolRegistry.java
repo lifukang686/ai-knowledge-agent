@@ -1,4 +1,4 @@
-package com.fukang.knowledge.agent.application.agent;
+package com.fukang.knowledge.agent.application.agent.tool;
 
 import com.fukang.knowledge.agent.domain.agent.model.ToolDefinition;
 import com.fukang.knowledge.agent.domain.agent.model.ToolInfo;
@@ -15,6 +15,9 @@ public class ScopedToolRegistry implements ToolScope {
 
     private final Map<String, ToolDefinition> toolsByName;
 
+    /**
+     * 根据业务方传入的工具集合创建只读作用域，过滤掉未启用工具。
+     */
     public ScopedToolRegistry(List<ToolDefinition> tools) {
         Map<String, ToolDefinition> map = new LinkedHashMap<>();
         if (tools != null) {

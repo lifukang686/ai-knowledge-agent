@@ -1,6 +1,6 @@
 package com.fukang.knowledge.agent.application.servicedesk.agent;
 
-import com.fukang.knowledge.agent.application.agent.ScopedToolRegistry;
+import com.fukang.knowledge.agent.application.agent.tool.ScopedToolRegistry;
 import com.fukang.knowledge.agent.common.enums.ExecutorTypeEnum;
 import com.fukang.knowledge.agent.domain.agent.model.ToolDefinition;
 import org.springframework.stereotype.Component;
@@ -14,6 +14,9 @@ import java.util.List;
 @Component
 public class ServiceDeskAgentToolFactory {
 
+    /**
+     * 构造服务台专属工具作用域，避免复用全局动态工具造成越权。
+     */
     public ScopedToolRegistry createScope() {
         return new ScopedToolRegistry(List.of(
                 tool(ServiceDeskToolNames.KNOWLEDGE_QA,

@@ -1,9 +1,11 @@
-package com.fukang.knowledge.agent.application.agent;
+package com.fukang.knowledge.agent.application.agent.runtime;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fukang.knowledge.agent.application.agent.port.AgentChatClient;
+import com.fukang.knowledge.agent.application.agent.tool.ToolRegistry;
+import com.fukang.knowledge.agent.application.agent.tool.ToolScope;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.domain.agent.model.AgentChatMessage;

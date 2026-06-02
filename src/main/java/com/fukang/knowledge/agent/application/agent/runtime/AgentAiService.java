@@ -1,4 +1,4 @@
-package com.fukang.knowledge.agent.application.agent;
+package com.fukang.knowledge.agent.application.agent.runtime;
 
 /**
  * Agent AI Service 接口

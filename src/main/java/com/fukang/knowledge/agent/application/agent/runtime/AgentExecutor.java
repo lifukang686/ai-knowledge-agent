@@ -1,5 +1,7 @@
-package com.fukang.knowledge.agent.application.agent;
+package com.fukang.knowledge.agent.application.agent.runtime;
 
+import com.fukang.knowledge.agent.application.agent.tool.ToolRegistry;
+import com.fukang.knowledge.agent.application.agent.tool.ToolScope;
 import com.fukang.knowledge.agent.domain.agent.model.ToolDefinition;
 import com.fukang.knowledge.agent.domain.agent.model.Observation;
 import com.fukang.knowledge.agent.domain.agent.model.PlanStep;
@@ -60,6 +62,7 @@ public class AgentExecutor {
             ToolExecutor executor = executorFactory.getExecutor(tool.executorType());
 
             Map<String, Object> params = step.parameters() != null ? step.parameters() : Map.of();
+            // 执行器由工具类型决定，HTTP/SQL/LOCAL_METHOD 共用同一个领域结果模型。
             com.fukang.knowledge.agent.domain.agent.model.ToolExecutionResult result = executor.execute(tool, params);
 
             long duration = System.currentTimeMillis() - start;

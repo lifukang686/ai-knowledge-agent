@@ -1,5 +1,6 @@
-package com.fukang.knowledge.agent.application.agent;
+package com.fukang.knowledge.agent.application.agent.runtime;
 
+import com.fukang.knowledge.agent.application.agent.tool.ToolScope;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.domain.agent.model.AgentContext;
 import com.fukang.knowledge.agent.domain.agent.model.AgentRunEvent;
@@ -29,6 +30,9 @@ public class PlanExecuteAgentRuntime {
     private final AgentExecutor agentExecutor;
     private final AgentReasoner agentReasoner;
 
+    /**
+     * 执行一次 Plan-Execute Agent 任务。
+     */
     public RuntimeResult runTask(String task, AgentRuntimeOptions options) {
         AgentRuntimeOptions runtimeOptions = options != null
                 ? options
@@ -47,6 +51,7 @@ public class PlanExecuteAgentRuntime {
             context.setStatus(AgentContext.AgentContextStatus.EXECUTING);
             int stepCount = 0;
             while (stepCount < runtimeOptions.maxSteps()) {
+                // 每轮先让 Reasoner 基于历史观察判断：继续、重试、终止或生成最终答案。
                 ReasoningResult reasoning = agentReasoner.reason(context);
                 recordReasoning(events, reasoning, "Reasoning decision");
 
@@ -59,6 +64,7 @@ public class PlanExecuteAgentRuntime {
                 if (reasoning.decision() == ReasoningResult.Decision.RETRY) {
                     AgentStep lastStep = context.getLastStep();
                     if (lastStep != null) {
+                        // 重试复用上一步工具和参数，仅修改说明，避免重新规划引入额外不确定性。
                         PlanStep retryStep = new PlanStep(lastStep.stepOrder(),
                                 lastStep.toolName(), lastStep.parameters(), "Retry previous step");
                         executeAndRecord(context, retryStep, runtimeOptions.toolScope(), events);

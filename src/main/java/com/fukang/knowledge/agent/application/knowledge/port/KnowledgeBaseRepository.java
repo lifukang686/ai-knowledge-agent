@@ -3,6 +3,9 @@ package com.fukang.knowledge.agent.application.knowledge.port;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.KnowledgeBaseDO;
 
+/**
+ * 知识库仓储端口。
+ */
 public interface KnowledgeBaseRepository {
 
     void insert(KnowledgeBaseDO knowledgeBase);

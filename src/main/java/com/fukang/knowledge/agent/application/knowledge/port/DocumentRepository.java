@@ -6,6 +6,9 @@ import com.fukang.knowledge.agent.infrastructure.persistence.entity.DocumentDO;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 文档仓储端口，供应用层操作文档元数据。
+ */
 public interface DocumentRepository {
 
     void insert(DocumentDO document);
@@ -22,6 +25,7 @@ public interface DocumentRepository {
 
     List<DocumentDO> findByKnowledgeBase(Long knowledgeBaseId);
 
+    /** 按处理状态查询文档，供启动补偿扫描使用。 */
     List<DocumentDO> findByStatus(String status);
 
     void deleteById(Long id);

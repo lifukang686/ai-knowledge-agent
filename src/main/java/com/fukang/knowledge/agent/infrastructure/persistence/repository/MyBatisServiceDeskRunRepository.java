@@ -6,6 +6,9 @@ import com.fukang.knowledge.agent.infrastructure.persistence.mapper.ServiceDeskR
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+/**
+ * 服务台运行记录仓储端口的 MyBatis 实现。
+ */
 @Repository
 @RequiredArgsConstructor
 public class MyBatisServiceDeskRunRepository implements ServiceDeskRunRepository {

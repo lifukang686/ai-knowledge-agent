@@ -1,4 +1,4 @@
-package com.fukang.knowledge.agent.application.agent;
+package com.fukang.knowledge.agent.application.agent.runtime;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -90,6 +90,7 @@ public class AgentReasoner {
 
         AgentChatSession chatSession = context.getChatSession();
         if (chatSession == null) {
+            // Reasoner 复用同一个会话，保留推理上下文，减少每轮都重新解释任务状态。
             chatSession = agentChatClient.newDefaultSession();
             context.setChatSession(chatSession);
             chatSession.add(AgentChatMessage.system(REASONING_SYSTEM_PROMPT));

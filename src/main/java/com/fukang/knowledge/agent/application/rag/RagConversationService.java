@@ -17,14 +17,23 @@ public class RagConversationService {
 
     private final ConversationMemoryService conversationMemoryService;
 
+    /**
+     * 准备本轮问答需要的会话摘要、改写历史和回答历史。
+     */
     public ConversationMemoryContext prepareContext(Long conversationId, Long knowledgeBaseId, String question) {
         return conversationMemoryService.prepareContext(conversationId, knowledgeBaseId, question);
     }
 
+    /**
+     * 保存一次成功的用户问题和助手回答。
+     */
     public void saveSuccessfulTurn(Long conversationId, String question, String rewrittenQuery, String answer) {
         saveTurn(conversationId, question, rewrittenQuery, answer, STATUS_SUCCESS);
     }
 
+    /**
+     * 按指定状态保存一轮对话消息。
+     */
     public void saveTurn(Long conversationId, String question, String rewrittenQuery, String answer, String status) {
         conversationMemoryService.saveUserMessage(conversationId, question, rewrittenQuery, status);
         conversationMemoryService.saveAssistantMessage(conversationId, answer, status);
@@ -42,6 +51,9 @@ public class RagConversationService {
         return "【会话记忆】\n" + answerMemory + "\n\n【用户问题】\n" + question;
     }
 
+    /**
+     * 拼装回答阶段使用的短期记忆文本。
+     */
     public String buildAnswerMemory(ConversationMemoryContext memory) {
         StringBuilder builder = new StringBuilder();
         if (memory.summary() != null && !memory.summary().isBlank()) {

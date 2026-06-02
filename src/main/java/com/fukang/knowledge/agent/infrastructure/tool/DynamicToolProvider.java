@@ -2,8 +2,8 @@ package com.fukang.knowledge.agent.infrastructure.tool;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fukang.knowledge.agent.application.agent.AgentRunEventCollector;
-import com.fukang.knowledge.agent.application.agent.ToolRegistry;
+import com.fukang.knowledge.agent.application.agent.runtime.AgentRunEventCollector;
+import com.fukang.knowledge.agent.application.agent.tool.ToolRegistry;
 import com.fukang.knowledge.agent.domain.agent.model.AgentRunEvent;
 import com.fukang.knowledge.agent.domain.agent.model.ToolDefinition;
 import com.fukang.knowledge.agent.domain.agent.model.ToolExecutionResult;

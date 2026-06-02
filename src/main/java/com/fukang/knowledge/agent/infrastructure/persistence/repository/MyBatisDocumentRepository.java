@@ -13,6 +13,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * 文档仓储端口的 MyBatis 实现。
+ */
 @Repository
 @RequiredArgsConstructor
 public class MyBatisDocumentRepository implements DocumentRepository {
@@ -55,6 +58,7 @@ public class MyBatisDocumentRepository implements DocumentRepository {
         if (knowledgeBaseIds == null || knowledgeBaseIds.isEmpty()) {
             return Map.of();
         }
+        // 批量统计文档数量，供知识库列表一次性补齐统计字段。
         List<DocumentDO> docs = documentMapper.selectList(
                 new LambdaQueryWrapper<DocumentDO>().in(DocumentDO::getKnowledgeBaseId, knowledgeBaseIds));
         return docs.stream()

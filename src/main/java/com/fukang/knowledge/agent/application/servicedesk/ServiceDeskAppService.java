@@ -45,6 +45,9 @@ public class ServiceDeskAppService {
     private final ServiceDeskFeedbackRepository serviceDeskFeedbackRepository;
     private final ObjectMapper objectMapper;
 
+    /**
+     * 同步执行服务台 Agent，并落库运行记录。
+     */
     @Transactional(rollbackFor = Exception.class)
     public ServiceDeskAnswerResult ask(ServiceDeskAskCommand command) {
         Long userId = currentUserId();
@@ -63,11 +66,17 @@ public class ServiceDeskAppService {
         }
     }
 
+    /**
+     * 使用当前登录用户执行流式服务台 Agent。
+     */
     public void askStream(ServiceDeskAskCommand command, ServiceDeskStreamHandler handler) {
         Long userId = currentUserId();
         askStreamAsUser(command, userId, handler);
     }
 
+    /**
+     * 指定用户上下文执行流式服务台 Agent，供 Controller 的异步线程复用。
+     */
     public void askStreamAsUser(ServiceDeskAskCommand command, Long userId, ServiceDeskStreamHandler handler) {
         if (userId == null) {
             throw new BaseException(ErrorCodeEnum.UNAUTHORIZED);
@@ -96,6 +105,9 @@ public class ServiceDeskAppService {
         }
     }
 
+    /**
+     * 查询当前用户可见的服务台运行详情。
+     */
     public ServiceDeskRunResult getRun(Long runId) {
         ServiceDeskRunDO run = serviceDeskRunRepository.findById(runId);
         if (run == null) {
@@ -112,6 +124,7 @@ public class ServiceDeskAppService {
     public ServiceTicketResult confirmTicket(Long ticketId) {
         Long userId = currentUserId();
         ServiceTicketResult ticket = ticketAppService.confirmTicket(new ConfirmTicketCommand(ticketId, userId));
+        // Agent 只创建草稿；用户确认后，运行记录才绑定正式打开的工单。
         if (ticket.sourceRunId() != null) {
             ServiceDeskRunDO run = serviceDeskRunRepository.findById(ticket.sourceRunId());
             if (run != null && userId.equals(run.getUserId())) {
@@ -124,6 +137,9 @@ public class ServiceDeskAppService {
         return ticket;
     }
 
+    /**
+     * 提交服务台处理反馈，同一次运行同一用户只能提交一次。
+     */
     @Transactional(rollbackFor = Exception.class)
     public ServiceDeskFeedbackResult submitFeedback(SubmitFeedbackCommand command) {
         if (command.resolved() == null) {

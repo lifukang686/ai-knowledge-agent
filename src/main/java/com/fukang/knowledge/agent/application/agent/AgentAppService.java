@@ -8,6 +8,8 @@ import com.fukang.knowledge.agent.application.agent.port.AgentRepository;
 import com.fukang.knowledge.agent.application.agent.port.AgentRunRepository;
 import com.fukang.knowledge.agent.application.agent.port.AiServicesAgentRuntime;
 import com.fukang.knowledge.agent.application.agent.result.AgentConfigResult;
+import com.fukang.knowledge.agent.application.agent.runtime.AgentRuntimeOptions;
+import com.fukang.knowledge.agent.application.agent.runtime.PlanExecuteAgentRuntime;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.domain.agent.model.AgentRunEvent;
@@ -57,6 +59,9 @@ public class AgentAppService {
         this.agentProperties = agentProperties;
     }
 
+    /**
+     * 创建 Agent 配置并保存可用工具、系统提示词和最大步数。
+     */
     @Transactional
     public AgentConfigResult create(AgentCreateCommand command) {
         if (command.name() == null || command.name().isBlank()) {
@@ -126,6 +131,9 @@ public class AgentAppService {
         }
     }
 
+    /**
+     * 查询运行状态，并把结构化事件转换为兼容前端的步骤列表。
+     */
     public AgentRunResult getRunStatus(Long runId) {
         AgentRunDO runDO = agentRunRepository.findById(runId);
         if (runDO == null) {
@@ -137,6 +145,9 @@ public class AgentAppService {
                 steps, events, calculateDuration(runDO.getStartTime(), runDO.getEndTime()));
     }
 
+    /**
+     * 使用 LangChain4j AiServices 执行任务，由模型自主触发工具调用。
+     */
     @Transactional
     public AgentRunResult runWithAiServices(Long agentId, String task) {
         AgentDO agentDO = agentRepository.findById(agentId);
@@ -155,6 +166,7 @@ public class AgentAppService {
             String systemPrompt = agentDO.getSystemPrompt() != null && !agentDO.getSystemPrompt().isBlank()
                     ? agentDO.getSystemPrompt()
                     : "You are an intelligent assistant. Use tools when needed to complete the task.";
+            // AiServices 内部完成 ReAct 工具调用，返回值只需要补一条最终答案事件。
             AiServicesAgentRuntime.ExecutionResult executionResult =
                     aiServicesAgentRuntime.execute(task, systemPrompt);
             String answer = executionResult.answer();

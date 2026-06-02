@@ -44,6 +44,9 @@ public class TicketAppService {
     private final ServiceTicketEventRepository serviceTicketEventRepository;
     private final ObjectMapper objectMapper;
 
+    /**
+     * 创建工单或工单草稿，并记录初始事件。
+     */
     @Transactional(rollbackFor = Exception.class)
     public ServiceTicketResult createTicket(CreateTicketCommand command) {
         TicketStatus initialStatus = resolveStatus(command.initialStatus());
@@ -65,6 +68,9 @@ public class TicketAppService {
         return toResult(ticket);
     }
 
+    /**
+     * 分页查询当前用户创建的工单。
+     */
     public PageResponse<ServiceTicketResult> listTickets(Long userId, long page, long pageSize,
                                                          TicketStatus status, ServiceType serviceType) {
         IPage<ServiceTicketDO> resultPage = serviceTicketRepository.pageByCreator(
@@ -102,6 +108,9 @@ public class TicketAppService {
         }
     }
 
+    /**
+     * 确认 Agent 生成的草稿工单，将状态从 DRAFT 推进到 OPEN。
+     */
     @Transactional(rollbackFor = Exception.class)
     public ServiceTicketResult confirmTicket(ConfirmTicketCommand command) {
         if (command.ticketId() == null || command.userId() == null) {
@@ -134,6 +143,7 @@ public class TicketAppService {
     }
 
     private String generateTicketNo() {
+        // 时间戳加四位随机数，保证人工可读并降低同秒冲突概率。
         String time = LocalDateTime.now().format(TICKET_NO_TIME_FORMAT);
         int random = ThreadLocalRandom.current().nextInt(1000, 10000);
         return "T" + time + random;
@@ -194,6 +204,7 @@ public class TicketAppService {
 
     private void writeEvent(Long ticketId, TicketEventType eventType, TicketStatus fromStatus, TicketStatus toStatus,
                             Long operatorId, String message, Map<String, Object> payload) {
+        // 工单事件是状态审计来源，状态变化和操作原因都通过事件表沉淀。
         ServiceTicketEventDO event = new ServiceTicketEventDO();
         event.setTicketId(ticketId);
         event.setEventType(eventType.name());

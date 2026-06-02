@@ -1,4 +1,6 @@
-package com.fukang.knowledge.agent.application.agent;
+package com.fukang.knowledge.agent.application.agent.runtime;
+
+import com.fukang.knowledge.agent.application.agent.tool.ToolScope;
 
 /**
  * Plan-Execute 单次运行配置。

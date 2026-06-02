@@ -22,6 +22,10 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+/**
+ * RAG 重排服务。
+ * <p>优先调用外部重排模型；模型不可用时使用向量分、全文分、词覆盖率和位置特征做本地重排。</p>
+ */
 @Slf4j
 @Component
 public class RerankService implements Reranker {
@@ -63,6 +67,9 @@ public class RerankService implements Reranker {
     ) {
     }
 
+    /**
+     * 构建 LangChain4j 检索增强器，保留默认聚合能力。
+     */
     public RetrievalAugmentor buildReRankingAugmentor(ContentRetriever contentRetriever, Double minScore) {
         log.info("构建 RAG 增强器: minScore={}, contentAggregator=DefaultContentAggregator", minScore);
         return DefaultRetrievalAugmentor.builder()
@@ -78,6 +85,7 @@ public class RerankService implements Reranker {
         }
 
         long startTime = System.currentTimeMillis();
+        // 外部模型分数更贴近语义相关性，成功时直接作为最终重排依据。
         Optional<List<SearchResult>> modelReranked = rerankByModel(candidates, query, startTime);
         if (modelReranked.isPresent()) {
             return modelReranked.get();
@@ -136,6 +144,7 @@ public class RerankService implements Reranker {
             double idfScore = computeIDFScore(queryTerms, text, idfMap);
             double positionScore = computePositionScore(queryTerms, text);
 
+            // 本地规则将召回分、关键词覆盖和文本位置融合，作为模型不可用时的兜底排序。
             double finalScore = WEIGHT_VECTOR * vectorScore
                     + WEIGHT_RRF * rrfScore
                     + WEIGHT_BM25 * bm25Score

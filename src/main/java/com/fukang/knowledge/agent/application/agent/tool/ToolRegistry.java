@@ -1,4 +1,4 @@
-package com.fukang.knowledge.agent.application.agent;
+package com.fukang.knowledge.agent.application.agent.tool;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.fukang.knowledge.agent.application.agent.port.ToolDefinitionRepository;

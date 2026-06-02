@@ -31,12 +31,18 @@ public class DocumentEmbeddingAppService {
     private final DocumentChunkStorageService chunkStorageService;
     private final DocumentRepository documentRepository;
 
+    /**
+     * 读取指定文档的所有 chunk，并写入向量索引。
+     */
     @Transactional(rollbackFor = Exception.class)
     public ChunkStorageResult embedAndStore(Long documentId, Long knowledgeBaseId) {
         List<DocumentChunkDO> chunks = chunkStorageService.findByDocumentId(documentId);
         return embedAndStoreWithChunks(chunks, knowledgeBaseId);
     }
 
+    /**
+     * 对已加载的 chunk 执行向量化，适用于管道复用和测试场景。
+     */
     @Transactional(rollbackFor = Exception.class)
     public ChunkStorageResult embedAndStoreWithChunks(List<DocumentChunkDO> chunks, Long knowledgeBaseId) {
         validateChunks(chunks, knowledgeBaseId);
@@ -65,6 +71,7 @@ public class DocumentEmbeddingAppService {
         List<String> texts = new ArrayList<>(chunks.size());
         for (DocumentChunkDO chunk : chunks) {
             String embeddingText = chunk.getEmbeddingText();
+            // embeddingText 会补标题和位置上下文；缺失时退回原始 chunkText 保证入库不中断。
             texts.add(embeddingText != null && !embeddingText.isBlank()
                     ? embeddingText
                     : chunk.getChunkText());
@@ -77,6 +84,7 @@ public class DocumentEmbeddingAppService {
         Integer dimension = embeddingResult.dimension();
         String version = embeddingResult.modelVersion();
 
+        // chunk 与 document 同步记录模型元数据，便于后续判断是否需要重建向量。
         for (DocumentChunkDO chunk : chunks) {
             chunk.setEmbeddingModelId(modelId);
             chunk.setEmbeddingDimension(dimension);

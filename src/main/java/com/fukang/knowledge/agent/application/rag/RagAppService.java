@@ -22,6 +22,10 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.regex.Pattern;
 
+/**
+ * RAG 问答编排服务。
+ * <p>串联意图识别、查询改写、知识库检索、重排、回答生成和会话记忆保存。</p>
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -49,20 +53,26 @@ public class RagAppService {
     private final RagStreamingService ragStreamingService;
     private final QaIntentClassifier qaIntentClassifier;
 
+    /**
+     * 非流式 RAG 问答主流程。
+     */
     public QaResult answer(String question, Long knowledgeBaseId, Long conversationId) {
         validateKnowledgeBase(knowledgeBaseId);
         ConversationMemoryContext memory = ragConversationService.prepareContext(conversationId, knowledgeBaseId, question);
         QaIntent intent = qaIntentClassifier.classify(question);
 
+        // 闲聊、记忆更新等问题不走知识库检索，直接由通用对话分支处理。
         if (shouldBypassRetrieval(question, intent)) {
             log.info("Bypass RAG retrieval: intent={}, question={}", intent, question);
             return ragDirectAnswerService.answerByIntent(question, memory, intent);
         }
 
+        // 查询改写使用会话摘要和最近历史，提升多轮问题的可检索性。
         String rewrittenQuery = queryRewritePort.rewriteWithHistory(
                 question, memory.summary(), memory.rewriteHistory());
         List<SearchResult> retrieved = ragRetrievalService.retrieveWithFallback(rewrittenQuery, question, knowledgeBaseId);
 
+        // 改写后被识别为闲聊且无召回时，降级为直接对话，避免返回生硬的无结果。
         if (retrieved.isEmpty() && isChitchat(rewrittenQuery)) {
             log.info("Fallback to direct chat because retrieval is empty and rewritten query is chitchat");
             return ragDirectAnswerService.answerDirectChat(rewrittenQuery, question, rewrittenQuery, memory);

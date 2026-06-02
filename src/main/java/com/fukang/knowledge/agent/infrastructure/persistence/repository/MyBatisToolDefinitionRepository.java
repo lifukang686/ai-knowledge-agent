@@ -12,6 +12,9 @@ import org.springframework.util.StringUtils;
 
 import java.util.List;
 
+/**
+ * 工具定义仓储端口的 MyBatis 实现。
+ */
 @Repository
 @RequiredArgsConstructor
 public class MyBatisToolDefinitionRepository implements ToolDefinitionRepository {
