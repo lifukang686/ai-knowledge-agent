@@ -41,12 +41,6 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
-        <!-- AOP for logs -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-aop</artifactId>
-        </dependency>
-        
         <!-- JPA (仅负责自动建表，查询仍由 MyBatis-Plus 处理) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
