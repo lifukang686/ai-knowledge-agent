@@ -2,10 +2,12 @@ package com.fukang.knowledge.agent.application.servicedesk;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fukang.knowledge.agent.application.servicedesk.agent.ServiceDeskAgentRuntime;
 import com.fukang.knowledge.agent.application.servicedesk.command.ConfirmTicketCommand;
 import com.fukang.knowledge.agent.application.servicedesk.command.ServiceDeskAskCommand;
 import com.fukang.knowledge.agent.application.servicedesk.command.SubmitFeedbackCommand;
-import com.fukang.knowledge.agent.application.servicedesk.agent.ServiceDeskAgentRuntime;
+import com.fukang.knowledge.agent.application.servicedesk.port.ServiceDeskFeedbackRepository;
+import com.fukang.knowledge.agent.application.servicedesk.port.ServiceDeskRunRepository;
 import com.fukang.knowledge.agent.application.servicedesk.result.ServiceDeskAnswerResult;
 import com.fukang.knowledge.agent.application.servicedesk.result.ServiceDeskFeedbackResult;
 import com.fukang.knowledge.agent.application.servicedesk.result.ServiceDeskRunResult;
@@ -17,8 +19,6 @@ import com.fukang.knowledge.agent.domain.agent.model.AgentRunEvent;
 import com.fukang.knowledge.agent.domain.servicedesk.ServiceType;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.ServiceDeskFeedbackDO;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.ServiceDeskRunDO;
-import com.fukang.knowledge.agent.infrastructure.persistence.mapper.ServiceDeskFeedbackMapper;
-import com.fukang.knowledge.agent.infrastructure.persistence.mapper.ServiceDeskRunMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -41,8 +41,8 @@ public class ServiceDeskAppService {
 
     private final TicketAppService ticketAppService;
     private final ServiceDeskAgentRuntime serviceDeskAgentRuntime;
-    private final ServiceDeskRunMapper runMapper;
-    private final ServiceDeskFeedbackMapper feedbackMapper;
+    private final ServiceDeskRunRepository serviceDeskRunRepository;
+    private final ServiceDeskFeedbackRepository serviceDeskFeedbackRepository;
     private final ObjectMapper objectMapper;
 
     @Transactional(rollbackFor = Exception.class)
@@ -97,7 +97,7 @@ public class ServiceDeskAppService {
     }
 
     public ServiceDeskRunResult getRun(Long runId) {
-        ServiceDeskRunDO run = runMapper.selectById(runId);
+        ServiceDeskRunDO run = serviceDeskRunRepository.findById(runId);
         if (run == null) {
             throw new BaseException(ErrorCodeEnum.NOT_FOUND.getCode(), "服务台运行记录不存在");
         }
@@ -113,12 +113,12 @@ public class ServiceDeskAppService {
         Long userId = currentUserId();
         ServiceTicketResult ticket = ticketAppService.confirmTicket(new ConfirmTicketCommand(ticketId, userId));
         if (ticket.sourceRunId() != null) {
-            ServiceDeskRunDO run = runMapper.selectById(ticket.sourceRunId());
+            ServiceDeskRunDO run = serviceDeskRunRepository.findById(ticket.sourceRunId());
             if (run != null && userId.equals(run.getUserId())) {
                 run.setApprovalRequired(false);
                 run.setPendingTicketId(null);
                 run.setTicketId(ticket.id());
-                runMapper.updateById(run);
+                serviceDeskRunRepository.updateById(run);
             }
         }
         return ticket;
@@ -129,7 +129,7 @@ public class ServiceDeskAppService {
         if (command.resolved() == null) {
             throw new BaseException(ErrorCodeEnum.BAD_REQUEST.getCode(), "反馈结果不能为空");
         }
-        ServiceDeskRunDO run = runMapper.selectById(command.runId());
+        ServiceDeskRunDO run = serviceDeskRunRepository.findById(command.runId());
         if (run == null || !command.userId().equals(run.getUserId())) {
             throw new BaseException(ErrorCodeEnum.NOT_FOUND.getCode(), "服务台运行记录不存在");
         }
@@ -144,10 +144,10 @@ public class ServiceDeskAppService {
         feedback.setResolved(command.resolved());
         feedback.setComment(trimComment(command.comment()));
         feedback.setUserId(command.userId());
-        feedbackMapper.insert(feedback);
+        serviceDeskFeedbackRepository.insert(feedback);
 
         run.setFeedbackId(feedback.getId());
-        runMapper.updateById(run);
+        serviceDeskRunRepository.updateById(run);
         return toFeedbackResult(feedback);
     }
 
@@ -161,7 +161,7 @@ public class ServiceDeskAppService {
         run.setStatus("RUNNING");
         run.setApprovalRequired(false);
         run.setStartTime(LocalDateTime.now());
-        runMapper.insert(run);
+        serviceDeskRunRepository.insert(run);
         return run;
     }
 
@@ -185,7 +185,7 @@ public class ServiceDeskAppService {
         run.setPendingTicketId(result.pendingTicket() != null ? result.pendingTicket().id() : null);
         run.setEventLog(serializeEvents(mutableEvents));
         run.setEndTime(LocalDateTime.now());
-        runMapper.updateById(run);
+        serviceDeskRunRepository.updateById(run);
         return mutableEvents;
     }
 
@@ -201,7 +201,7 @@ public class ServiceDeskAppService {
         run.setAnswer(e.getMessage());
         run.setEventLog(serializeEvents(mutableEvents));
         run.setEndTime(LocalDateTime.now());
-        runMapper.updateById(run);
+        serviceDeskRunRepository.updateById(run);
     }
 
     private AgentRunEvent event(AgentRunEvent.EventType type, String message, Map<String, Object> payload) {
@@ -238,11 +238,7 @@ public class ServiceDeskAppService {
     }
 
     private ServiceDeskFeedbackDO findFeedback(Long runId, Long userId) {
-        com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<ServiceDeskFeedbackDO> wrapper =
-                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<>();
-        wrapper.eq(ServiceDeskFeedbackDO::getRunId, runId)
-                .eq(ServiceDeskFeedbackDO::getUserId, userId);
-        return feedbackMapper.selectOne(wrapper);
+        return serviceDeskFeedbackRepository.findByRunIdAndUserId(runId, userId);
     }
 
     private ServiceDeskFeedbackResult toFeedbackResult(ServiceDeskFeedbackDO feedback) {

@@ -1,15 +1,12 @@
 package com.fukang.knowledge.agent.application.conversation;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fukang.knowledge.agent.application.ai.port.ChatCompletionPort;
+import com.fukang.knowledge.agent.application.conversation.port.ConversationMemoryRepository;
 import com.fukang.knowledge.agent.common.context.UserContextHolder;
 import com.fukang.knowledge.agent.infrastructure.ai.PromptTemplateManager;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.ConversationDO;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.ConversationMessageDO;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.ConversationSummaryDO;
-import com.fukang.knowledge.agent.infrastructure.persistence.mapper.ConversationMapper;
-import com.fukang.knowledge.agent.infrastructure.persistence.mapper.ConversationMessageMapper;
-import com.fukang.knowledge.agent.infrastructure.persistence.mapper.ConversationSummaryMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -17,7 +14,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
@@ -40,9 +36,7 @@ public class ConversationMemoryService {
     private static final int SUMMARY_KEEP_RECENT_COUNT = 6;
     private static final int TITLE_MAX_LENGTH = 60;
 
-    private final ConversationMapper conversationMapper;
-    private final ConversationMessageMapper conversationMessageMapper;
-    private final ConversationSummaryMapper conversationSummaryMapper;
+    private final ConversationMemoryRepository conversationMemoryRepository;
     private final ChatCompletionPort chatCompletionPort;
     private final PromptTemplateManager promptTemplateManager;
 
@@ -76,17 +70,17 @@ public class ConversationMemoryService {
 
     @Transactional(rollbackFor = Exception.class)
     public void updateConversationTitle(Long conversationId, String question) {
-        ConversationDO conversation = conversationMapper.selectById(conversationId);
+        ConversationDO conversation = conversationMemoryRepository.findConversationById(conversationId);
         if (conversation == null || StringUtils.hasText(conversation.getTitle())) {
             return;
         }
         conversation.setTitle(shortTitle(question));
-        conversationMapper.updateById(conversation);
+        conversationMemoryRepository.updateConversation(conversation);
     }
 
     private ConversationDO resolveConversation(Long conversationId, Long knowledgeBaseId, String question) {
         if (conversationId != null) {
-            ConversationDO existing = conversationMapper.selectById(conversationId);
+            ConversationDO existing = conversationMemoryRepository.findConversationById(conversationId);
             if (existing != null) {
                 return existing;
             }
@@ -98,7 +92,7 @@ public class ConversationMemoryService {
         conversation.setKnowledgeBaseId(knowledgeBaseId);
         conversation.setTitle(shortTitle(question));
         conversation.setStatus(STATUS_ACTIVE);
-        conversationMapper.insert(conversation);
+        conversationMemoryRepository.insertConversation(conversation);
         return conversation;
     }
 
@@ -112,26 +106,15 @@ public class ConversationMemoryService {
         message.setContent(content);
         message.setRewrittenQuery(rewrittenQuery);
         message.setStatus(status);
-        conversationMessageMapper.insert(message);
+        conversationMemoryRepository.insertMessage(message);
     }
 
     private List<ConversationMessageDO> recentMessages(Long conversationId, int limit) {
-        LambdaQueryWrapper<ConversationMessageDO> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(ConversationMessageDO::getConversationId, conversationId)
-                .orderByDesc(ConversationMessageDO::getCreateTime)
-                .last("LIMIT " + limit);
-        List<ConversationMessageDO> messages = conversationMessageMapper.selectList(wrapper);
-        return messages.stream()
-                .sorted(Comparator.comparing(ConversationMessageDO::getCreateTime))
-                .toList();
+        return conversationMemoryRepository.findRecentMessages(conversationId, limit);
     }
 
     private ConversationSummaryDO latestSummary(Long conversationId) {
-        LambdaQueryWrapper<ConversationSummaryDO> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(ConversationSummaryDO::getConversationId, conversationId)
-                .orderByDesc(ConversationSummaryDO::getUpdateTime)
-                .last("LIMIT 1");
-        return conversationSummaryMapper.selectOne(wrapper);
+        return conversationMemoryRepository.findLatestSummary(conversationId);
     }
 
     private void refreshSummaryIfNeeded(Long conversationId) {
@@ -166,17 +149,14 @@ public class ConversationMemoryService {
         summaryDO.setMessageUntilId(lastMessageId);
         summaryDO.setTokenEstimate(estimateTokens(summary));
         if (existing == null) {
-            conversationSummaryMapper.insert(summaryDO);
+            conversationMemoryRepository.insertSummary(summaryDO);
         } else {
-            conversationSummaryMapper.updateById(summaryDO);
+            conversationMemoryRepository.updateSummary(summaryDO);
         }
     }
 
     private List<ConversationMessageDO> allMessages(Long conversationId) {
-        LambdaQueryWrapper<ConversationMessageDO> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(ConversationMessageDO::getConversationId, conversationId)
-                .orderByAsc(ConversationMessageDO::getCreateTime);
-        return conversationMessageMapper.selectList(wrapper);
+        return conversationMemoryRepository.findAllMessages(conversationId);
     }
 
     private String generateSummary(String oldSummary, String history) {

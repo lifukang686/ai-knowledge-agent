@@ -98,15 +98,12 @@ public class DocumentAppService {
 
     /**
      * 查询文档详情。
-     * <p>当前保持原有行为：从 MinIO 读取原始文件内容；后续数据治理重构再切到解析文本/chunk。</p>
+     * <p>详情内容读取已解析后的文档块，避免直接加载 PDF、Office 等原始大文件。</p>
      */
     public DocumentDetailResult getDocumentDetail(Long documentId) {
         DocumentDO document = findDocumentById(documentId);
 
-        String content = "";
-        if (document.getFilePath() != null && !document.getFilePath().isBlank()) {
-            content = minioStorageService.readFileContent(document.getFilePath());
-        }
+        String content = buildParsedContent(documentId);
 
         String status = resolveStatus(document);
         String uploadedBy = document.getUploaderId() != null ? document.getUploaderId().toString() : "";
@@ -127,6 +124,13 @@ public class DocumentAppService {
                 document.getCreateTime(),
                 document.getUpdateTime()
         );
+    }
+
+    private String buildParsedContent(Long documentId) {
+        return documentChunkRepository.findByDocumentId(documentId).stream()
+                .map(DocumentChunkDO::getChunkText)
+                .filter(text -> text != null && !text.isBlank())
+                .collect(Collectors.joining("\n\n"));
     }
 
     /**

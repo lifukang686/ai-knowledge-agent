@@ -1,11 +1,11 @@
 package com.fukang.knowledge.agent.application.servicedesk;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fukang.knowledge.agent.application.servicedesk.command.ConfirmTicketCommand;
 import com.fukang.knowledge.agent.application.servicedesk.command.CreateTicketCommand;
+import com.fukang.knowledge.agent.application.servicedesk.port.ServiceTicketEventRepository;
+import com.fukang.knowledge.agent.application.servicedesk.port.ServiceTicketRepository;
 import com.fukang.knowledge.agent.application.servicedesk.result.ServiceTicketEventResult;
 import com.fukang.knowledge.agent.application.servicedesk.result.ServiceTicketResult;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
@@ -17,8 +17,6 @@ import com.fukang.knowledge.agent.domain.servicedesk.TicketPriority;
 import com.fukang.knowledge.agent.domain.servicedesk.TicketStatus;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.ServiceTicketEventDO;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.ServiceTicketDO;
-import com.fukang.knowledge.agent.infrastructure.persistence.mapper.ServiceTicketEventMapper;
-import com.fukang.knowledge.agent.infrastructure.persistence.mapper.ServiceTicketMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -42,8 +40,8 @@ public class TicketAppService {
 
     private static final DateTimeFormatter TICKET_NO_TIME_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
-    private final ServiceTicketMapper ticketMapper;
-    private final ServiceTicketEventMapper ticketEventMapper;
+    private final ServiceTicketRepository serviceTicketRepository;
+    private final ServiceTicketEventRepository serviceTicketEventRepository;
     private final ObjectMapper objectMapper;
 
     @Transactional(rollbackFor = Exception.class)
@@ -61,7 +59,7 @@ public class TicketAppService {
         ticket.setCreatorId(command.creatorId());
         ticket.setSourceRunId(command.sourceRunId());
         ticket.setSourceConversationId(command.sourceConversationId());
-        ticketMapper.insert(ticket);
+        serviceTicketRepository.insert(ticket);
         writeEvent(ticket.getId(), TicketEventType.DRAFT_CREATED, null, initialStatus,
                 command.creatorId(), "已生成工单草稿", Map.of("ticketNo", ticket.getTicketNo()));
         return toResult(ticket);
@@ -69,30 +67,18 @@ public class TicketAppService {
 
     public PageResponse<ServiceTicketResult> listTickets(Long userId, long page, long pageSize,
                                                          TicketStatus status, ServiceType serviceType) {
-        LambdaQueryWrapper<ServiceTicketDO> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(ServiceTicketDO::getCreatorId, userId);
-        if (status != null) {
-            wrapper.eq(ServiceTicketDO::getStatus, status.name());
-        }
-        if (serviceType != null && serviceType != ServiceType.AUTO) {
-            wrapper.eq(ServiceTicketDO::getServiceType, serviceType.name());
-        }
-        wrapper.orderByDesc(ServiceTicketDO::getCreateTime);
-        IPage<ServiceTicketDO> resultPage = ticketMapper.selectPage(new Page<>(page, pageSize), wrapper);
+        IPage<ServiceTicketDO> resultPage = serviceTicketRepository.pageByCreator(
+                userId, page, pageSize, status, serviceType);
         List<ServiceTicketResult> items = resultPage.getRecords().stream().map(this::toResult).toList();
         return new PageResponse<>(items, resultPage.getTotal(), resultPage.getCurrent(), resultPage.getSize());
     }
 
     public List<ServiceTicketResult> listRecentTickets(Long userId, int limit) {
-        LambdaQueryWrapper<ServiceTicketDO> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(ServiceTicketDO::getCreatorId, userId)
-                .orderByDesc(ServiceTicketDO::getCreateTime)
-                .last("LIMIT " + Math.max(1, limit));
-        return ticketMapper.selectList(wrapper).stream().map(this::toResult).toList();
+        return serviceTicketRepository.findRecentByCreator(userId, limit).stream().map(this::toResult).toList();
     }
 
     public ServiceTicketResult getTicket(Long ticketId, Long userId) {
-        ServiceTicketDO ticket = ticketMapper.selectById(ticketId);
+        ServiceTicketDO ticket = serviceTicketRepository.findById(ticketId);
         if (ticket == null || !userId.equals(ticket.getCreatorId())) {
             throw new BaseException(ErrorCodeEnum.NOT_FOUND.getCode(), "工单不存在");
         }
@@ -100,10 +86,7 @@ public class TicketAppService {
     }
 
     public ServiceTicketResult getTicketByNo(String ticketNo, Long userId) {
-        LambdaQueryWrapper<ServiceTicketDO> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(ServiceTicketDO::getTicketNo, ticketNo)
-                .eq(ServiceTicketDO::getCreatorId, userId);
-        ServiceTicketDO ticket = ticketMapper.selectOne(wrapper);
+        ServiceTicketDO ticket = serviceTicketRepository.findByTicketNoAndCreatorId(ticketNo, userId);
         return ticket != null ? toResult(ticket) : null;
     }
 
@@ -112,10 +95,10 @@ public class TicketAppService {
         if (ticketId == null || runId == null) {
             return;
         }
-        ServiceTicketDO ticket = ticketMapper.selectById(ticketId);
+        ServiceTicketDO ticket = serviceTicketRepository.findById(ticketId);
         if (ticket != null) {
             ticket.setSourceRunId(runId);
-            ticketMapper.updateById(ticket);
+            serviceTicketRepository.updateById(ticket);
         }
     }
 
@@ -124,7 +107,7 @@ public class TicketAppService {
         if (command.ticketId() == null || command.userId() == null) {
             throw new BaseException(ErrorCodeEnum.BAD_REQUEST.getCode(), "确认工单参数不完整");
         }
-        ServiceTicketDO ticket = ticketMapper.selectById(command.ticketId());
+        ServiceTicketDO ticket = serviceTicketRepository.findById(command.ticketId());
         if (ticket == null || !command.userId().equals(ticket.getCreatorId())) {
             throw new BaseException(ErrorCodeEnum.NOT_FOUND.getCode(), "工单不存在");
         }
@@ -134,7 +117,7 @@ public class TicketAppService {
 
         TicketStatus fromStatus = TicketStatus.DRAFT;
         ticket.setStatus(TicketStatus.OPEN.name());
-        ticketMapper.updateById(ticket);
+        serviceTicketRepository.updateById(ticket);
         writeEvent(ticket.getId(), TicketEventType.CONFIRMED, fromStatus, TicketStatus.OPEN,
                 command.userId(), "用户确认草稿，工单已正式打开", Map.of("ticketNo", ticket.getTicketNo()));
         return toResult(ticket, true);
@@ -142,7 +125,7 @@ public class TicketAppService {
 
     @Transactional(rollbackFor = Exception.class)
     public void recordHandoffRequested(Long ticketId, Long operatorId, String reason) {
-        ServiceTicketDO ticket = ticketMapper.selectById(ticketId);
+        ServiceTicketDO ticket = serviceTicketRepository.findById(ticketId);
         if (ticket == null) {
             return;
         }
@@ -202,16 +185,11 @@ public class TicketAppService {
     }
 
     private List<ServiceTicketEventResult> listTicketEvents(Long ticketId) {
-        LambdaQueryWrapper<ServiceTicketEventDO> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(ServiceTicketEventDO::getTicketId, ticketId)
-                .orderByAsc(ServiceTicketEventDO::getCreateTime);
-        return ticketEventMapper.selectList(wrapper).stream().map(this::toEventResult).toList();
+        return serviceTicketEventRepository.findByTicketId(ticketId).stream().map(this::toEventResult).toList();
     }
 
     private Long countTicketEvents(Long ticketId) {
-        LambdaQueryWrapper<ServiceTicketEventDO> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(ServiceTicketEventDO::getTicketId, ticketId);
-        return ticketEventMapper.selectCount(wrapper);
+        return serviceTicketEventRepository.countByTicketId(ticketId);
     }
 
     private void writeEvent(Long ticketId, TicketEventType eventType, TicketStatus fromStatus, TicketStatus toStatus,
@@ -224,7 +202,7 @@ public class TicketAppService {
         event.setOperatorId(operatorId);
         event.setMessage(message);
         event.setPayload(serializePayload(payload));
-        ticketEventMapper.insert(event);
+        serviceTicketEventRepository.insert(event);
     }
 
     private String serializePayload(Map<String, Object> payload) {
