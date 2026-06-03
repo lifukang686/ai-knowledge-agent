@@ -8,27 +8,34 @@ import com.fukang.knowledge.agent.infrastructure.chunk.ChunkStrategy;
 import com.fukang.knowledge.agent.infrastructure.chunk.FixedLengthChunkStrategy;
 import com.fukang.knowledge.agent.infrastructure.chunk.Langchain4jChunkStrategy;
 import com.fukang.knowledge.agent.infrastructure.config.ChunkingProperties;
-import com.fukang.knowledge.agent.infrastructure.parser.DocumentParser;
-import com.fukang.knowledge.agent.infrastructure.parser.DocumentParserFactory;
+import dev.langchain4j.data.document.Document;
+import dev.langchain4j.data.document.DocumentParser;
+import dev.langchain4j.data.document.parser.TextDocumentParser;
+import dev.langchain4j.data.document.parser.apache.pdfbox.ApachePdfBoxDocumentParser;
+import dev.langchain4j.data.document.parser.apache.poi.ApachePoiDocumentParser;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
 
 /**
  * 文档处理服务。
- * <p>负责将上传文件解析为纯文本，并按当前分块策略切分为文档块，供后续入库和向量化流程使用。</p>
+ * <p>统一使用 LangChain4j 解析上传文件，并按当前分块策略切分为文档块。</p>
  */
 @Slf4j
 @Service
 public class DocumentProcessingService {
 
-    private final DocumentParserFactory parserFactory;
+    private final Map<String, DocumentParser> parsersByExtension;
     private final ChunkingProperties chunkingProperties;
 
     public DocumentProcessingService(ChunkingProperties chunkingProperties) {
-        this.parserFactory = new DocumentParserFactory();
+        this.parsersByExtension = createLangchain4jParsers();
         this.chunkingProperties = chunkingProperties;
     }
 
@@ -44,10 +51,10 @@ public class DocumentProcessingService {
         }
 
         String extension = extractExtension(fileName);
-        DocumentParser parser = parserFactory.getParser(extension);
+        DocumentParser parser = getParser(extension);
 
         try (InputStream inputStream = new ByteArrayInputStream(fileBytes)) {
-            return parser.parse(inputStream, fileName, fileSizeInBytes);
+            return parseWithLangchain4j(parser, inputStream, fileName, extension, fileSizeInBytes);
         } catch (BaseException e) {
             throw e;
         } catch (Exception e) {
@@ -68,8 +75,8 @@ public class DocumentProcessingService {
         }
 
         String extension = extractExtension(fileName);
-        DocumentParser parser = parserFactory.getParser(extension);
-        return parser.parse(inputStream, fileName, fileSizeInBytes);
+        DocumentParser parser = getParser(extension);
+        return parseWithLangchain4j(parser, inputStream, fileName, extension, fileSizeInBytes);
     }
 
     public ChunkResult chunkDocument(DocumentParseResult parseResult) {
@@ -95,6 +102,63 @@ public class DocumentProcessingService {
         if (dotIndex == -1 || dotIndex == fileName.length() - 1) {
             return "";
         }
-        return fileName.substring(dotIndex + 1).toLowerCase();
+        return fileName.substring(dotIndex + 1).toLowerCase(Locale.ROOT);
+    }
+
+    private Map<String, DocumentParser> createLangchain4jParsers() {
+        Map<String, DocumentParser> parsers = new HashMap<>();
+        DocumentParser pdfParser = new ApachePdfBoxDocumentParser();
+        DocumentParser officeParser = new ApachePoiDocumentParser();
+        DocumentParser textParser = new TextDocumentParser();
+
+        parsers.put("pdf", pdfParser);
+        for (String extension : new String[] {"doc", "docx", "xls", "xlsx", "ppt", "pptx"}) {
+            parsers.put(extension, officeParser);
+        }
+        parsers.put("txt", textParser);
+        parsers.put("md", textParser);
+        return Map.copyOf(parsers);
+    }
+
+    private DocumentParser getParser(String extension) {
+        if (extension == null || extension.isBlank()) {
+            log.warn("文件扩展名为空，无法获取 LangChain4j 解析器");
+            throw new BaseException(ErrorCodeEnum.FILE_TYPE_NOT_SUPPORTED);
+        }
+        DocumentParser parser = parsersByExtension.get(extension);
+        if (parser == null) {
+            log.warn("LangChain4j 暂不支持该文件类型: extension={}", extension);
+            throw new BaseException(ErrorCodeEnum.FILE_TYPE_NOT_SUPPORTED);
+        }
+        return parser;
+    }
+
+    private DocumentParseResult parseWithLangchain4j(DocumentParser parser, InputStream inputStream,
+                                                     String fileName, String extension, long fileSizeInBytes) {
+        try {
+            log.info("使用 LangChain4j 解析文档: fileName={}, extension={}, size={} bytes",
+                    fileName, extension, fileSizeInBytes);
+            Document document = parser.parse(inputStream);
+            Map<String, String> metadata = new HashMap<>();
+            metadata.put("fileName", fileName);
+            metadata.put("fileExtension", extension);
+            metadata.put("fileSizeInBytes", String.valueOf(fileSizeInBytes));
+            document.metadata().toMap().forEach((key, value) -> {
+                if (key != null && value != null) {
+                    metadata.put(key, String.valueOf(value));
+                }
+            });
+
+            DocumentParseResult result = new DocumentParseResult(
+                    document.text(), fileName, extension, metadata, LocalDateTime.now());
+            log.info("LangChain4j 文档解析完成: fileName={}, chars={}",
+                    fileName, result.characterCount());
+            return result;
+        } catch (BaseException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("LangChain4j 文档解析失败: fileName={}", fileName, e);
+            throw new BaseException(ErrorCodeEnum.DOCUMENT_PARSE_FAILED);
+        }
     }
 }
