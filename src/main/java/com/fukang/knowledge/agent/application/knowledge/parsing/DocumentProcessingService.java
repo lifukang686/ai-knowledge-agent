@@ -5,7 +5,6 @@ import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.domain.knowledge.model.ChunkResult;
 import com.fukang.knowledge.agent.domain.knowledge.model.DocumentParseResult;
 import com.fukang.knowledge.agent.infrastructure.chunk.ChunkStrategy;
-import com.fukang.knowledge.agent.infrastructure.chunk.FixedLengthChunkStrategy;
 import com.fukang.knowledge.agent.infrastructure.chunk.Langchain4jChunkStrategy;
 import com.fukang.knowledge.agent.infrastructure.config.ChunkingProperties;
 import dev.langchain4j.data.document.Document;
@@ -90,8 +89,8 @@ public class DocumentProcessingService {
         }
 
         if (strategy == null) {
-            log.warn("分块策略为空，降级使用固定长度分块策略");
-            return chunkDocument(parseResult, new FixedLengthChunkStrategy());
+            log.warn("分块策略为空，降级使用 LangChain4j 默认分块策略");
+            return chunkDocument(parseResult, new Langchain4jChunkStrategy(chunkingProperties));
         }
 
         return strategy.chunk(parseResult);

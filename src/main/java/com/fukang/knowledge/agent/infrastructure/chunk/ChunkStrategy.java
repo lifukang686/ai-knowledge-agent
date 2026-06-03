@@ -5,8 +5,7 @@ import com.fukang.knowledge.agent.domain.knowledge.model.DocumentParseResult;
 
 /**
  * 文档分块策略接口
- * <p>定义统一的分块契约，各分块策略实现此接口以提供不同的文本切分能力。
- * 采用策略模式，支持后续扩展更多分块算法（语义分割、滑动窗口等）</p>
+ * <p>定义统一的分块契约，当前默认实现为 LangChain4j 分块策略。</p>
  */
 public interface ChunkStrategy {
 
@@ -22,7 +21,7 @@ public interface ChunkStrategy {
     /**
      * 返回此分块策略的名称
      *
-     * @return 策略名称，如 "fixed-length"、"sentence" 等
+     * @return 策略名称，如 "langchain4j-paragraph"
      */
     String strategyName();
 }

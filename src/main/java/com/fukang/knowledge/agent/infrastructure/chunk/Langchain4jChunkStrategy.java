@@ -78,13 +78,12 @@ public class Langchain4jChunkStrategy implements ChunkStrategy {
 
         log.info("langchain4j 分块完成: title={}, strategy={}, totalChunks={}, maxSegmentSize={}, overlap={}",
                 parseResult.title(), strategyName(), chunks.size(),
-                chunkingProperties.getMaxSegmentSize(), chunkingProperties.getOverlapSize());
+                chunkingProperties.active().getMaxSegmentSize(), chunkingProperties.active().getOverlapSize());
 
         Map<String, Object> chunkMetadata = new HashMap<>();
-        chunkMetadata.put("chunkSize", chunkingProperties.getChunkSize());
-        chunkMetadata.put("overlapSize", chunkingProperties.getOverlapSize());
         chunkMetadata.put("strategy", chunkingProperties.getStrategy());
-        chunkMetadata.put("maxSegmentSize", chunkingProperties.getMaxSegmentSize());
+        chunkMetadata.put("maxSegmentSize", chunkingProperties.active().getMaxSegmentSize());
+        chunkMetadata.put("overlapSize", chunkingProperties.active().getOverlapSize());
         chunkMetadata.put("avgTokenCount", calculateAverageTokenCount(chunks));
 
         return new ChunkResult(
@@ -155,17 +154,22 @@ public class Langchain4jChunkStrategy implements ChunkStrategy {
 
     private DocumentSplitter createSplitter() {
         String strategy = chunkingProperties.getStrategy();
-        int maxSegmentSize = chunkingProperties.getMaxSegmentSize();
-        int overlapSize = chunkingProperties.getOverlapSize();
-        int chunkSize = chunkingProperties.getChunkSize();
+        ChunkingProperties.SplitterProperties active = chunkingProperties.active();
+        int maxSegmentSize = active.getMaxSegmentSize();
+        int overlapSize = active.getOverlapSize();
 
         return switch (strategy) {
+            // 按段落优先切
             case "paragraph" -> new DocumentByParagraphSplitter(maxSegmentSize, overlapSize);
+            // 按句子优先切
             case "sentence" -> new DocumentBySentenceSplitter(maxSegmentSize, overlapSize);
-            case "fixed" -> new DocumentByCharacterSplitter(chunkSize, overlapSize);
+            // 按字符长度切
+            case "fixed" -> new DocumentByCharacterSplitter(maxSegmentSize, overlapSize);
             default -> {
                 log.warn("未知的分块策略: {}，使用默认段落策略", strategy);
-                yield new DocumentByParagraphSplitter(maxSegmentSize, overlapSize);
+                yield new DocumentByParagraphSplitter(
+                        chunkingProperties.getParagraph().getMaxSegmentSize(),
+                        chunkingProperties.getParagraph().getOverlapSize());
             }
         };
     }

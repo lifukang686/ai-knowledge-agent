@@ -39,10 +39,16 @@ knowledge-agent:
     embed-retry-max: ${DOCUMENT_PROCESSING_EMBED_RETRY_MAX:3}
     embed-retry-base-seconds: ${DOCUMENT_PROCESSING_EMBED_RETRY_BASE_SECONDS:2}
   chunking:
-    chunk-size: ${CHUNK_SIZE:500}
-    overlap-size: ${CHUNK_OVERLAP_SIZE:200}
     strategy: ${CHUNK_STRATEGY:paragraph}
-    max-segment-size: ${CHUNK_MAX_SEGMENT_SIZE:500}
+    paragraph:
+      max-segment-size: ${CHUNK_PARAGRAPH_MAX_SEGMENT_SIZE:800}
+      overlap-size: ${CHUNK_PARAGRAPH_OVERLAP_SIZE:100}
+    sentence:
+      max-segment-size: ${CHUNK_SENTENCE_MAX_SEGMENT_SIZE:600}
+      overlap-size: ${CHUNK_SENTENCE_OVERLAP_SIZE:100}
+    fixed:
+      max-segment-size: ${CHUNK_FIXED_MAX_SEGMENT_SIZE:500}
+      overlap-size: ${CHUNK_FIXED_OVERLAP_SIZE:100}
 
 mybatis-plus:
   mapper-locations: classpath:mapper/**/*.xml
