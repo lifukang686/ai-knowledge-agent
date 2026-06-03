@@ -20,7 +20,6 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.List;
 
 /**
  * 文档处理管道编排器。
@@ -51,13 +50,13 @@ public class DocumentProcessingPipeline {
             // 解析为纯文本
             DocumentParseResult parseResult = phaseParse(documentId, filePath, fileName);
             // 文本分块
-            List<Long> chunkIds = phaseChunk(documentId, parseResult);
+            ChunkStorageResult chunkStorageResult = phaseChunk(documentId, parseResult);
             // 构造 embedding 专用文本
             phaseBuildEmbeddingText(documentId);
             // 文档块生成 embedding
             phaseEmbed(documentId, knowledgeBaseId);
             // 完成处理
-            phaseComplete(documentId, chunkIds.size(), startTime);
+            phaseComplete(documentId, chunkStorageResult.successCount(), startTime);
         } catch (Exception e) {
             phaseFailed(documentId, e);
         }
@@ -83,14 +82,15 @@ public class DocumentProcessingPipeline {
     /**
      * Phase 2: 对解析文本分块，并替换式写入 document_chunk。
      */
-    private List<Long> phaseChunk(Long documentId, DocumentParseResult parseResult) {
+    private ChunkStorageResult phaseChunk(Long documentId, DocumentParseResult parseResult) {
         updateStatus(documentId, DocumentStatus.CHUNKING, null);
         log.info("Phase 2/5 文本分块: documentId={}", documentId);
 
         ChunkResult chunkResult = processingService.chunkDocument(parseResult);
-        List<Long> chunkIds = chunkAppService.replaceAndStoreChunks(chunkResult, documentId);
-        log.info("Phase 2/5 分块完成: documentId={}, chunkCount={}", documentId, chunkResult.totalChunks());
-        return chunkIds;
+        ChunkStorageResult storageResult = chunkAppService.replaceAndStoreChunks(chunkResult, documentId);
+        log.info("Phase 2/5 分块完成: documentId={}, total={}, success={}",
+                documentId, storageResult.totalCount(), storageResult.successCount());
+        return storageResult;
     }
 
     /**

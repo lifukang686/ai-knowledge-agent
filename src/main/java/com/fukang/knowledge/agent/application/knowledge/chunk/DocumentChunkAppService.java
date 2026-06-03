@@ -5,6 +5,7 @@ import com.fukang.knowledge.agent.domain.knowledge.model.ChunkResult.DocumentChu
 import com.fukang.knowledge.agent.domain.knowledge.model.ChunkStorageResult;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
+import com.fukang.knowledge.agent.infrastructure.ai.EmbeddingIndexStorageService;
 import com.fukang.knowledge.agent.infrastructure.persistence.DocumentChunkStorageService;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.DocumentChunkDO;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * 文档块应用服务
@@ -36,6 +38,7 @@ import java.util.List;
 public class DocumentChunkAppService {
 
     private final DocumentChunkStorageService chunkStorageService;
+    private final EmbeddingIndexStorageService embeddingIndexStorageService;
 
     /**
      * 存储文档分块结果（全事务模式）
@@ -197,34 +200,36 @@ public class DocumentChunkAppService {
     }
 
     /**
-     * 存储并获取已持久化的块 ID 列表
-     * <p>先删除旧块（避免重复），再存储新块，
-     * 返回新插入的所有块 ID（供后续向量化使用）</p>
+     * 替换式存储文档分块结果。
+     * <p>先清理旧向量和旧块，再批量插入新的分块，避免重复入库时残留历史检索数据。</p>
      *
      * @param chunkResult 文档分块结果
      * @param documentId  关联的文档ID
-     * @return 新插入的块 ID 列表
+     * @return 存储结果
      */
     @Transactional(rollbackFor = Exception.class)
-    public List<Long> replaceAndStoreChunks(ChunkResult chunkResult, Long documentId) {
+    public ChunkStorageResult replaceAndStoreChunks(ChunkResult chunkResult, Long documentId) {
         validateChunkResult(chunkResult, documentId);
+
+        List<Long> oldChunkIds = chunkStorageService.findByDocumentId(documentId).stream()
+                .map(DocumentChunkDO::getId)
+                .filter(Objects::nonNull)
+                .toList();
+        if (!oldChunkIds.isEmpty()) {
+            // chunk 会被重建，旧向量必须同步移除，避免 RAG 检索命中过期内容。
+            embeddingIndexStorageService.deleteByChunkIdsPgVector(oldChunkIds);
+            log.info("已清除旧文档块向量: documentId={}, chunkCount={}", documentId, oldChunkIds.size());
+        }
 
         int deleted = chunkStorageService.deleteByDocumentId(documentId);
         log.info("已清除旧文档块: documentId={}, deletedCount={}", documentId, deleted);
 
         List<DocumentChunkDO> chunkDOs = chunkStorageService.toChunkDOList(chunkResult, documentId);
-        ChunkStorageResult result = chunkStorageService.saveAllInTransaction(chunkDOs, documentId);
-
-        List<Long> chunkIds = new ArrayList<>();
-        for (DocumentChunkDO chunkDO : chunkDOs) {
-            if (chunkDO.getId() != null) {
-                chunkIds.add(chunkDO.getId());
-            }
-        }
+        ChunkStorageResult result = chunkStorageService.saveBatch(chunkDOs, documentId);
 
         log.info("文档块替换存储完成: documentId={}, total={}, success={}",
                 documentId, result.totalCount(), result.successCount());
 
-        return chunkIds;
+        return result;
     }
 }
