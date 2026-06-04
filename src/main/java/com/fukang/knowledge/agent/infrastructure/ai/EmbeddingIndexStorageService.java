@@ -50,18 +50,13 @@ public class EmbeddingIndexStorageService {
             log.warn("文档块列表为空，无法写入 pgvector");
             throw new BaseException(ErrorCodeEnum.CHUNK_DATA_EMPTY);
         }
+        validateEmbeddingResult(chunks, embeddingResult);
 
         PgVectorEmbeddingStore store = storeFactory.createEmbeddingStore();
 
         try {
             for (EmbeddingVector embeddingVector : embeddingResult.embeddings()) {
                 int chunkOrder = embeddingVector.chunkOrder();
-                if (chunkOrder >= chunks.size()) {
-                    log.warn("向量顺序号超出块列表范围: chunkOrder={}, chunkListSize={}",
-                            chunkOrder, chunks.size());
-                    continue;
-                }
-
                 DocumentChunkDO chunk = chunks.get(chunkOrder);
 
                 Metadata metadata = new Metadata();
@@ -91,6 +86,28 @@ public class EmbeddingIndexStorageService {
                 knowledgeBaseId, chunks.size());
 
         return ChunkStorageResult.allSuccess(knowledgeBaseId, chunks.size());
+    }
+
+    private void validateEmbeddingResult(List<DocumentChunkDO> chunks, EmbeddingResult embeddingResult) {
+        if (embeddingResult == null
+                || embeddingResult.embeddings() == null
+                || embeddingResult.embeddings().size() != chunks.size()) {
+            log.warn("向量数量与文档块数量不一致: chunkCount={}, embeddingCount={}",
+                    chunks.size(),
+                    embeddingResult != null && embeddingResult.embeddings() != null
+                            ? embeddingResult.embeddings().size()
+                            : 0);
+            throw new BaseException(ErrorCodeEnum.VECTOR_STORAGE_FAILED);
+        }
+
+        for (EmbeddingVector embeddingVector : embeddingResult.embeddings()) {
+            int chunkOrder = embeddingVector.chunkOrder();
+            if (chunkOrder < 0 || chunkOrder >= chunks.size()) {
+                log.warn("向量顺序号超出块列表范围: chunkOrder={}, chunkListSize={}",
+                        chunkOrder, chunks.size());
+                throw new BaseException(ErrorCodeEnum.VECTOR_STORAGE_FAILED);
+            }
+        }
     }
 
     /**

@@ -79,6 +79,7 @@ public class DocumentProcessingService {
     }
 
     public ChunkResult chunkDocument(DocumentParseResult parseResult) {
+        // 默认使用 LangChain4j 分块策略，具体按配置选择 paragraph/sentence/fixed。
         return chunkDocument(parseResult, new Langchain4jChunkStrategy(chunkingProperties));
     }
 
@@ -93,6 +94,7 @@ public class DocumentProcessingService {
             return chunkDocument(parseResult, new Langchain4jChunkStrategy(chunkingProperties));
         }
 
+        // 真正的分块动作在 ChunkStrategy.chunk(...) 内部完成。
         return strategy.chunk(parseResult);
     }
 

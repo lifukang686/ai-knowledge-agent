@@ -224,6 +224,7 @@ public class DocumentChunkAppService {
         int deleted = chunkStorageService.deleteByDocumentId(documentId);
         log.info("已清除旧文档块: documentId={}, deletedCount={}", documentId, deleted);
 
+        // 到这里文本已经切分完成；本方法只负责把 ChunkResult 转成数据库实体并持久化。
         List<DocumentChunkDO> chunkDOs = chunkStorageService.toChunkDOList(chunkResult, documentId);
         ChunkStorageResult result = chunkStorageService.saveBatch(chunkDOs, documentId);
 

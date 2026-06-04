@@ -15,7 +15,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * 文档向量化应用服务。
@@ -45,14 +47,21 @@ public class DocumentEmbeddingAppService {
      */
     @Transactional(rollbackFor = Exception.class)
     public ChunkStorageResult embedAndStoreWithChunks(List<DocumentChunkDO> chunks, Long knowledgeBaseId) {
+        // 先校验 chunk 和知识库上下文，避免无效数据进入模型调用。
         validateChunks(chunks, knowledgeBaseId);
 
+        // 取向量化输入文本：优先 embeddingText，缺失时回退 chunkText。
         List<String> texts = extractTexts(chunks);
         log.info("开始文档块向量化: chunkCount={}, knowledgeBaseId={}", texts.size(), knowledgeBaseId);
 
+        // 调用 embedding 模型生成向量，并确认返回结果与 chunk 一一对应。
         EmbeddingResult embeddingResult = embeddingService.embed(texts);
+        validateEmbeddingResult(embeddingResult, chunks.size());
+
+        // 回写模型版本、维度等元数据，便于后续判断是否需要重建向量。
         updateEmbeddingMetadata(chunks, embeddingResult);
 
+        // 将向量和原始 chunk 信息写入 pgvector 索引。
         return embeddingIndexStorageService.saveVectorsToPgVector(chunks, embeddingResult, knowledgeBaseId);
     }
 
@@ -65,18 +74,54 @@ public class DocumentEmbeddingAppService {
             log.warn("知识库 ID 为空，无法存储向量索引");
             throw new BaseException(ErrorCodeEnum.KNOWLEDGE_BASE_NOT_EXIST);
         }
+        for (DocumentChunkDO chunk : chunks) {
+            String text = selectEmbeddingInput(chunk);
+            if (text == null || text.isBlank()) {
+                log.warn("文档块缺少可向量化文本: documentId={}, chunkId={}, chunkOrder={}",
+                        chunk.getDocumentId(), chunk.getId(), chunk.getChunkOrder());
+                throw new BaseException(ErrorCodeEnum.CHUNK_VALIDATION_FAILED);
+            }
+        }
     }
 
     private List<String> extractTexts(List<DocumentChunkDO> chunks) {
         List<String> texts = new ArrayList<>(chunks.size());
         for (DocumentChunkDO chunk : chunks) {
-            String embeddingText = chunk.getEmbeddingText();
-            // embeddingText 会补标题和位置上下文；缺失时退回原始 chunkText 保证入库不中断。
-            texts.add(embeddingText != null && !embeddingText.isBlank()
-                    ? embeddingText
-                    : chunk.getChunkText());
+            texts.add(selectEmbeddingInput(chunk));
         }
         return texts;
+    }
+
+    private String selectEmbeddingInput(DocumentChunkDO chunk) {
+        String embeddingText = chunk.getEmbeddingText();
+        // embeddingText 会补标题和位置上下文；缺失时退回原始 chunkText 保证入库不中断。
+        return embeddingText != null && !embeddingText.isBlank()
+                ? embeddingText
+                : chunk.getChunkText();
+    }
+
+    private void validateEmbeddingResult(EmbeddingResult embeddingResult, int expectedChunks) {
+        if (embeddingResult == null
+                || embeddingResult.embeddings() == null
+                || embeddingResult.embeddings().size() != expectedChunks
+                || !embeddingResult.allSucceeded()) {
+            log.warn("向量化结果不完整: expectedChunks={}, actualChunks={}, allSucceeded={}",
+                    expectedChunks,
+                    embeddingResult != null && embeddingResult.embeddings() != null
+                            ? embeddingResult.embeddings().size()
+                            : 0,
+                    embeddingResult != null && embeddingResult.allSucceeded());
+            throw new BaseException(ErrorCodeEnum.EMBEDDING_FAILED);
+        }
+
+        Set<Integer> seenOrders = new HashSet<>();
+        for (EmbeddingResult.EmbeddingVector vector : embeddingResult.embeddings()) {
+            int chunkOrder = vector.chunkOrder();
+            if (chunkOrder < 0 || chunkOrder >= expectedChunks || !seenOrders.add(chunkOrder)) {
+                log.warn("向量化结果 chunkOrder 非法: chunkOrder={}, expectedChunks={}", chunkOrder, expectedChunks);
+                throw new BaseException(ErrorCodeEnum.EMBEDDING_FAILED);
+            }
+        }
     }
 
     private void updateEmbeddingMetadata(List<DocumentChunkDO> chunks, EmbeddingResult embeddingResult) {

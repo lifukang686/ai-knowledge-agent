@@ -60,6 +60,7 @@ public class Langchain4jChunkStrategy implements ChunkStrategy {
         }
         Document document = Document.from(content, metadata);
 
+        // 核心分块点：根据配置创建 splitter，并在这里把完整文档切成多个 TextSegment。
         DocumentSplitter splitter = createSplitter();
         List<TextSegment> segments = splitter.split(document);
 
@@ -158,6 +159,7 @@ public class Langchain4jChunkStrategy implements ChunkStrategy {
         int maxSegmentSize = active.getMaxSegmentSize();
         int overlapSize = active.getOverlapSize();
 
+        // 分块策略来自配置：优先按段落/句子/固定长度切，并用 maxSegmentSize 与 overlapSize 控制块大小和重叠。
         return switch (strategy) {
             // 按段落优先切
             case "paragraph" -> new DocumentByParagraphSplitter(maxSegmentSize, overlapSize);

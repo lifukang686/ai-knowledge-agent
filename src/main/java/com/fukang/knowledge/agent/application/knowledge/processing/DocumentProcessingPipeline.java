@@ -86,7 +86,9 @@ public class DocumentProcessingPipeline {
         updateStatus(documentId, DocumentStatus.CHUNKING, null);
         log.info("Phase 2/5 文本分块: documentId={}", documentId);
 
+        // 分块入口：这里只编排流程，真正的文本切分会继续委托到 DocumentProcessingService -> ChunkStrategy。
         ChunkResult chunkResult = processingService.chunkDocument(parseResult);
+        // 替换式入库：先清理旧 chunk/旧向量，再把本次切出来的新 chunk 写入 document_chunk。
         ChunkStorageResult storageResult = chunkAppService.replaceAndStoreChunks(chunkResult, documentId);
         log.info("Phase 2/5 分块完成: documentId={}, total={}, success={}",
                 documentId, storageResult.totalCount(), storageResult.successCount());
@@ -111,14 +113,22 @@ public class DocumentProcessingPipeline {
 
         int maxRetries = properties.getEmbedRetryMax();
         long baseSeconds = properties.getEmbedRetryBaseSeconds();
-        for (int attempt = 0; attempt <= maxRetries; attempt++) {
+        int maxAttempts = maxRetries + 1;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
                 ChunkStorageResult result = embeddingAppService.embedAndStore(documentId, knowledgeBaseId);
                 log.info("Phase 4/5 嵌入完成: documentId={}, total={}, success={}",
                         documentId, result.totalCount(), result.successCount());
                 return;
             } catch (Exception e) {
-                if (attempt >= maxRetries) {
+                if (!shouldRetryEmbedding(e)) {
+                    log.error("Phase 4/5 嵌入遇到不可重试错误: documentId={}, attempt={}/{}",
+                            documentId, attempt, maxAttempts, e);
+                    throw e;
+                }
+                if (attempt >= maxAttempts) {
+                    log.error("Phase 4/5 嵌入最终失败: documentId={}, attempt={}/{}",
+                            documentId, attempt, maxAttempts, e);
                     throw new BaseException(ErrorCodeEnum.EMBEDDING_FAILED);
                 }
                 sleepBeforeRetry(documentId, attempt, baseSeconds, e);
@@ -173,10 +183,19 @@ public class DocumentProcessingPipeline {
         return doc;
     }
 
+    private boolean shouldRetryEmbedding(Exception e) {
+        if (!(e instanceof BaseException baseException)) {
+            return true;
+        }
+        int code = baseException.getCode();
+        return code == ErrorCodeEnum.EMBEDDING_FAILED.getCode()
+                || code == ErrorCodeEnum.VECTOR_STORAGE_FAILED.getCode();
+    }
+
     private void sleepBeforeRetry(Long documentId, int attempt, long baseSeconds, Exception e) {
-        long delaySeconds = baseSeconds * (1L << attempt);
-        log.warn("Phase 4/5 嵌入失败（第 {} 次重试），{} 秒后重试: documentId={}",
-                attempt + 1, delaySeconds, documentId, e);
+        long delaySeconds = baseSeconds * (1L << (attempt - 1));
+        log.warn("Phase 4/5 嵌入失败（第 {} 次尝试），{} 秒后重试: documentId={}",
+                attempt, delaySeconds, documentId, e);
         try {
             Thread.sleep(delaySeconds * 1000);
         } catch (InterruptedException ie) {
