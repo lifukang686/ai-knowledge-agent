@@ -1,8 +1,6 @@
 package com.fukang.knowledge.agent.infrastructure.ai;
 
-import com.fukang.knowledge.agent.common.enums.ModelTypeEnum;
 import com.fukang.knowledge.agent.infrastructure.config.VectorStoreProperties;
-import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.store.embedding.pgvector.PgVectorEmbeddingStore;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
@@ -25,14 +23,11 @@ public class Langchain4jEmbeddingStoreFactory {
 
     private final DataSource dataSource;
     private final VectorStoreProperties vectorStoreProperties;
-    private final DynamicModelManager dynamicModelManager;
 
     public Langchain4jEmbeddingStoreFactory(DataSource dataSource,
-                                            VectorStoreProperties vectorStoreProperties,
-                                            DynamicModelManager dynamicModelManager) {
+                                            VectorStoreProperties vectorStoreProperties) {
         this.dataSource = dataSource;
         this.vectorStoreProperties = vectorStoreProperties;
-        this.dynamicModelManager = dynamicModelManager;
     }
 
     /**
@@ -55,7 +50,7 @@ public class Langchain4jEmbeddingStoreFactory {
         log.info("pgvector 向量表初始化完成: table={}", vectorStoreProperties.getTableName());
     }
 
-    public PgVectorEmbeddingStore createEmbeddingStore(EmbeddingModel embeddingModel) {
+    public PgVectorEmbeddingStore createEmbeddingStore() {
         log.info("创建 PgVectorEmbeddingStore: table={}, dimension={}, indexType={}",
                 vectorStoreProperties.getTableName(),
                 vectorStoreProperties.getDimension(),
@@ -68,11 +63,6 @@ public class Langchain4jEmbeddingStoreFactory {
                 .createTable(vectorStoreProperties.isCreateTable())
                 .dropTableFirst(vectorStoreProperties.isDropTableFirst())
                 .build();
-    }
-
-    public PgVectorEmbeddingStore createEmbeddingStore() {
-        log.info("无参创建 PgVectorEmbeddingStore，自动从 DynamicModelManager 获取嵌入模型");
-        return createEmbeddingStore(dynamicModelManager.getEmbeddingModel(ModelTypeEnum.EMBEDDING));
     }
 
     public void deleteByKnowledgeBaseId(Long knowledgeBaseId) {
