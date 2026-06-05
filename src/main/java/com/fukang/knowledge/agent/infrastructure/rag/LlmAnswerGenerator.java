@@ -1,6 +1,5 @@
 package com.fukang.knowledge.agent.infrastructure.rag;
 
-import com.fukang.knowledge.agent.common.enums.ModelTypeEnum;
 import com.fukang.knowledge.agent.domain.rag.model.SearchResult;
 import com.fukang.knowledge.agent.domain.rag.service.AnswerGenerator;
 import com.fukang.knowledge.agent.infrastructure.ai.DynamicModelManager;
@@ -44,7 +43,7 @@ public class LlmAnswerGenerator implements AnswerGenerator {
 
         String userPrompt = buildRagUserPrompt(results, query, conversationMemory);
         try {
-            ChatLanguageModel chatModel = dynamicModelManager.getChatModel(ModelTypeEnum.CHAT);
+            ChatLanguageModel chatModel = dynamicModelManager.getChatModel();
             List<ChatMessage> messages = List.of(
                     promptTemplateManager.renderSystem(ANSWER_SYSTEM_TEMPLATE, null),
                     UserMessage.from(userPrompt)

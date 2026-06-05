@@ -3,7 +3,6 @@ package com.fukang.knowledge.agent.infrastructure.ai;
 import com.fukang.knowledge.agent.application.agent.port.AiServicesAgentRuntime;
 import com.fukang.knowledge.agent.application.agent.runtime.AgentAiService;
 import com.fukang.knowledge.agent.application.agent.runtime.AgentRunEventCollector;
-import com.fukang.knowledge.agent.common.enums.ModelTypeEnum;
 import com.fukang.knowledge.agent.domain.agent.model.AgentRunEvent;
 import com.fukang.knowledge.agent.domain.agent.model.ExecutionStrategy;
 import com.fukang.knowledge.agent.infrastructure.tool.DynamicToolProvider;
@@ -34,7 +33,7 @@ public class LangChain4jAiServicesAgentRuntime implements AiServicesAgentRuntime
 
             AgentAiService aiService = AiServices
                     .builder(AgentAiService.class)
-                    .chatLanguageModel(dynamicModelManager.getChatModel(ModelTypeEnum.CHAT))
+                    .chatLanguageModel(dynamicModelManager.getChatModel())
                     .systemMessageProvider(memoryId -> systemPrompt)
                     .toolProvider(dynamicToolProvider)
                     .chatMemory(memoryFactory.createDefault())

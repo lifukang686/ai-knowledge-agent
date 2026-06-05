@@ -2,7 +2,6 @@ package com.fukang.knowledge.agent.infrastructure.ai;
 
 import com.fukang.knowledge.agent.application.ai.port.ChatCompletionPort;
 import com.fukang.knowledge.agent.application.ai.port.StreamingChatCompletionPort;
-import com.fukang.knowledge.agent.common.enums.ModelTypeEnum;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
@@ -26,7 +25,7 @@ public class LangChain4jStreamingChatCompletionAdapter implements StreamingChatC
 
     @Override
     public void completeStream(List<ChatCompletionPort.Message> messages, StreamHandler handler) {
-        StreamingChatLanguageModel chatModel = dynamicModelManager.getStreamingChatModel(ModelTypeEnum.CHAT);
+        StreamingChatLanguageModel chatModel = dynamicModelManager.getStreamingChatModel();
         StringBuilder fullText = new StringBuilder();
         chatModel.generate(toLangChainMessages(messages), new StreamingResponseHandler<>() {
             @Override

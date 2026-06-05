@@ -1,7 +1,6 @@
 package com.fukang.knowledge.agent.infrastructure.ai;
 
 import com.fukang.knowledge.agent.application.agent.port.AgentChatClient;
-import com.fukang.knowledge.agent.common.enums.ModelTypeEnum;
 import com.fukang.knowledge.agent.domain.agent.model.AgentChatMessage;
 import com.fukang.knowledge.agent.domain.agent.model.AgentChatSession;
 import dev.langchain4j.data.message.AiMessage;
@@ -43,7 +42,7 @@ public class LangChain4jAgentChatClient implements AgentChatClient {
             newMessages.forEach(targetSession::add);
         }
 
-        ChatLanguageModel chatModel = dynamicModelManager.getChatModel(ModelTypeEnum.CHAT);
+        ChatLanguageModel chatModel = dynamicModelManager.getChatModel();
         Response<AiMessage> response = chatModel.generate(toLangChainMessages(targetSession.messages()));
         String text = response.content().text();
         targetSession.add(AgentChatMessage.ai(text));
