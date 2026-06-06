@@ -26,14 +26,23 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ConversationMemoryService {
 
+    /** 用户消息角色。 */
     private static final String ROLE_USER = "user";
+    /** 助手消息角色。 */
     private static final String ROLE_ASSISTANT = "assistant";
+    /** 新建会话的默认状态。 */
     private static final String STATUS_ACTIVE = "active";
+    /** 会话摘要 Prompt 模板。 */
     private static final String SUMMARY_TEMPLATE = "rag/conversation-summary.v1";
+    /** 查询改写最多参考的最近消息数。 */
     private static final int REWRITE_HISTORY_LIMIT = 6;
+    /** 回答生成最多参考的最近消息数。 */
     private static final int ANSWER_HISTORY_LIMIT = 6;
+    /** 超过该消息数后触发长历史摘要。 */
     private static final int SUMMARY_TRIGGER_MESSAGE_COUNT = 16;
+    /** 摘要时保留在短期记忆中的最近消息数。 */
     private static final int SUMMARY_KEEP_RECENT_COUNT = 6;
+    /** 会话标题最大长度。 */
     private static final int TITLE_MAX_LENGTH = 60;
 
     private final ConversationMemoryRepository conversationMemoryRepository;
@@ -78,6 +87,9 @@ public class ConversationMemoryService {
         conversationMemoryRepository.updateConversation(conversation);
     }
 
+    /**
+     * 获取已有会话；不存在时创建新会话。
+     */
     private ConversationDO resolveConversation(Long conversationId, Long knowledgeBaseId, String question) {
         if (conversationId != null) {
             ConversationDO existing = conversationMemoryRepository.findConversationById(conversationId);
@@ -96,6 +108,9 @@ public class ConversationMemoryService {
         return conversation;
     }
 
+    /**
+     * 写入一条会话消息。
+     */
     private void insertMessage(Long conversationId, String role, String content, String rewrittenQuery, String status) {
         if (conversationId == null || !StringUtils.hasText(content)) {
             return;
@@ -109,14 +124,23 @@ public class ConversationMemoryService {
         conversationMemoryRepository.insertMessage(message);
     }
 
+    /**
+     * 查询最近消息，供短期记忆使用。
+     */
     private List<ConversationMessageDO> recentMessages(Long conversationId, int limit) {
         return conversationMemoryRepository.findRecentMessages(conversationId, limit);
     }
 
+    /**
+     * 查询最新的长期摘要。
+     */
     private ConversationSummaryDO latestSummary(Long conversationId) {
         return conversationMemoryRepository.findLatestSummary(conversationId);
     }
 
+    /**
+     * 消息过多时压缩旧消息为摘要。
+     */
     private void refreshSummaryIfNeeded(Long conversationId) {
         List<ConversationMessageDO> allMessages = allMessages(conversationId);
         if (allMessages.size() <= SUMMARY_TRIGGER_MESSAGE_COUNT) {
@@ -155,10 +179,16 @@ public class ConversationMemoryService {
         }
     }
 
+    /**
+     * 查询会话全部消息。
+     */
     private List<ConversationMessageDO> allMessages(Long conversationId) {
         return conversationMemoryRepository.findAllMessages(conversationId);
     }
 
+    /**
+     * 调用模型生成新的会话摘要。
+     */
     private String generateSummary(String oldSummary, String history) {
         try {
             String userPrompt = promptTemplateManager.renderText(SUMMARY_TEMPLATE, Map.of(
@@ -175,6 +205,9 @@ public class ConversationMemoryService {
         }
     }
 
+    /**
+     * 将消息列表格式化为 Prompt 历史文本。
+     */
     private String formatHistory(List<ConversationMessageDO> messages, int limit, boolean includeAssistant) {
         if (messages == null || messages.isEmpty()) {
             return "";
@@ -195,11 +228,17 @@ public class ConversationMemoryService {
         return builder.toString().trim();
     }
 
+    /**
+     * 获取当前用户，未登录时使用默认用户。
+     */
     private Long currentUserId() {
         Long userId = UserContextHolder.getUserId();
         return userId != null ? userId : 1L;
     }
 
+    /**
+     * 使用首轮问题生成会话标题。
+     */
     private String shortTitle(String question) {
         if (!StringUtils.hasText(question)) {
             return "新会话";
@@ -210,6 +249,9 @@ public class ConversationMemoryService {
                 : normalized;
     }
 
+    /**
+     * 粗略估算摘要 token 数。
+     */
     private int estimateTokens(String text) {
         if (text == null || text.isBlank()) {
             return 0;

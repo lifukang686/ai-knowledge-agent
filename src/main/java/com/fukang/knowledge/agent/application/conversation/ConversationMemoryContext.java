@@ -9,10 +9,10 @@ import java.util.List;
  */
 public record ConversationMemoryContext(
         Long conversationId,
-        String summary,
-        List<ConversationMessageDO> recentMessages,
-        String rewriteHistory,
-        String answerHistory
+        String summary,//长期压缩记忆
+        List<ConversationMessageDO> recentMessages,//最进原始消息
+        String rewriteHistory,//最近问题
+        String answerHistory//最近对话
 ) {
     public boolean hasMemory() {
         return (summary != null && !summary.isBlank())
