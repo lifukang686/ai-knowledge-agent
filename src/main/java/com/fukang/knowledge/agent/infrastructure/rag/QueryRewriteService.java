@@ -1,6 +1,5 @@
 package com.fukang.knowledge.agent.infrastructure.rag;
 
-import com.fukang.knowledge.agent.common.enums.ModelTypeEnum;
 import com.fukang.knowledge.agent.domain.rag.service.QueryRewritePort;
 import com.fukang.knowledge.agent.infrastructure.ai.DynamicModelManager;
 import com.fukang.knowledge.agent.infrastructure.ai.PromptTemplateManager;
@@ -93,7 +92,7 @@ public class QueryRewriteService implements QueryRewritePort {
 
         ChatLanguageModel chatModel;
         try {
-            chatModel = dynamicModelManager.getChatModel(ModelTypeEnum.CHAT);
+            chatModel = dynamicModelManager.getChatModel();
         } catch (Exception e) {
             log.warn("获取 ChatModel 失败，回退原始查询: strategy={}, error={}", strategyName, e.getMessage());
             return originalQuery;

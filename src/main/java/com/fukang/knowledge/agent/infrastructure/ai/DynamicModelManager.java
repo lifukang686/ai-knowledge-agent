@@ -108,7 +108,8 @@ public class DynamicModelManager {
      * @param config   模型配置
      * @return EmbeddingModel 实例
      */
-    public EmbeddingModel getEmbeddingModel(ModelProviderDO provider, ModelConfigDO config) {
+    public EmbeddingModel getEmbeddingModel(ModelConfigDO config) {
+        ModelProviderDO provider = resolutionService.getModelProviderById(config.getProviderId());
         String cacheKey = buildCacheKey(provider.getId(), config.getModelName());
         return embeddingModelCache.get(cacheKey, key -> {
             log.info("缓存未命中，创建新的 EmbeddingModel 实例: key={}", key);

@@ -3,7 +3,6 @@ package com.fukang.knowledge.agent.infrastructure.ai;
 import com.fukang.knowledge.agent.application.ai.port.EmbeddingPort;
 import com.fukang.knowledge.agent.domain.knowledge.model.EmbeddingResult.EmbeddingVector;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.ModelConfigDO;
-import com.fukang.knowledge.agent.infrastructure.persistence.entity.ModelProviderDO;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
@@ -24,9 +23,8 @@ public class LangChain4jEmbeddingAdapter implements EmbeddingPort {
     private final DynamicModelManager modelManager;
 
     @Override
-    public BatchResult embedBatch(ModelProviderDO provider, ModelConfigDO modelConfig,
-                                  List<String> texts, int chunkOrderOffset) {
-        EmbeddingModel embeddingClient = modelManager.getEmbeddingModel(provider, modelConfig);
+    public BatchResult embedBatch(ModelConfigDO modelConfig, List<String> texts, int chunkOrderOffset) {
+        EmbeddingModel embeddingClient = modelManager.getEmbeddingModel(modelConfig);
         List<TextSegment> segments = texts.stream().map(TextSegment::from).toList();
         Response<List<Embedding>> response = embeddingClient.embedAll(segments);
 
