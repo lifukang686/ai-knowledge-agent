@@ -104,7 +104,6 @@ public class DynamicModelManager {
      * 获取 EmbeddingModel 实例。
      * <p>调用方已解析模型提供商和模型配置，当前方法只负责缓存复用和实例创建。</p>
      *
-     * @param provider 模型提供商
      * @param config   模型配置
      * @return EmbeddingModel 实例
      */

@@ -97,17 +97,6 @@ public class DynamicModelFactory {
     }
 
     /**
-     * 根据模型类型创建对应的模型实例
-     */
-    public Object createModel(ModelProviderDO provider, ModelConfigDO config, ModelTypeEnum modelType) {
-        return switch (modelType) {
-            case CHAT -> createChatModel(provider, config);
-            case EMBEDDING -> createEmbeddingModel(provider, config);
-            default -> throw new IllegalArgumentException("暂不支持的模型类型: " + modelType);
-        };
-    }
-
-    /**
      * 从模型配置的 defaultParams 中解析 dimensions
      * <p>适用于 text-embedding-3 系列模型，允许指定输出向量维度。
      * 未配置时返回 null，langchain4j Builder 不会设置该参数</p>
