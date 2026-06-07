@@ -13,13 +13,13 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "knowledge-agent.retrieval")
 public class RetrievalProperties {
     /** 默认返回结果数量 */
-    private int topK = 8;
+    private int topK;
     /** 默认相似度阈值 (0.0 ~ 1.0)，低于此值的结果将被过滤 */
-    private double similarityThreshold = 0.6;
+    private double similarityThreshold;
     /** 是否启用混合检索（向量 + BM25） */
-    private boolean hybridEnabled = true;
+    private boolean hybridEnabled;
     /** BM25 全文检索的最低分数阈值 */
-    private double bm25Threshold = 0.1;
+    private double bm25Threshold;
     /** RRF 融合参数 k */
-    private int rrfK = 60;
+    private int rrfK;
 }

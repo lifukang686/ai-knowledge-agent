@@ -39,7 +39,7 @@ public class RagRetrievalService {
             return rewrittenResults;
         }
 
-        log.info("Rewritten query has insufficient results({} < {}), supplementing with original query",
+        log.info("改写查询召回不足({} < {})，使用原始问题补召回",
                 rewrittenResults.size(), topK);
         List<SearchResult> originalResults = retrievalStrategy.retrieve(
                 originalQuery, knowledgeBaseId, topK, threshold);
