@@ -31,6 +31,26 @@ public class MyBatisConversationMemoryRepository implements ConversationMemoryRe
     }
 
     @Override
+    public List<ConversationDO> findConversationsByUser(Long userId, Long knowledgeBaseId, int limit) {
+        LambdaQueryWrapper<ConversationDO> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(ConversationDO::getUserId, userId)
+                .eq(ConversationDO::getStatus, "active");
+        if (knowledgeBaseId != null) {
+            wrapper.eq(ConversationDO::getKnowledgeBaseId, knowledgeBaseId);
+        }
+        wrapper.orderByDesc(ConversationDO::getUpdateTime)
+                .last("LIMIT " + limit);
+        return conversationMapper.selectList(wrapper);
+    }
+
+    @Override
+    public long countMessages(Long conversationId) {
+        LambdaQueryWrapper<ConversationMessageDO> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(ConversationMessageDO::getConversationId, conversationId);
+        return conversationMessageMapper.selectCount(wrapper);
+    }
+
+    @Override
     public void insertConversation(ConversationDO conversation) {
         conversationMapper.insert(conversation);
     }

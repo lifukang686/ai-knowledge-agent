@@ -50,8 +50,17 @@ public class QueryRewriteService implements QueryRewritePort {
 
     @Override
     public String rewriteWithHistory(String originalQuery, String conversationSummary, String conversationHistory) {
+        return rewriteWithHistory(originalQuery, conversationSummary, conversationHistory, "");
+    }
+
+    @Override
+    public String rewriteWithHistory(String originalQuery,
+                                     String conversationSummary,
+                                     String conversationHistory,
+                                     String userMemory) {
         if ((conversationSummary == null || conversationSummary.isBlank())
-                && (conversationHistory == null || conversationHistory.isBlank())) {
+                && (conversationHistory == null || conversationHistory.isBlank())
+                && (userMemory == null || userMemory.isBlank())) {
             return rewrite(originalQuery);
         }
         return doRewriteWithMessages(originalQuery, "history", List.of(
@@ -59,6 +68,7 @@ public class QueryRewriteService implements QueryRewritePort {
                 promptTemplateManager.renderUser(HISTORY_TEMPLATE, Map.of(
                         "summary", conversationSummary != null ? conversationSummary : "",
                         "history", conversationHistory != null ? conversationHistory : "",
+                        "userMemory", userMemory != null ? userMemory : "",
                         "question", originalQuery != null ? originalQuery : ""
                 ))
         ));

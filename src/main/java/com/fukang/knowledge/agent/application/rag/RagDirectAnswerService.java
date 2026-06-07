@@ -2,6 +2,7 @@ package com.fukang.knowledge.agent.application.rag;
 
 import com.fukang.knowledge.agent.application.ai.port.ChatCompletionPort;
 import com.fukang.knowledge.agent.application.conversation.ConversationMemoryContext;
+import com.fukang.knowledge.agent.application.memory.UserMemoryContext;
 import com.fukang.knowledge.agent.application.rag.intent.QaIntent;
 import com.fukang.knowledge.agent.application.rag.result.QaResult;
 import com.fukang.knowledge.agent.application.rag.stream.QaStreamHandler;
@@ -33,9 +34,16 @@ public class RagDirectAnswerService {
      * 根据意图处理非知识库问题，如闲聊和记忆更新。
      */
     public QaResult answerByIntent(String question, ConversationMemoryContext memory, QaIntent intent) {
+        return answerByIntent(question, memory, null, intent);
+    }
+
+    public QaResult answerByIntent(String question,
+                                   ConversationMemoryContext memory,
+                                   UserMemoryContext userMemory,
+                                   QaIntent intent) {
         String answer = intent == QaIntent.MEMORY_UPDATE
                 ? MEMORY_UPDATE_ANSWER
-                : directChat(question, memory);
+                : directChat(question, memory, userMemory);
         ragConversationService.saveSuccessfulTurn(memory.conversationId(), question, question, answer);
         return new QaResult(answer, question, "success", memory.conversationId());
     }
@@ -47,7 +55,15 @@ public class RagDirectAnswerService {
                                      String originalQuestion,
                                      String rewrittenQuery,
                                      ConversationMemoryContext memory) {
-        String answer = directChat(questionForAnswer, memory);
+        return answerDirectChat(questionForAnswer, originalQuestion, rewrittenQuery, memory, null);
+    }
+
+    public QaResult answerDirectChat(String questionForAnswer,
+                                     String originalQuestion,
+                                     String rewrittenQuery,
+                                     ConversationMemoryContext memory,
+                                     UserMemoryContext userMemory) {
+        String answer = directChat(questionForAnswer, memory, userMemory);
         ragConversationService.saveSuccessfulTurn(memory.conversationId(), originalQuestion, rewrittenQuery, answer);
         return new QaResult(answer, rewrittenQuery, "success", memory.conversationId());
     }
@@ -59,13 +75,21 @@ public class RagDirectAnswerService {
                                ConversationMemoryContext memory,
                                QaIntent intent,
                                QaStreamHandler handler) {
+        streamByIntent(question, memory, null, intent, handler);
+    }
+
+    public void streamByIntent(String question,
+                               ConversationMemoryContext memory,
+                               UserMemoryContext userMemory,
+                               QaIntent intent,
+                               QaStreamHandler handler) {
         if (intent == QaIntent.MEMORY_UPDATE) {
             ragConversationService.saveSuccessfulTurn(memory.conversationId(), question, question, MEMORY_UPDATE_ANSWER);
             handler.onToken(MEMORY_UPDATE_ANSWER);
             handler.onDone(new QaResult(MEMORY_UPDATE_ANSWER, question, "success", memory.conversationId()));
             return;
         }
-        streamDirectChat(question, question, question, memory, handler);
+        streamDirectChat(question, question, question, memory, userMemory, handler);
     }
 
     public void streamDirectChat(String questionForAnswer,
@@ -73,17 +97,30 @@ public class RagDirectAnswerService {
                                  String rewrittenQuery,
                                  ConversationMemoryContext memory,
                                  QaStreamHandler handler) {
+        streamDirectChat(questionForAnswer, originalQuestion, rewrittenQuery, memory, null, handler);
+    }
+
+    public void streamDirectChat(String questionForAnswer,
+                                 String originalQuestion,
+                                 String rewrittenQuery,
+                                 ConversationMemoryContext memory,
+                                 UserMemoryContext userMemory,
+                                 QaStreamHandler handler) {
         ragStreamingService.stream(List.of(
                 ChatCompletionPort.Message.system(promptTemplateManager.renderText(CHITCHAT_SYSTEM_TEMPLATE, null)),
-                ChatCompletionPort.Message.user(ragConversationService.buildDirectChatPrompt(questionForAnswer, memory))
+                ChatCompletionPort.Message.user(ragConversationService.buildDirectChatPrompt(questionForAnswer, memory, userMemory))
         ), originalQuestion, rewrittenQuery, "success", memory.conversationId(), handler);
     }
 
     private String directChat(String question, ConversationMemoryContext memory) {
+        return directChat(question, memory, null);
+    }
+
+    private String directChat(String question, ConversationMemoryContext memory, UserMemoryContext userMemory) {
         try {
             String answer = chatCompletionPort.complete(List.of(
                     ChatCompletionPort.Message.system(promptTemplateManager.renderText(CHITCHAT_SYSTEM_TEMPLATE, null)),
-                    ChatCompletionPort.Message.user(ragConversationService.buildDirectChatPrompt(question, memory))
+                    ChatCompletionPort.Message.user(ragConversationService.buildDirectChatPrompt(question, memory, userMemory))
             ));
             return answer == null || answer.isBlank() ? DEFAULT_DIRECT_ANSWER : answer;
         } catch (Exception e) {

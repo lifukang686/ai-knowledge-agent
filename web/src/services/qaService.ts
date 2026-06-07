@@ -1,5 +1,5 @@
 import { request } from '@/utils/request';
-import { QaReq, QaResp, QaStreamHandlers } from '@/types/qa';
+import { QaConversation, QaConversationMessage, QaReq, QaResp, QaStreamHandlers } from '@/types/qa';
 import { useAuthStore } from '@/stores/authStore';
 
 const QA_TIMEOUT_MS = 90000;
@@ -85,6 +85,28 @@ export const qaService = {
     return request.post('/qa', data, { timeout: QA_TIMEOUT_MS });
   },
 
+  listConversations: async (params?: { knowledgeBaseId?: string; limit?: number }): Promise<QaConversation[]> => {
+    const response = await request.get<any[]>('/qa/conversations', {
+      params: {
+        knowledgeBaseId: params?.knowledgeBaseId || undefined,
+        limit: params?.limit,
+      },
+    });
+    return (response || []).map(mapConversation);
+  },
+
+  createConversation: async (knowledgeBaseId?: string): Promise<QaConversation> => {
+    const response = await request.post<any>('/qa/conversations', {
+      knowledgeBaseId: knowledgeBaseId || undefined,
+    });
+    return mapConversation(response);
+  },
+
+  listMessages: async (conversationId: string): Promise<QaConversationMessage[]> => {
+    const response = await request.get<any[]>(`/qa/conversations/${conversationId}/messages`);
+    return (response || []).map(mapConversationMessage);
+  },
+
   askStream: async (data: QaReq, handlers: QaStreamHandlers): Promise<void> => {
     const token = useAuthStore.getState().token;
     const response = await fetch('/api/qa/stream', {
@@ -106,3 +128,25 @@ export const qaService = {
     await readSseStream(response.body.getReader(), handlers);
   },
 };
+
+const mapConversation = (api: any): QaConversation => ({
+  id: api?.id != null ? String(api.id) : '',
+  knowledgeBaseId: api?.knowledgeBaseId != null ? String(api.knowledgeBaseId) : undefined,
+  title: api?.title || '新会话',
+  status: api?.status || 'active',
+  messageCount: api?.messageCount ?? 0,
+  lastMessageAt: api?.lastMessageAt,
+  createTime: api?.createTime,
+  updateTime: api?.updateTime,
+});
+
+const mapConversationMessage = (api: any): QaConversationMessage => ({
+  id: api?.id != null ? String(api.id) : '',
+  conversationId: api?.conversationId != null ? String(api.conversationId) : '',
+  role: api?.role === 'assistant' ? 'assistant' : 'user',
+  content: api?.content || '',
+  rewrittenQuery: api?.rewrittenQuery || undefined,
+  status: api?.status || undefined,
+  createTime: api?.createTime,
+  updateTime: api?.updateTime,
+});

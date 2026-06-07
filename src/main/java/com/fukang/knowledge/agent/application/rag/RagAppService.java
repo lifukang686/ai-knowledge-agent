@@ -2,6 +2,7 @@ package com.fukang.knowledge.agent.application.rag;
 
 import com.fukang.knowledge.agent.application.ai.port.ChatCompletionPort;
 import com.fukang.knowledge.agent.application.conversation.ConversationMemoryContext;
+import com.fukang.knowledge.agent.application.memory.UserMemoryContext;
 import com.fukang.knowledge.agent.application.knowledge.port.KnowledgeBaseRepository;
 import com.fukang.knowledge.agent.application.rag.intent.QaIntent;
 import com.fukang.knowledge.agent.application.rag.intent.QaIntentClassifier;
@@ -63,26 +64,27 @@ public class RagAppService {
     public QaResult answer(String question, Long knowledgeBaseId, Long conversationId) {
         validateKnowledgeBase(knowledgeBaseId);
         ConversationMemoryContext memory = ragConversationService.prepareContext(conversationId, knowledgeBaseId, question);
+        UserMemoryContext userMemory = ragConversationService.prepareUserMemory();
         QaIntent intent = qaIntentClassifier.classify(question);
 
         if (shouldBypassRetrieval(question, intent)) {
             log.info("Bypass RAG retrieval: intent={}, question={}", intent, question);
-            return ragDirectAnswerService.answerByIntent(question, memory, intent);
+            return ragDirectAnswerService.answerByIntent(question, memory, userMemory, intent);
         }
 
         String rewrittenQuery = queryRewritePort.rewriteWithHistory(
-                question, memory.summary(), memory.rewriteHistory());
+                question, memory.summary(), memory.rewriteHistory(), userMemory.promptText());
         List<SearchResult> retrieved = ragRetrievalService.retrieveWithFallback(rewrittenQuery, question, knowledgeBaseId);
 
         if (retrieved.isEmpty() && isChitchat(rewrittenQuery)) {
             log.info("Fallback to direct chat because retrieval is empty and rewritten query is chitchat");
-            return ragDirectAnswerService.answerDirectChat(rewrittenQuery, question, rewrittenQuery, memory);
+            return ragDirectAnswerService.answerDirectChat(rewrittenQuery, question, rewrittenQuery, memory, userMemory);
         }
 
         List<SearchResult> reranked = reranker.rerank(retrieved, question);
         String status = reranked.isEmpty() ? STATUS_NO_RESULTS : STATUS_SUCCESS;
         String answer = answerGenerator.generateAnswer(reranked, rewrittenQuery,
-                ragConversationService.buildAnswerMemory(memory));
+                ragConversationService.buildAnswerMemory(memory, userMemory));
         ragConversationService.saveTurn(memory.conversationId(), question, rewrittenQuery, answer, status);
         return new QaResult(answer, rewrittenQuery, status, memory.conversationId());
     }
@@ -128,9 +130,10 @@ public class RagAppService {
     private RagStreamContext prepareStreamMemory(String question, Long knowledgeBaseId, Long conversationId) {
         validateKnowledgeBase(knowledgeBaseId);
         ConversationMemoryContext memory = ragConversationService.prepareContext(conversationId, knowledgeBaseId, question);
-        log.info("流式问答准备记忆完成: conversationId={}, knowledgeBaseId={}",
-                memory.conversationId(), knowledgeBaseId);
-        return new RagStreamContext(question, knowledgeBaseId, memory);
+        UserMemoryContext userMemory = ragConversationService.prepareUserMemory();
+        log.info("流式问答准备记忆完成: conversationId={}, knowledgeBaseId={}, userMemoryCount={}",
+                memory.conversationId(), knowledgeBaseId, userMemory.memories().size());
+        return new RagStreamContext(question, knowledgeBaseId, memory, userMemory);
     }
 
     /**
@@ -150,7 +153,7 @@ public class RagAppService {
         }
         log.info("流式问答走直接回答: intent={}", context.intent);
         handler.onStage("generate_start", "检测到非知识库问题，正在直接回答");
-        ragDirectAnswerService.streamByIntent(context.question, context.memory, context.intent, handler);
+        ragDirectAnswerService.streamByIntent(context.question, context.memory, context.userMemory, context.intent, handler);
         return true;
     }
 
@@ -160,7 +163,7 @@ public class RagAppService {
     private void rewriteStreamQuery(RagStreamContext context, QaStreamHandler handler) {
         handler.onStage("rewrite_start", "正在结合会话历史改写查询");
         context.rewrittenQuery = queryRewritePort.rewriteWithHistory(
-                context.question, context.memory.summary(), context.memory.rewriteHistory());
+                context.question, context.memory.summary(), context.memory.rewriteHistory(), context.userMemory.promptText());
         log.info("流式问答查询改写完成");
         handler.onStage("rewrite_done", "查询改写完成");
     }
@@ -186,7 +189,8 @@ public class RagAppService {
         log.info("流式问答检索为空，降级直接回答");
         handler.onStage("generate_start", "检索无结果，降级为直接回答");
         ragDirectAnswerService.streamDirectChat(
-                context.rewrittenQuery, context.rewrittenQuery, context.rewrittenQuery, context.memory, handler);
+                context.rewrittenQuery, context.rewrittenQuery, context.rewrittenQuery,
+                context.memory, context.userMemory, handler);
         return true;
     }
 
@@ -224,7 +228,7 @@ public class RagAppService {
         log.info("流式问答开始生成回答: chunkCount={}", context.reranked.size());
         String systemPrompt = promptTemplateManager.renderText("rag/answer-system.v1", null);
         String userPrompt = llmAnswerGenerator.buildRagUserPrompt(context.reranked, context.rewrittenQuery,
-                ragConversationService.buildAnswerMemory(context.memory));
+                ragConversationService.buildAnswerMemory(context.memory, context.userMemory));
         ragStreamingService.stream(List.of(
                 ChatCompletionPort.Message.system(systemPrompt),
                 ChatCompletionPort.Message.user(userPrompt)
@@ -254,16 +258,21 @@ public class RagAppService {
         private final String question;
         private final Long knowledgeBaseId;
         private final ConversationMemoryContext memory;
+        private final UserMemoryContext userMemory;
 
         private QaIntent intent;
         private String rewrittenQuery;
         private List<SearchResult> retrieved = List.of();
         private List<SearchResult> reranked = List.of();
 
-        private RagStreamContext(String question, Long knowledgeBaseId, ConversationMemoryContext memory) {
+        private RagStreamContext(String question,
+                                 Long knowledgeBaseId,
+                                 ConversationMemoryContext memory,
+                                 UserMemoryContext userMemory) {
             this.question = question;
             this.knowledgeBaseId = knowledgeBaseId;
             this.memory = memory;
+            this.userMemory = userMemory;
         }
     }
 }

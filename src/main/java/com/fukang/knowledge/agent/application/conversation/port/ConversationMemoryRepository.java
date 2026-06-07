@@ -13,6 +13,10 @@ public interface ConversationMemoryRepository {
 
     ConversationDO findConversationById(Long conversationId);
 
+    List<ConversationDO> findConversationsByUser(Long userId, Long knowledgeBaseId, int limit);
+
+    long countMessages(Long conversationId);
+
     void insertConversation(ConversationDO conversation);
 
     void updateConversation(ConversationDO conversation);

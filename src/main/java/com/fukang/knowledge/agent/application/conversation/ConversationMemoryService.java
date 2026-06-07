@@ -3,6 +3,7 @@ package com.fukang.knowledge.agent.application.conversation;
 import com.fukang.knowledge.agent.application.ai.port.ChatCompletionPort;
 import com.fukang.knowledge.agent.application.conversation.port.ConversationMemoryRepository;
 import com.fukang.knowledge.agent.common.context.UserContextHolder;
+import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.infrastructure.ai.PromptTemplateManager;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.ConversationDO;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.ConversationMessageDO;
@@ -51,6 +52,10 @@ public class ConversationMemoryService {
 
     /**
      * 准备本轮问答上下文；conversationId 为空时会自动创建新会话。
+     *
+     * @param conversationId  会话ID，可为空
+     * @param knowledgeBaseId 知识库ID
+     * @param question        用户问题
      */
     @Transactional(rollbackFor = Exception.class)
     public ConversationMemoryContext prepareContext(Long conversationId, Long knowledgeBaseId, String question) {
@@ -66,34 +71,48 @@ public class ConversationMemoryService {
         );
     }
 
+    /**
+     * 保存用户消息。
+     *
+     * @param conversationId 会话ID
+     * @param question       用户问题
+     * @param rewrittenQuery 改写查询
+     * @param status         本轮状态
+     */
     @Transactional(rollbackFor = Exception.class)
-    public void saveUserMessage(Long conversationId, String question, String rewrittenQuery, String status) {
-        insertMessage(conversationId, ROLE_USER, question, rewrittenQuery, status);
+    public Long saveUserMessage(Long conversationId, String question, String rewrittenQuery, String status) {
+        Long messageId = insertMessage(conversationId, ROLE_USER, question, rewrittenQuery, status);
+        refreshConversationTitle(conversationId, question);
+        return messageId;
     }
 
+    /**
+     * 保存助手消息。
+     *
+     * @param conversationId 会话ID
+     * @param answer         助手回答
+     * @param status         本轮状态
+     */
     @Transactional(rollbackFor = Exception.class)
-    public void saveAssistantMessage(Long conversationId, String answer, String status) {
-        insertMessage(conversationId, ROLE_ASSISTANT, answer, null, status);
+    public Long saveAssistantMessage(Long conversationId, String answer, String status) {
+        Long messageId = insertMessage(conversationId, ROLE_ASSISTANT, answer, null, status);
+        touchConversation(conversationId);
         refreshSummaryIfNeeded(conversationId);
-    }
-
-    @Transactional(rollbackFor = Exception.class)
-    public void updateConversationTitle(Long conversationId, String question) {
-        ConversationDO conversation = conversationMemoryRepository.findConversationById(conversationId);
-        if (conversation == null || StringUtils.hasText(conversation.getTitle())) {
-            return;
-        }
-        conversation.setTitle(shortTitle(question));
-        conversationMemoryRepository.updateConversation(conversation);
+        return messageId;
     }
 
     /**
      * 获取已有会话；不存在时创建新会话。
+     *
+     * @param conversationId  会话ID，可为空
+     * @param knowledgeBaseId 知识库ID
+     * @param question        用户问题
      */
     private ConversationDO resolveConversation(Long conversationId, Long knowledgeBaseId, String question) {
         if (conversationId != null) {
             ConversationDO existing = conversationMemoryRepository.findConversationById(conversationId);
             if (existing != null) {
+                ensureCurrentUserConversation(existing);
                 return existing;
             }
             log.warn("会话不存在，创建新会话替代: conversationId={}", conversationId);
@@ -105,15 +124,34 @@ public class ConversationMemoryService {
         conversation.setTitle(shortTitle(question));
         conversation.setStatus(STATUS_ACTIVE);
         conversationMemoryRepository.insertConversation(conversation);
+        log.info("创建RAG会话: conversationId={}, userId={}", conversation.getId(), conversation.getUserId());
         return conversation;
     }
 
     /**
-     * 写入一条会话消息。
+     * 防止跨用户复用会话记忆。
+     *
+     * @param conversation 会话实体
      */
-    private void insertMessage(Long conversationId, String role, String content, String rewrittenQuery, String status) {
+    private void ensureCurrentUserConversation(ConversationDO conversation) {
+        Long userId = currentUserId();
+        if (conversation.getUserId() != null && !conversation.getUserId().equals(userId)) {
+            throw new BaseException(403, "无权访问该会话");
+        }
+    }
+
+    /**
+     * 写入一条会话消息。
+     *
+     * @param conversationId 会话ID
+     * @param role           消息角色
+     * @param content        消息内容
+     * @param rewrittenQuery 改写查询
+     * @param status         本轮状态
+     */
+    private Long insertMessage(Long conversationId, String role, String content, String rewrittenQuery, String status) {
         if (conversationId == null || !StringUtils.hasText(content)) {
-            return;
+            return null;
         }
         ConversationMessageDO message = new ConversationMessageDO();
         message.setConversationId(conversationId);
@@ -122,10 +160,44 @@ public class ConversationMemoryService {
         message.setRewrittenQuery(rewrittenQuery);
         message.setStatus(status);
         conversationMemoryRepository.insertMessage(message);
+        return message.getId();
+    }
+
+    /**
+     * 用首问刷新默认标题。
+     *
+     * @param conversationId 会话ID
+     * @param question       用户问题
+     */
+    private void refreshConversationTitle(Long conversationId, String question) {
+        ConversationDO conversation = conversationMemoryRepository.findConversationById(conversationId);
+        if (conversation == null) {
+            return;
+        }
+        if (StringUtils.hasText(conversation.getTitle()) && !"新会话".equals(conversation.getTitle())) {
+            return;
+        }
+        conversation.setTitle(shortTitle(question));
+        conversationMemoryRepository.updateConversation(conversation);
+    }
+
+    /**
+     * 推进会话更新时间，用于历史列表排序。
+     *
+     * @param conversationId 会话ID
+     */
+    private void touchConversation(Long conversationId) {
+        ConversationDO conversation = conversationMemoryRepository.findConversationById(conversationId);
+        if (conversation != null) {
+            conversationMemoryRepository.updateConversation(conversation);
+        }
     }
 
     /**
      * 查询最近消息，供短期记忆使用。
+     *
+     * @param conversationId 会话ID
+     * @param limit          查询条数
      */
     private List<ConversationMessageDO> recentMessages(Long conversationId, int limit) {
         return conversationMemoryRepository.findRecentMessages(conversationId, limit);
@@ -133,6 +205,8 @@ public class ConversationMemoryService {
 
     /**
      * 查询最新的长期摘要。
+     *
+     * @param conversationId 会话ID
      */
     private ConversationSummaryDO latestSummary(Long conversationId) {
         return conversationMemoryRepository.findLatestSummary(conversationId);
@@ -140,6 +214,8 @@ public class ConversationMemoryService {
 
     /**
      * 消息过多时压缩旧消息为摘要。
+     *
+     * @param conversationId 会话ID
      */
     private void refreshSummaryIfNeeded(Long conversationId) {
         List<ConversationMessageDO> allMessages = allMessages(conversationId);
@@ -181,6 +257,8 @@ public class ConversationMemoryService {
 
     /**
      * 查询会话全部消息。
+     *
+     * @param conversationId 会话ID
      */
     private List<ConversationMessageDO> allMessages(Long conversationId) {
         return conversationMemoryRepository.findAllMessages(conversationId);
@@ -188,6 +266,9 @@ public class ConversationMemoryService {
 
     /**
      * 调用模型生成新的会话摘要。
+     *
+     * @param oldSummary 已有摘要
+     * @param history    待压缩历史
      */
     private String generateSummary(String oldSummary, String history) {
         try {
@@ -207,6 +288,10 @@ public class ConversationMemoryService {
 
     /**
      * 将消息列表格式化为 Prompt 历史文本。
+     *
+     * @param messages         消息列表
+     * @param limit            最大条数
+     * @param includeAssistant 是否包含助手消息
      */
     private String formatHistory(List<ConversationMessageDO> messages, int limit, boolean includeAssistant) {
         if (messages == null || messages.isEmpty()) {
@@ -233,11 +318,13 @@ public class ConversationMemoryService {
      */
     private Long currentUserId() {
         Long userId = UserContextHolder.getUserId();
-        return userId != null ? userId : 1L;
+        return userId;
     }
 
     /**
      * 使用首轮问题生成会话标题。
+     *
+     * @param question 用户问题
      */
     private String shortTitle(String question) {
         if (!StringUtils.hasText(question)) {
@@ -251,6 +338,8 @@ public class ConversationMemoryService {
 
     /**
      * 粗略估算摘要 token 数。
+     *
+     * @param text 摘要文本
      */
     private int estimateTokens(String text) {
         if (text == null || text.isBlank()) {

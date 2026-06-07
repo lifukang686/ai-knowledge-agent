@@ -11,6 +11,9 @@ public interface QueryRewritePort {
     /** 结合会话摘要和最近历史改写查询。 */
     String rewriteWithHistory(String originalQuery, String conversationSummary, String conversationHistory);
 
+    /** 结合会话记忆和用户记忆改写查询。 */
+    String rewriteWithHistory(String originalQuery, String conversationSummary, String conversationHistory, String userMemory);
+
     /** 抽象式改写，适合补全省略语义。 */
     String rewriteAbstractive(String originalQuery);
 

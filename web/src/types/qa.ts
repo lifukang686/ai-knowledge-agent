@@ -37,3 +37,25 @@ export interface ChatMessage {
   streamStage?: string;
   streamStageMessage?: string;
 }
+
+export interface QaConversation {
+  id: string;
+  knowledgeBaseId?: string;
+  title: string;
+  status: string;
+  messageCount: number;
+  lastMessageAt?: string;
+  createTime?: string;
+  updateTime?: string;
+}
+
+export interface QaConversationMessage {
+  id: string;
+  conversationId: string;
+  role: 'user' | 'assistant';
+  content: string;
+  rewrittenQuery?: string;
+  status?: string;
+  createTime?: string;
+  updateTime?: string;
+}
