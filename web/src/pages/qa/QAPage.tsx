@@ -55,27 +55,29 @@ const QAPage: React.FC = () => {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [kbDropdownOpen, setKbDropdownOpen] = useState(false);
 
-  const fetchKnowledgeBases = useCallback(async () => {
+  const loadKnowledgeBases = useCallback(async () => {
     try {
       setLoadingKB(true);
       const response = await getKnowledgeBases({ page: 1, pageSize: 100 });
       setKnowledgeBases(response.items);
 
-      if (response.items.length > 0 && !selectedKB) {
-        setSelectedKB(response.items[0].id);
-      }
+      setSelectedKB((current) => current || response.items[0]?.id || '');
     } catch {
       toast.error('获取知识库列表失败');
     } finally {
       setLoadingKB(false);
     }
-  }, [selectedKB]);
+  }, []);
 
-  const fetchConversations = useCallback(async () => {
+  const loadConversations = useCallback(async (knowledgeBaseId: string) => {
+    if (!knowledgeBaseId) {
+      setConversations([]);
+      return;
+    }
     try {
       setLoadingConversations(true);
       const items = await qaService.listConversations({
-        knowledgeBaseId: selectedKB || undefined,
+        knowledgeBaseId,
         limit: 50,
       });
       setConversations(items);
@@ -84,17 +86,17 @@ const QAPage: React.FC = () => {
     } finally {
       setLoadingConversations(false);
     }
-  }, [selectedKB]);
+  }, []);
 
   useEffect(() => {
-    fetchKnowledgeBases();
-  }, [fetchKnowledgeBases]);
+    loadKnowledgeBases();
+  }, [loadKnowledgeBases]);
 
   useEffect(() => {
-    fetchConversations();
+    loadConversations(selectedKB);
     setActiveConversation(null);
     setMessages([]);
-  }, [fetchConversations]);
+  }, [loadConversations, selectedKB]);
 
   const handleNewConversation = useCallback(async () => {
     try {
@@ -240,8 +242,8 @@ const QAPage: React.FC = () => {
   };
 
   const handleRefresh = () => {
-    fetchKnowledgeBases();
-    fetchConversations();
+    loadKnowledgeBases();
+    loadConversations(selectedKB);
     toast.success('列表已刷新');
   };
 

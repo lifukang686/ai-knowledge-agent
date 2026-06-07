@@ -39,7 +39,8 @@ public class ConversationAppService {
                 .stream()
                 .map(this::toListItem)
                 .toList();
-        log.info("加载QA会话列表: userId={}, count={}", userId, results.size());
+        log.info("加载QA会话列表: userId={}, knowledgeBaseId={}, count={}",
+                userId, knowledgeBaseId, results.size());
         return results;
     }
 

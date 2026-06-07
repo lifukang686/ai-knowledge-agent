@@ -32,11 +32,12 @@ public class RagDirectAnswerService {
 
     /**
      * 根据意图处理非知识库问题，如闲聊和记忆更新。
+     *
+     * @param question   用户问题
+     * @param memory     会话记忆
+     * @param userMemory 用户级记忆
+     * @param intent     问题意图
      */
-    public QaResult answerByIntent(String question, ConversationMemoryContext memory, QaIntent intent) {
-        return answerByIntent(question, memory, null, intent);
-    }
-
     public QaResult answerByIntent(String question,
                                    ConversationMemoryContext memory,
                                    UserMemoryContext userMemory,
@@ -50,14 +51,13 @@ public class RagDirectAnswerService {
 
     /**
      * 在检索无结果但判断为闲聊时，降级为直接对话回答。
+     *
+     * @param questionForAnswer 用于回答的问题
+     * @param originalQuestion  原始问题
+     * @param rewrittenQuery    改写查询
+     * @param memory            会话记忆
+     * @param userMemory        用户级记忆
      */
-    public QaResult answerDirectChat(String questionForAnswer,
-                                     String originalQuestion,
-                                     String rewrittenQuery,
-                                     ConversationMemoryContext memory) {
-        return answerDirectChat(questionForAnswer, originalQuestion, rewrittenQuery, memory, null);
-    }
-
     public QaResult answerDirectChat(String questionForAnswer,
                                      String originalQuestion,
                                      String rewrittenQuery,
@@ -70,14 +70,13 @@ public class RagDirectAnswerService {
 
     /**
      * 流式处理非知识库问题。
+     *
+     * @param question   用户问题
+     * @param memory     会话记忆
+     * @param userMemory 用户级记忆
+     * @param intent     问题意图
+     * @param handler    流式回调
      */
-    public void streamByIntent(String question,
-                               ConversationMemoryContext memory,
-                               QaIntent intent,
-                               QaStreamHandler handler) {
-        streamByIntent(question, memory, null, intent, handler);
-    }
-
     public void streamByIntent(String question,
                                ConversationMemoryContext memory,
                                UserMemoryContext userMemory,
@@ -92,14 +91,16 @@ public class RagDirectAnswerService {
         streamDirectChat(question, question, question, memory, userMemory, handler);
     }
 
-    public void streamDirectChat(String questionForAnswer,
-                                 String originalQuestion,
-                                 String rewrittenQuery,
-                                 ConversationMemoryContext memory,
-                                 QaStreamHandler handler) {
-        streamDirectChat(questionForAnswer, originalQuestion, rewrittenQuery, memory, null, handler);
-    }
-
+    /**
+     * 流式直接对话回答。
+     *
+     * @param questionForAnswer 用于回答的问题
+     * @param originalQuestion  原始问题
+     * @param rewrittenQuery    改写查询
+     * @param memory            会话记忆
+     * @param userMemory        用户级记忆
+     * @param handler           流式回调
+     */
     public void streamDirectChat(String questionForAnswer,
                                  String originalQuestion,
                                  String rewrittenQuery,
@@ -112,10 +113,13 @@ public class RagDirectAnswerService {
         ), originalQuestion, rewrittenQuery, "success", memory.conversationId(), handler);
     }
 
-    private String directChat(String question, ConversationMemoryContext memory) {
-        return directChat(question, memory, null);
-    }
-
+    /**
+     * 非流式直接对话回答。
+     *
+     * @param question   用户问题
+     * @param memory     会话记忆
+     * @param userMemory 用户级记忆
+     */
     private String directChat(String question, ConversationMemoryContext memory, UserMemoryContext userMemory) {
         try {
             String answer = chatCompletionPort.complete(List.of(

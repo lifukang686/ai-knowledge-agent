@@ -14,7 +14,7 @@ import org.springframework.web.servlet.HandlerInterceptor;
  * 认证拦截器
  * <p>拦截所有 /api/** 请求（登录接口除外），校验请求头中的 Bearer Token 是否有效，
  * 认证通过后将用户ID存入 {@link UserContextHolder}，请求结束后自动清除</p>
- * <p>当前为 MVP 阶段，Token 校验为 Mock 实现，后续替换为 JWT 解析</p>
+ * <p>当前为 MVP 阶段，Token 校验为 Mock 实现，后续替换为 JWT 解析。</p>
  */
 @Slf4j
 @Component
@@ -47,13 +47,34 @@ public class AuthInterceptor implements HandlerInterceptor {
 
         // 提取并校验实际 Token 值（Mock 校验，后续替换为 JWT 解析）
         String actualToken = token.substring(BEARER_PREFIX.length());
-        if (!"mock-token-123456".equals(actualToken)) {
+        Long userId = parseMockUserId(actualToken);
+        if (userId == null) {
             throw new BaseException(ErrorCodeEnum.TOKEN_INVALID);
         }
 
-        // Mock：假设解析出的用户 ID 为 1（后续从 JWT 中提取真实用户ID）
-        UserContextHolder.setUserId(1L);
+        // Mock：从 token 中解析用户ID。
+        UserContextHolder.setUserId(userId);
         return true;
+    }
+
+    /**
+     * 解析 MVP 阶段 Mock Token。
+     *
+     * @param token token文本
+     * @return 用户ID
+     */
+    private Long parseMockUserId(String token) {
+        if ("mock-token-123456".equals(token)) {
+            return 1L;
+        }
+        if (!token.startsWith("mock-token-")) {
+            return null;
+        }
+        try {
+            return Long.parseLong(token.substring("mock-token-".length()));
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     /**

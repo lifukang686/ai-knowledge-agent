@@ -26,6 +26,10 @@ public enum ErrorCodeEnum {
     PASSWORD_ERROR(1002, "密码错误"),
     /** Token 无效或已过期 */
     TOKEN_INVALID(1003, "Token无效或已过期"),
+    /** 用户名已存在 */
+    USER_ALREADY_EXISTS(1004, "用户名已存在"),
+    /** 两次密码不一致 */
+    PASSWORD_CONFIRM_NOT_MATCH(1005, "两次密码不一致"),
 
     // ---- 模型模块业务错误码 (2xxx) ----
     /** 模型提供商不存在 */

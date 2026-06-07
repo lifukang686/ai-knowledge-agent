@@ -3,13 +3,29 @@ import { LoginRequest, LoginResponse, UserInfo, RegisterRequest } from '@/types/
 
 const AUTH_PREFIX = '/auth';
 
+interface AuthApiResp {
+  token: string;
+  userId: string | number;
+  username: string;
+}
+
+const mapAuthResponse = (api: AuthApiResp): LoginResponse => ({
+  token: api.token,
+  user: {
+    id: String(api.userId),
+    username: api.username,
+  },
+});
+
 export const authService = {
   login: async (data: LoginRequest): Promise<LoginResponse> => {
-    return request.post<LoginResponse>(`${AUTH_PREFIX}/login`, data);
+    const response = await request.post<AuthApiResp>(`${AUTH_PREFIX}/login`, data);
+    return mapAuthResponse(response);
   },
 
   register: async (data: RegisterRequest): Promise<LoginResponse> => {
-    return request.post<LoginResponse>(`${AUTH_PREFIX}/register`, data);
+    const response = await request.post<AuthApiResp>(`${AUTH_PREFIX}/register`, data);
+    return mapAuthResponse(response);
   },
 
   logout: async (): Promise<void> => {

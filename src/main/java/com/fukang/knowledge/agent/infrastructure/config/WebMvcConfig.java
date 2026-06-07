@@ -7,7 +7,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
  * Web MVC 配置
- * <p>注册认证拦截器，拦截所有 /api/** 路径的请求，排除登录接口 /api/auth/login</p>
+ * <p>注册认证拦截器，拦截所有 /api/** 路径的请求，排除认证白名单接口。</p>
  */
 @Configuration
 @RequiredArgsConstructor
@@ -17,7 +17,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     /**
      * 注册拦截器
-     * <p>拦截所有 /api/** 请求，排除登录接口使其无需认证即可访问</p>
+     * <p>拦截所有 /api/** 请求，登录和注册无需认证。</p>
      *
      * @param registry 拦截器注册表
      */
@@ -25,6 +25,9 @@ public class WebMvcConfig implements WebMvcConfigurer {
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(authInterceptor)
                 .addPathPatterns("/api/**")
-                .excludePathPatterns("/api/auth/login");
+                .excludePathPatterns(
+                        "/api/auth/login",
+                        "/api/auth/register"
+                );
     }
 }

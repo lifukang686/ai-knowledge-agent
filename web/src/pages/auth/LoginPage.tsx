@@ -298,7 +298,7 @@ export const LoginPage: React.FC = () => {
             <p className="text-gray-600">
               还没有账户？{' '}
               <Link
-                to="#"
+                to="/register"
                 className="font-semibold text-primary-600 hover:text-primary-500 transition-colors"
               >
                 立即注册

@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/authStore';
 
 // 认证页面
 import LoginPage from '@/pages/auth/LoginPage';
+import RegisterPage from '@/pages/auth/RegisterPage';
 
 // 知识库管理
 import KnowledgeBaseList from '@/pages/knowledge-base/KnowledgeBaseList';
@@ -67,6 +68,12 @@ export const AppRouter: React.FC = () => {
       <Route path="/login" element={
         <PublicRoute>
           <LoginPage />
+        </PublicRoute>
+      } />
+
+      <Route path="/register" element={
+        <PublicRoute>
+          <RegisterPage />
         </PublicRoute>
       } />
 

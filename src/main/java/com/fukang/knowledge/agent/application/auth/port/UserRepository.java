@@ -8,4 +8,6 @@ import com.fukang.knowledge.agent.infrastructure.persistence.entity.UserDO;
 public interface UserRepository {
 
     UserDO findByUsername(String username);
+
+    void insert(UserDO user);
 }

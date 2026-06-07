@@ -21,4 +21,9 @@ public class MyBatisUserRepository implements UserRepository {
         return userMapper.selectOne(
                 new LambdaQueryWrapper<UserDO>().eq(UserDO::getUsername, username));
     }
+
+    @Override
+    public void insert(UserDO user) {
+        userMapper.insert(user);
+    }
 }
