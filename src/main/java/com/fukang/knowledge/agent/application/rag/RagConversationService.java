@@ -5,12 +5,14 @@ import com.fukang.knowledge.agent.application.conversation.ConversationMemorySer
 import com.fukang.knowledge.agent.application.memory.UserMemoryContext;
 import com.fukang.knowledge.agent.application.memory.UserMemoryService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
  * RAG 会话服务，统一封装问答编排中的会话上下文准备、记忆格式化和消息保存。
  */
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class RagConversationService {
 
@@ -48,7 +50,12 @@ public class RagConversationService {
         conversationMemoryService.saveUserMessage(conversationId, question, rewrittenQuery, status);
         Long assistantMessageId = conversationMemoryService.saveAssistantMessage(conversationId, answer, status);
         if (STATUS_SUCCESS.equals(status)) {
-            userMemoryService.extractAndUpdate(conversationId, assistantMessageId, question, answer);
+            try {
+                userMemoryService.extractAndUpdate(conversationId, assistantMessageId, question, answer);
+            } catch (Exception e) {
+                log.warn("用户记忆更新失败，已跳过: conversationId={}, messageId={}, reason={}",
+                        conversationId, assistantMessageId, e.getMessage());
+            }
         }
     }
 

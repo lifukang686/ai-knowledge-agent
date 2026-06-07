@@ -42,7 +42,7 @@ knowledge-agent:
     strategy: ${CHUNK_STRATEGY:paragraph}
     paragraph:
       max-segment-size: ${CHUNK_PARAGRAPH_MAX_SEGMENT_SIZE:800}
-      overlap-size: ${CHUNK_PARAGRAPH_OVERLAP_SIZE:100}
+      overlap-size: ${CHUNK_PARAGRAPH_OVERLAP_SIZE:300}
     sentence:
       max-segment-size: ${CHUNK_SENTENCE_MAX_SEGMENT_SIZE:600}
       overlap-size: ${CHUNK_SENTENCE_OVERLAP_SIZE:100}

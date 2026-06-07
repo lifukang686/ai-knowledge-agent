@@ -30,30 +30,59 @@ import java.util.stream.Collectors;
 @Component
 public class RerankService implements Reranker {
 
+    /** 向量相似度权重，体现语义召回相关性。 */
     private static final double WEIGHT_VECTOR = 0.35;
+    /** RRF 融合分权重，体现多路召回综合排名。 */
     private static final double WEIGHT_RRF = 0.20;
+    /** BM25 分权重，体现关键词匹配相关性。 */
     private static final double WEIGHT_BM25 = 0.10;
+    /** 关键词覆盖率权重，体现问题词命中比例。 */
     private static final double WEIGHT_COVERAGE = 0.15;
+    /** 短语匹配权重，体现连续词片段命中程度。 */
     private static final double WEIGHT_PHRASE = 0.10;
+    /** IDF 分权重，体现重要问题词命中程度。 */
     private static final double WEIGHT_IDF = 0.07;
+    /** 位置分权重，命中越靠前得分越高。 */
     private static final double WEIGHT_POSITION = 0.03;
 
+    /** 中文停用词，避免常见虚词影响本地重排。 */
     private static final Set<String> CHINESE_STOP_WORDS = Set.of(
             "的", "了", "在", "是", "我", "有", "和", "就", "不", "人",
             "都", "一", "一个", "上", "也", "很", "到", "说", "要", "去",
             "你", "会", "着", "没有", "看", "好", "自己", "这"
     );
 
+    /** 最短关键词长度，过滤过短噪声词。 */
     private static final int MIN_TERM_LENGTH = 2;
+    /** 中文分词器，用于抽取查询关键词。 */
     private static final JiebaSegmenter SEGMENTER = new JiebaSegmenter();
+    /** 中文字符检测，用于选择分词方式。 */
     private static final Pattern CHINESE_PATTERN = Pattern.compile("[\\u4e00-\\u9fff]");
 
     private final RerankModelPort rerankModelPort;
 
+    /**
+     * 创建重排服务。
+     *
+     * @param rerankModelPort 外部重排模型端口
+     */
     public RerankService(RerankModelPort rerankModelPort) {
         this.rerankModelPort = rerankModelPort;
     }
 
+    /**
+     * 本地规则重排的候选分数明细。
+     *
+     * @param candidate     原始检索候选
+     * @param finalScore    本地融合后的最终分
+     * @param vectorScore   向量相似度分
+     * @param rrfScore      RRF 融合分
+     * @param bm25Score     归一化后的 BM25 分
+     * @param termCoverage  查询关键词覆盖率
+     * @param phraseMatch   查询短语匹配度
+     * @param idfScore      重要关键词命中分
+     * @param positionScore 关键词位置分
+     */
     private record ScoredCandidate(
             SearchResult candidate,
             double finalScore,
@@ -69,6 +98,9 @@ public class RerankService implements Reranker {
 
     /**
      * 构建 LangChain4j 检索增强器，保留默认聚合能力。
+     *
+     * @param contentRetriever LangChain4j 内容检索器
+     * @param minScore         最低分阈值，仅用于日志观察
      */
     public RetrievalAugmentor buildReRankingAugmentor(ContentRetriever contentRetriever, Double minScore) {
         log.info("构建 RAG 增强器: minScore={}, contentAggregator=DefaultContentAggregator", minScore);
@@ -78,6 +110,12 @@ public class RerankService implements Reranker {
                 .build();
     }
 
+    /**
+     * 对召回候选进行重排。
+     *
+     * @param candidates 原始召回候选
+     * @param query      用户查询或改写查询
+     */
     @Override
     public List<SearchResult> rerank(List<SearchResult> candidates, String query) {
         if (candidates == null || candidates.isEmpty() || query == null || query.isBlank()) {
@@ -94,6 +132,13 @@ public class RerankService implements Reranker {
         return rerankByLocalRules(candidates, query, startTime);
     }
 
+    /**
+     * 使用外部重排模型排序。
+     *
+     * @param candidates 原始召回候选
+     * @param query      用户查询或改写查询
+     * @param startTime  重排开始时间，用于统计耗时
+     */
     private Optional<List<SearchResult>> rerankByModel(List<SearchResult> candidates, String query, long startTime) {
         Optional<List<RerankModelPort.RerankScore>> scoreResult = rerankModelPort.rerank(query, candidates);
         if (scoreResult.isEmpty()) {
@@ -125,6 +170,13 @@ public class RerankService implements Reranker {
         return Optional.of(reranked);
     }
 
+    /**
+     * 使用本地规则兜底排序。
+     *
+     * @param candidates 原始召回候选
+     * @param query      用户查询或改写查询
+     * @param startTime  重排开始时间，用于统计耗时
+     */
     private List<SearchResult> rerankByLocalRules(List<SearchResult> candidates, String query, long startTime) {
         List<String> queryTerms = extractQueryTerms(query);
         if (queryTerms.isEmpty()) {
@@ -134,14 +186,22 @@ public class RerankService implements Reranker {
         Map<String, Double> idfMap = computeIDF(candidates, queryTerms);
         List<ScoredCandidate> scoredResults = new ArrayList<>();
         for (SearchResult candidate : candidates) {
+            // 候选文档块文本，统一转小写便于关键词匹配。
             String text = candidate.chunkText() != null ? candidate.chunkText().toLowerCase() : "";
 
+            // 向量召回分，衡量语义相似度。
             double vectorScore = scoreOrZero(candidate.vectorScore());
+            // RRF 融合分，衡量多路召回后的综合排名。
             double rrfScore = scoreOrZero(candidate.rrfScore());
+            // BM25 关键词分，归一化后参与融合。
             double bm25Score = normalizeBm25(scoreOrZero(candidate.bm25Score()));
+            // 查询词覆盖率，命中的问题关键词越多分越高。
             double termCoverage = computeTermCoverage(queryTerms, text);
+            // 短语匹配度，连续命中查询片段越多分越高。
             double phraseMatch = computePhraseMatch(query, text);
+            // IDF 命中分，命中越稀有的问题词分越高。
             double idfScore = computeIDFScore(queryTerms, text, idfMap);
+            // 位置分，关键词首次出现越靠前分越高。
             double positionScore = computePositionScore(queryTerms, text);
 
             // 本地规则将召回分、关键词覆盖和文本位置融合，作为模型不可用时的兜底排序。
@@ -173,10 +233,20 @@ public class RerankService implements Reranker {
         return result;
     }
 
+    /**
+     * 空分数按 0 处理。
+     *
+     * @param score 原始分数
+     */
     private double scoreOrZero(Double score) {
         return score != null ? score : 0.0;
     }
 
+    /**
+     * 将 BM25 分压缩到 0~1 区间。
+     *
+     * @param bm25Score 原始 BM25 分
+     */
     private double normalizeBm25(double bm25Score) {
         if (bm25Score <= 0.0) {
             return 0.0;
@@ -184,6 +254,11 @@ public class RerankService implements Reranker {
         return bm25Score / (bm25Score + 1.0);
     }
 
+    /**
+     * 抽取查询关键词。
+     *
+     * @param query 用户查询或改写查询
+     */
     private List<String> extractQueryTerms(String query) {
         if (query == null || query.isBlank()) {
             return List.of();
@@ -201,6 +276,12 @@ public class RerankService implements Reranker {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * 计算查询词在候选集合中的 IDF。
+     *
+     * @param candidates 原始召回候选
+     * @param queryTerms 查询关键词
+     */
     private Map<String, Double> computeIDF(List<SearchResult> candidates, List<String> queryTerms) {
         int totalDocs = candidates.size();
         Map<String, Double> idfMap = new LinkedHashMap<>();
@@ -219,6 +300,12 @@ public class RerankService implements Reranker {
         return idfMap;
     }
 
+    /**
+     * 计算查询词覆盖率。
+     *
+     * @param queryTerms 查询关键词
+     * @param text       候选文本
+     */
     private double computeTermCoverage(List<String> queryTerms, String text) {
         if (queryTerms.isEmpty()) {
             return 0.0;
@@ -227,6 +314,12 @@ public class RerankService implements Reranker {
         return (double) matched / queryTerms.size();
     }
 
+    /**
+     * 计算查询短语匹配度。
+     *
+     * @param query 用户查询或改写查询
+     * @param text  候选文本
+     */
     private double computePhraseMatch(String query, String text) {
         if (query == null || query.isBlank() || text == null || text.isBlank()) {
             return 0.0;
@@ -260,6 +353,11 @@ public class RerankService implements Reranker {
         return (double) maxConsecutive / words.length;
     }
 
+    /**
+     * 按语言切分查询词。
+     *
+     * @param query 已归一化查询
+     */
     private String[] segmentQuery(String query) {
         if (containsChinese(query)) {
             return SEGMENTER.sentenceProcess(query).toArray(new String[0]);
@@ -267,10 +365,22 @@ public class RerankService implements Reranker {
         return query.split("\\s+");
     }
 
+    /**
+     * 判断文本是否包含中文。
+     *
+     * @param text 待检测文本
+     */
     private boolean containsChinese(String text) {
         return CHINESE_PATTERN.matcher(text).find();
     }
 
+    /**
+     * 计算重要关键词命中分。
+     *
+     * @param queryTerms 查询关键词
+     * @param text       候选文本
+     * @param idfMap     查询词 IDF 映射
+     */
     private double computeIDFScore(List<String> queryTerms, String text, Map<String, Double> idfMap) {
         double matchedIDFSum = 0.0;
         double totalIDFSum = 0.0;
@@ -289,6 +399,12 @@ public class RerankService implements Reranker {
         return matchedIDFSum / totalIDFSum;
     }
 
+    /**
+     * 计算关键词位置分。
+     *
+     * @param queryTerms 查询关键词
+     * @param text       候选文本
+     */
     private double computePositionScore(List<String> queryTerms, String text) {
         if (queryTerms.isEmpty() || text == null || text.isBlank()) {
             return 0.0;

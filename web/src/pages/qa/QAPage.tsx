@@ -195,9 +195,11 @@ const QAPage: React.FC = () => {
                   }
                 : message
             )));
-            refreshActiveConversation(resp.conversationId);
+            refreshActiveConversation(resp.conversationId).catch(() => {
+              toast.error('刷新会话列表失败');
+            });
             if (resp.status === 'no_results') {
-              toast.info('未找到相关文档内容');
+              toast('未找到相关文档内容');
             }
           },
           onError: (event) => {

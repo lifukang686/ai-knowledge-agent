@@ -86,7 +86,7 @@ public class DocumentProcessingPipeline {
         updateStatus(documentId, DocumentStatus.CHUNKING, null);
         log.info("Phase 2/5 文本分块: documentId={}", documentId);
 
-        // 分块入口：这里只编排流程，真正的文本切分会继续委托到 DocumentProcessingService -> ChunkStrategy。
+        // 分块入口
         ChunkResult chunkResult = processingService.chunkDocument(parseResult);
         // 替换式入库：先清理旧 chunk/旧向量，再把本次切出来的新 chunk 写入 document_chunk。
         ChunkStorageResult storageResult = chunkAppService.replaceAndStoreChunks(chunkResult, documentId);

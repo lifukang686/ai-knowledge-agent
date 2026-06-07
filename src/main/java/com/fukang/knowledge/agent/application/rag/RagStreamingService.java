@@ -4,6 +4,7 @@ import com.fukang.knowledge.agent.application.ai.port.ChatCompletionPort;
 import com.fukang.knowledge.agent.application.ai.port.StreamingChatCompletionPort;
 import com.fukang.knowledge.agent.application.rag.result.QaResult;
 import com.fukang.knowledge.agent.application.rag.stream.QaStreamHandler;
+import com.fukang.knowledge.agent.common.context.UserContextHolder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -29,6 +30,7 @@ public class RagStreamingService {
                        Long conversationId,
                        QaStreamHandler handler) {
         StringBuilder answer = new StringBuilder();
+        Long userId = UserContextHolder.getUserId();
         streamingChatCompletionPort.completeStream(messages, new StreamingChatCompletionPort.StreamHandler() {
             @Override
             public void onToken(String token) {
@@ -41,15 +43,35 @@ public class RagStreamingService {
                 String finalAnswer = fullText != null && !fullText.isBlank()
                         ? fullText
                         : answer.toString();
-                ragConversationService.saveTurn(conversationId, originalQuestion, rewrittenQuery, finalAnswer, status);
-                handler.onDone(new QaResult(finalAnswer, rewrittenQuery, status, conversationId));
+                runWithUserContext(userId, () -> {
+                    ragConversationService.saveTurn(conversationId, originalQuestion, rewrittenQuery, finalAnswer, status);
+                    handler.onDone(new QaResult(finalAnswer, rewrittenQuery, status, conversationId));
+                });
             }
 
             @Override
             public void onError(Throwable error) {
-                ragConversationService.saveUserFailure(conversationId, originalQuestion, rewrittenQuery);
-                handler.onError("生成失败，请稍后重试", error);
+                runWithUserContext(userId, () -> {
+                    ragConversationService.saveUserFailure(conversationId, originalQuestion, rewrittenQuery);
+                    handler.onError("生成失败，请稍后重试", error);
+                });
             }
         });
+    }
+
+    /**
+     * 流式模型回调可能切换线程，保存会话前恢复用户上下文。
+     */
+    private void runWithUserContext(Long userId, Runnable action) {
+        if (userId != null) {
+            UserContextHolder.setUserId(userId);
+        }
+        try {
+            action.run();
+        } finally {
+            if (userId != null) {
+                UserContextHolder.clear();
+            }
+        }
     }
 }

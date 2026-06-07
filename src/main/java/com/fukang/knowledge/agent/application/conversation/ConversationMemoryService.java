@@ -238,6 +238,7 @@ public class ConversationMemoryService {
 
         String history = formatHistory(messagesToSummarize, messagesToSummarize.size(), true);
         String oldSummary = existing != null ? existing.getSummary() : "";
+        // 调用模型生成新的会话摘要
         String summary = generateSummary(oldSummary, history);
         if (!StringUtils.hasText(summary)) {
             return;

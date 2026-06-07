@@ -8,9 +8,6 @@ public interface QueryRewritePort {
     /** 默认改写策略。 */
     String rewrite(String originalQuery);
 
-    /** 结合会话摘要和最近历史改写查询。 */
-    String rewriteWithHistory(String originalQuery, String conversationSummary, String conversationHistory);
-
     /** 结合会话记忆和用户记忆改写查询。 */
     String rewriteWithHistory(String originalQuery, String conversationSummary, String conversationHistory, String userMemory);
 

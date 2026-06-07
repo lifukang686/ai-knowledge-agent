@@ -49,11 +49,6 @@ public class QueryRewriteService implements QueryRewritePort {
     }
 
     @Override
-    public String rewriteWithHistory(String originalQuery, String conversationSummary, String conversationHistory) {
-        return rewriteWithHistory(originalQuery, conversationSummary, conversationHistory, "");
-    }
-
-    @Override
     public String rewriteWithHistory(String originalQuery,
                                      String conversationSummary,
                                      String conversationHistory,

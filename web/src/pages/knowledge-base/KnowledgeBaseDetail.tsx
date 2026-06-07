@@ -44,7 +44,8 @@ const KnowledgeBaseDetail: React.FC = () => {
   const [deleteTarget, setDeleteTarget] = useState<Document | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const fetchIdRef = useRef(0);
+  const kbFetchIdRef = useRef(0);
+  const docsFetchIdRef = useRef(0);
   const kbLoadedRef = useRef(false);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const retryCountRef = useRef(0);
@@ -57,20 +58,20 @@ const KnowledgeBaseDetail: React.FC = () => {
       setRetryCount(0);
     }
 
-    const fetchId = ++fetchIdRef.current;
+    const fetchId = ++docsFetchIdRef.current;
     setDocsLoadingState('loading');
     setDocsError(null);
 
     try {
       const result = await getKnowledgeBaseDocuments(id, { page: docsPage, pageSize: docsPageSize });
-      if (fetchId !== fetchIdRef.current) return;
+      if (fetchId !== docsFetchIdRef.current) return;
       setDocuments(result.items);
       setDocsTotal(result.total);
       setDocsLoadingState('idle');
       retryCountRef.current = 0;
       setRetryCount(0);
     } catch (error: any) {
-      if (fetchId !== fetchIdRef.current) return;
+      if (fetchId !== docsFetchIdRef.current) return;
 
       const message = error?.message || '加载文档列表失败';
       console.error('加载文档列表失败:', error);
@@ -88,14 +89,14 @@ const KnowledgeBaseDetail: React.FC = () => {
   }, [id, docsPage, docsPageSize]);
 
   useEffect(() => {
-    const fetchId = ++fetchIdRef.current;
+    const fetchId = ++kbFetchIdRef.current;
     const controller = new AbortController();
 
     async function doLoad() {
       setLoading(true);
       try {
         const data = await getKnowledgeBase(id!, controller.signal);
-        if (fetchId !== fetchIdRef.current) {
+        if (fetchId !== kbFetchIdRef.current) {
           setLoading(false);
           return;
         }
@@ -103,7 +104,7 @@ const KnowledgeBaseDetail: React.FC = () => {
         kbLoadedRef.current = true;
         loadDocuments();
       } catch (error: any) {
-        if (fetchId !== fetchIdRef.current) {
+        if (fetchId !== kbFetchIdRef.current) {
           setLoading(false);
           return;
         }
@@ -115,7 +116,7 @@ const KnowledgeBaseDetail: React.FC = () => {
         toast.error('加载知识库详情失败');
         navigate('/knowledge-bases');
       } finally {
-        if (fetchId === fetchIdRef.current) {
+        if (fetchId === kbFetchIdRef.current) {
           setLoading(false);
         }
       }

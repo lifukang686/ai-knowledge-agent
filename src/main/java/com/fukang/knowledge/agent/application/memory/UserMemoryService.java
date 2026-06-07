@@ -41,6 +41,10 @@ public class UserMemoryService {
      */
     public UserMemoryContext loadForCurrentUser() {
         Long userId = currentUserId();
+        if (userId == null) {
+            log.warn("读取用户记忆跳过: userId为空");
+            return new UserMemoryContext(null, List.of(), "");
+        }
         List<UserMemoryDO> memories = userMemoryRepository.findActiveByUser(userId, MEMORY_LIMIT);
         String promptText = formatPromptText(memories);
         log.info("读取用户记忆完成: userId={}, count={}", userId, memories.size());
@@ -58,6 +62,11 @@ public class UserMemoryService {
     @Transactional(rollbackFor = Exception.class)
     public void extractAndUpdate(Long conversationId, Long sourceMessageId, String question, String answer) {
         Long userId = currentUserId();
+        if (userId == null) {
+            log.warn("用户记忆更新跳过: userId为空, conversationId={}, messageId={}",
+                    conversationId, sourceMessageId);
+            return;
+        }
         if (!StringUtils.hasText(question) || !StringUtils.hasText(answer)) {
             return;
         }
