@@ -13,16 +13,19 @@ import org.springframework.context.ApplicationEvent;
 public class DocumentUploadedEvent extends ApplicationEvent {
 
     private final Long knowledgeBaseId;
+    private final Long chunkStrategyId;
     private final String filePath;
     private final String fileName;
 
     public DocumentUploadedEvent(Object source,
                                  Long documentId,
                                  Long knowledgeBaseId,
+                                 Long chunkStrategyId,
                                  String filePath,
                                  String fileName) {
         super(source);
         this.knowledgeBaseId = knowledgeBaseId;
+        this.chunkStrategyId = chunkStrategyId;
         this.filePath = filePath;
         this.fileName = fileName;
         this.documentId = documentId;

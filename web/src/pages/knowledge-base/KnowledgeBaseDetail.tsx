@@ -6,10 +6,13 @@ import axios from 'axios';
 
 import { KnowledgeBase, Document } from '@/types/knowledgeBase';
 import { getKnowledgeBase, getKnowledgeBaseDocuments, uploadDocument, deleteDocument } from '@/services/knowledgeBase';
+import { chunkStrategyService } from '@/services/chunkStrategy';
+import type { ChunkStrategy } from '@/types/chunkStrategy';
 import { DataTable } from '@/components/common/DataTable';
 import { StatusTag } from '@/components/common/StatusTag';
 import { Pagination } from '@/components/common/Pagination';
 import { ConfirmModal } from '@/components/common/ConfirmModal';
+import { FormModal } from '@/components/common/FormModal';
 import { formatDateTime, formatFileSize } from '@/utils/format';
 import { DEFAULT_PAGE_SIZE } from '@/utils/constants';
 
@@ -35,6 +38,11 @@ const KnowledgeBaseDetail: React.FC = () => {
   const [retryCount, setRetryCount] = useState(0);
 
   const [uploading, setUploading] = useState(false);
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [chunkStrategies, setChunkStrategies] = useState<ChunkStrategy[]>([]);
+  const [chunkStrategiesLoading, setChunkStrategiesLoading] = useState(false);
+  const [selectedChunkStrategyId, setSelectedChunkStrategyId] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
 
   const [sortField, setSortField] = useState<SortField | null>(null);
@@ -155,6 +163,36 @@ const KnowledgeBaseDetail: React.FC = () => {
     loadDocuments();
   };
 
+  const loadChunkStrategies = useCallback(async () => {
+    setChunkStrategiesLoading(true);
+    try {
+      const result = await chunkStrategyService.list({ page: 1, pageSize: 100 });
+      setChunkStrategies(result.items);
+      const defaultStrategy = result.items.find((item) => item.isDefault);
+      setSelectedChunkStrategyId((currentValue) =>
+        currentValue || defaultStrategy?.id || result.items[0]?.id || ''
+      );
+    } catch (error: any) {
+      console.error('加载分块策略失败:', error);
+      toast.error(error?.message || '加载分块策略失败');
+    } finally {
+      setChunkStrategiesLoading(false);
+    }
+  }, []);
+
+  const openUploadModal = () => {
+    setUploadFile(null);
+    setSelectedChunkStrategyId('');
+    setUploadModalOpen(true);
+    loadChunkStrategies();
+  };
+
+  const closeUploadModal = () => {
+    if (uploading) return;
+    setUploadModalOpen(false);
+    setUploadFile(null);
+  };
+
   const handleDocsPageChange = (page: number) => {
     setDocsPage(page);
   };
@@ -203,21 +241,29 @@ const KnowledgeBaseDetail: React.FC = () => {
       : <ArrowDown className="h-4 w-4 text-primary-600" />;
   };
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || !id) return;
+  const handleUploadSubmit = async () => {
+    if (!id) return;
+    if (!uploadFile) {
+      toast.error('请选择要上传的文件');
+      return;
+    }
+    if (!selectedChunkStrategyId) {
+      toast.error('请选择分块策略');
+      return;
+    }
 
     setUploading(true);
     try {
-      const result = await uploadDocument(id, file);
+      await uploadDocument(id, uploadFile, selectedChunkStrategyId);
       toast.success(`文档上传成功`);
+      setUploadModalOpen(false);
+      setUploadFile(null);
       setRefreshKey(k => k + 1);
-    } catch (error) {
+    } catch (error: any) {
       console.error('文档上传失败:', error);
       toast.error('文档上传失败');
     } finally {
       setUploading(false);
-      event.target.value = '';
     }
   };
 
@@ -399,17 +445,14 @@ const KnowledgeBaseDetail: React.FC = () => {
             刷新状态
           </button>
 
-          <label className="btn-primary cursor-pointer">
+          <button
+            onClick={openUploadModal}
+            className="btn-primary"
+            disabled={uploading}
+          >
             <Upload className="h-4 w-4 mr-2" />
             上传文档
-            <input
-              type="file"
-              className="hidden"
-              accept=".pdf,.doc,.docx,.txt,.md"
-              onChange={handleFileUpload}
-              disabled={uploading}
-            />
-          </label>
+          </button>
         </div>
       </div>
 
@@ -517,6 +560,57 @@ const KnowledgeBaseDetail: React.FC = () => {
         onCancel={handleDeleteCancel}
         loading={deleting}
       />
+
+      <FormModal
+        isOpen={uploadModalOpen}
+        onClose={closeUploadModal}
+        title="上传文档"
+        width="max-w-lg"
+        onSubmit={handleUploadSubmit}
+        loading={uploading}
+        submitText="上传"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              文档文件 <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="file"
+              className="form-input"
+              accept=".pdf,.doc,.docx,.txt,.md,.xlsx,.xls,.ppt,.pptx"
+              onChange={(event) => setUploadFile(event.target.files?.[0] || null)}
+              disabled={uploading}
+            />
+            {uploadFile && (
+              <p className="text-xs text-gray-500 mt-1">
+                {uploadFile.name}，{formatFileSize(uploadFile.size)}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              分块策略 <span className="text-red-500">*</span>
+            </label>
+            <select
+              className="form-input"
+              value={selectedChunkStrategyId}
+              onChange={(event) => setSelectedChunkStrategyId(event.target.value)}
+              disabled={uploading || chunkStrategiesLoading}
+            >
+              <option value="">
+                {chunkStrategiesLoading ? '加载分块策略中...' : '请选择分块策略'}
+              </option>
+              {chunkStrategies.map((strategy) => (
+                <option key={strategy.id} value={strategy.id}>
+                  {strategy.strategyName}（{strategy.chunkType}{strategy.isDefault ? '，默认' : ''}）
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </FormModal>
     </div>
   );
 };

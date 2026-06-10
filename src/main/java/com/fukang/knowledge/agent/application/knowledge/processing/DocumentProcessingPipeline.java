@@ -41,7 +41,7 @@ public class DocumentProcessingPipeline {
     /**
      * 执行完整的文档处理管道。
      */
-    public void execute(Long documentId, Long knowledgeBaseId,
+    public void execute(Long documentId, Long knowledgeBaseId, Long chunkStrategyId,
                         String filePath, String fileName) {
         Instant startTime = Instant.now();
         log.info("文档处理管道启动: documentId={}, fileName={}", documentId, fileName);
@@ -50,7 +50,7 @@ public class DocumentProcessingPipeline {
             // 解析为纯文本
             DocumentParseResult parseResult = phaseParse(documentId, filePath, fileName);
             // 文本分块
-            ChunkStorageResult chunkStorageResult = phaseChunk(documentId, parseResult);
+            ChunkStorageResult chunkStorageResult = phaseChunk(documentId, chunkStrategyId, parseResult);
             // 构造 embedding 专用文本
             phaseBuildEmbeddingText(documentId);
             // 文档块生成 embedding
@@ -82,12 +82,12 @@ public class DocumentProcessingPipeline {
     /**
      * Phase 2: 对解析文本分块，并替换式写入 document_chunk。
      */
-    private ChunkStorageResult phaseChunk(Long documentId, DocumentParseResult parseResult) {
+    private ChunkStorageResult phaseChunk(Long documentId, Long chunkStrategyId, DocumentParseResult parseResult) {
         updateStatus(documentId, DocumentStatus.CHUNKING, null);
-        log.info("Phase 2/5 文本分块: documentId={}", documentId);
+        log.info("Phase 2/5 文本分块: documentId={}, chunkStrategyId={}", documentId, chunkStrategyId);
 
         // 分块入口
-        ChunkResult chunkResult = processingService.chunkDocument(parseResult);
+        ChunkResult chunkResult = processingService.chunkDocument(parseResult, chunkStrategyId);
         // 替换式入库：先清理旧 chunk/旧向量，再把本次切出来的新 chunk 写入 document_chunk。
         ChunkStorageResult storageResult = chunkAppService.replaceAndStoreChunks(chunkResult, documentId);
         log.info("Phase 2/5 分块完成: documentId={}, total={}, success={}",

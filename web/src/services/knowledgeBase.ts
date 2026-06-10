@@ -152,10 +152,14 @@ export const getKnowledgeBaseDocuments = async (
 export const uploadDocument = async (
   knowledgeBaseId: string,
   file: File,
+  chunkStrategyId?: string,
 ): Promise<{ documentId: string; status: string }> => {
   const formData = new FormData();
   formData.append('file', file);
   formData.append('knowledgeBaseId', knowledgeBaseId);
+  if (chunkStrategyId) {
+    formData.append('chunkStrategyId', chunkStrategyId);
+  }
 
   const response = await request.post<{ documentId: string; status: string }>(
     API_ENDPOINTS.UPLOAD_DOCUMENT,

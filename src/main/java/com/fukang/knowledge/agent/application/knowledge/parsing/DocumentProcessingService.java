@@ -82,6 +82,13 @@ public class DocumentProcessingService {
         return chunkDocument(parseResult, chunkStrategyAppService.resolveDefaultChunkStrategy());
     }
 
+    public ChunkResult chunkDocument(DocumentParseResult parseResult, Long chunkStrategyId) {
+        ChunkStrategy strategy = chunkStrategyId != null
+                ? chunkStrategyAppService.resolveChunkStrategy(chunkStrategyId)
+                : chunkStrategyAppService.resolveDefaultChunkStrategy();
+        return chunkDocument(parseResult, strategy);
+    }
+
     public ChunkResult chunkDocument(DocumentParseResult parseResult, ChunkStrategy strategy) {
         if (parseResult == null) {
             log.warn("文档解析结果为空，无法分块");

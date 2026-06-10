@@ -116,6 +116,15 @@ public class DocumentChunkStrategyAppService {
                 strategy.getOverlapSize());
     }
 
+    public ChunkStrategy resolveChunkStrategy(Long chunkStrategyId) {
+        DocumentChunkStrategyDO strategy = findStrategyById(chunkStrategyId);
+        return buildChunkStrategy(
+                strategy.getStrategyName(),
+                strategy.getChunkType(),
+                strategy.getMaxSegmentSize(),
+                strategy.getOverlapSize());
+    }
+
     private ChunkStrategy buildFallbackStrategy() {
         String strategy = chunkingProperties.getStrategy();
         ChunkingProperties.SplitterProperties active = chunkingProperties.active();

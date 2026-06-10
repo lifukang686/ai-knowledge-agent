@@ -29,7 +29,7 @@ public class DocumentProcessingListener {
                 event.getDocumentId(), event.getFileName());
         try {
             pipeline.execute(event.getDocumentId(), event.getKnowledgeBaseId(),
-                    event.getFilePath(), event.getFileName());
+                    event.getChunkStrategyId(), event.getFilePath(), event.getFileName());
         } catch (Exception e) {
             log.error("文档处理管道执行异常: documentId={}", event.getDocumentId(), e);
         }

@@ -25,15 +25,25 @@ import java.util.regex.Pattern;
 @Slf4j
 public abstract class AbstractChunkStrategy implements ChunkStrategy {
 
+    /** 页码标记，用于从解析文本中恢复页码元数据。 */
     private static final Pattern PAGE_MARKER = Pattern.compile("\\[\\[PAGE:(\\d+)]]");
+    /** 章节标记，用于从解析文本中恢复章节元数据。 */
     private static final Pattern SECTION_MARKER = Pattern.compile("\\[\\[SECTION:([^]]+)]]");
+    /** 表格标记，仅用于清理内部解析占位符。 */
     private static final Pattern TABLE_MARKER = Pattern.compile("\\[\\[/?TABLE]]");
 
+    /** 策略名称。 */
     private final String strategyName;
+    /** 分块类型编码。 */
     private final String chunkType;
+    /** 单个分块最大字符数。 */
     private final int maxSegmentSize;
+    /** 相邻分块重叠字符数。 */
     private final int overlapSize;
 
+    /**
+     * 创建分块策略模板。
+     */
     protected AbstractChunkStrategy(String strategyName, String chunkType,
                                     int maxSegmentSize, int overlapSize) {
         this.strategyName = strategyName;
@@ -89,8 +99,14 @@ public abstract class AbstractChunkStrategy implements ChunkStrategy {
         return strategyName;
     }
 
+    /**
+     * 创建具体分块器。
+     */
     protected abstract DocumentSplitter createSplitter(int maxSegmentSize, int overlapSize);
 
+    /**
+     * 补充分块的页码、章节等结构化元数据。
+     */
     private void enrichStructureMetadata(String text, Map<String, String> metadata) {
         Matcher pageMatcher = PAGE_MARKER.matcher(text);
         String lastPage = null;
@@ -113,6 +129,9 @@ public abstract class AbstractChunkStrategy implements ChunkStrategy {
         }
     }
 
+    /**
+     * 从文本首部推断章节标题。
+     */
     private Optional<String> inferSectionTitle(String text) {
         if (text == null || text.isBlank()) {
             return Optional.empty();
@@ -131,6 +150,9 @@ public abstract class AbstractChunkStrategy implements ChunkStrategy {
         return Optional.empty();
     }
 
+    /**
+     * 判断文本行是否像章节标题。
+     */
     private boolean isLikelyHeading(String line) {
         if (line.length() > 80 || line.endsWith("。") || line.endsWith(".") || line.endsWith("；")) {
             return false;
@@ -140,6 +162,9 @@ public abstract class AbstractChunkStrategy implements ChunkStrategy {
                 || line.startsWith("#");
     }
 
+    /**
+     * 清理内部解析标记，避免写入分块正文。
+     */
     private String cleanInternalMarkers(String text) {
         if (text == null) {
             return "";
@@ -153,6 +178,9 @@ public abstract class AbstractChunkStrategy implements ChunkStrategy {
                 .trim();
     }
 
+    /**
+     * 计算分块平均 token 数。
+     */
     private double calculateAverageTokenCount(List<DocumentChunk> chunks) {
         if (chunks.isEmpty()) {
             return 0;

@@ -44,8 +44,9 @@ public class DocumentController {
     @PostMapping("/upload")
     public Result<DocumentUploadResp> uploadDocument(
             @RequestParam("knowledgeBaseId") Long knowledgeBaseId,
+            @RequestParam(value = "chunkStrategyId", required = false) Long chunkStrategyId,
             @RequestPart("file") MultipartFile file) {
-        DocumentUploadResult result = documentAppService.uploadDocument(knowledgeBaseId, file);
+        DocumentUploadResult result = documentAppService.uploadDocument(knowledgeBaseId, chunkStrategyId, file);
         return Result.success(new DocumentUploadResp(result.documentId(), result.status()));
     }
 

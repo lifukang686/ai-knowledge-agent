@@ -52,7 +52,7 @@ public class DocumentAppService {
      * <p>数据库只记录原文件元数据，解析、分块和向量化由后续 pipeline 处理。</p>
      */
     @Transactional(rollbackFor = Exception.class)
-    public DocumentUploadResult uploadDocument(Long knowledgeBaseId, MultipartFile file) {
+    public DocumentUploadResult uploadDocument(Long knowledgeBaseId, Long chunkStrategyId, MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new BaseException(ErrorCodeEnum.FILE_EMPTY);
         }
@@ -78,7 +78,7 @@ public class DocumentAppService {
                 DocumentStatus.PENDING.getCode());
 
         eventPublisher.publishEvent(new DocumentUploadedEvent(
-                this, document.getId(), knowledgeBaseId, filePath, originalFileName));
+                this, document.getId(), knowledgeBaseId, chunkStrategyId, filePath, originalFileName));
 
         return new DocumentUploadResult(document.getId(), DocumentStatus.PENDING.getCode());
     }

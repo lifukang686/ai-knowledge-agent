@@ -38,7 +38,7 @@ public class DocumentProcessingRecovery {
         log.info("补偿扫描: 发现 {} 个待处理文档，重新提交处理", pendingDocs.size());
         for (DocumentDO doc : pendingDocs) {
             log.info("补偿处理: documentId={}, fileName={}", doc.getId(), doc.getTitle());
-            pipeline.execute(doc.getId(), doc.getKnowledgeBaseId(), doc.getFilePath(), doc.getTitle());
+            pipeline.execute(doc.getId(), doc.getKnowledgeBaseId(), null, doc.getFilePath(), doc.getTitle());
         }
     }
 }
