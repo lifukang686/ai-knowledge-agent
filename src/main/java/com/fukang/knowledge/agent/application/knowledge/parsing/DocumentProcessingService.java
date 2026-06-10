@@ -2,11 +2,10 @@ package com.fukang.knowledge.agent.application.knowledge.parsing;
 
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
+import com.fukang.knowledge.agent.application.knowledge.chunk.DocumentChunkStrategyAppService;
 import com.fukang.knowledge.agent.domain.knowledge.model.ChunkResult;
 import com.fukang.knowledge.agent.domain.knowledge.model.DocumentParseResult;
 import com.fukang.knowledge.agent.infrastructure.chunk.ChunkStrategy;
-import com.fukang.knowledge.agent.infrastructure.chunk.Langchain4jChunkStrategy;
-import com.fukang.knowledge.agent.infrastructure.config.ChunkingProperties;
 import dev.langchain4j.data.document.Document;
 import dev.langchain4j.data.document.DocumentParser;
 import dev.langchain4j.data.document.parser.TextDocumentParser;
@@ -31,11 +30,11 @@ import java.util.Map;
 public class DocumentProcessingService {
 
     private final Map<String, DocumentParser> parsersByExtension;
-    private final ChunkingProperties chunkingProperties;
+    private final DocumentChunkStrategyAppService chunkStrategyAppService;
 
-    public DocumentProcessingService(ChunkingProperties chunkingProperties) {
+    public DocumentProcessingService(DocumentChunkStrategyAppService chunkStrategyAppService) {
         this.parsersByExtension = createLangchain4jParsers();
-        this.chunkingProperties = chunkingProperties;
+        this.chunkStrategyAppService = chunkStrategyAppService;
     }
 
     public DocumentParseResult parseDocument(byte[] fileBytes, String fileName, long fileSizeInBytes) {
@@ -80,7 +79,7 @@ public class DocumentProcessingService {
 
     public ChunkResult chunkDocument(DocumentParseResult parseResult) {
         // 默认使用 LangChain4j 分块策略，具体按配置选择 paragraph/sentence/fixed。
-        return chunkDocument(parseResult, new Langchain4jChunkStrategy(chunkingProperties));
+        return chunkDocument(parseResult, chunkStrategyAppService.resolveDefaultChunkStrategy());
     }
 
     public ChunkResult chunkDocument(DocumentParseResult parseResult, ChunkStrategy strategy) {
@@ -91,7 +90,7 @@ public class DocumentProcessingService {
 
         if (strategy == null) {
             log.warn("分块策略为空，降级使用 LangChain4j 默认分块策略");
-            return chunkDocument(parseResult, new Langchain4jChunkStrategy(chunkingProperties));
+            return chunkDocument(parseResult, chunkStrategyAppService.resolveDefaultChunkStrategy());
         }
 
         // 真正的分块动作在 ChunkStrategy.chunk(...) 内部完成。

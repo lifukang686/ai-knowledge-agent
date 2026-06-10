@@ -39,6 +39,7 @@ import ServiceDeskPage from '@/pages/service-desk/ServiceDeskPage';
 // 定时任务
 import JobList from '@/pages/jobs/JobList';
 import JobDetail from '@/pages/jobs/JobDetail';
+import ChunkStrategyList from '@/pages/chunk-strategy/ChunkStrategyList';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -113,6 +114,7 @@ export const AppRouter: React.FC = () => {
         {/* 定时任务 */}
         <Route path="scheduler/jobs" element={<JobList />} />
         <Route path="scheduler/jobs/:id" element={<JobDetail />} />
+        <Route path="chunk-strategies" element={<ChunkStrategyList />} />
         
         {/* 默认重定向到知识库管理 */}
         <Route index element={<KnowledgeBaseList />} />

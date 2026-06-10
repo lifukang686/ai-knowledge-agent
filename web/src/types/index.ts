@@ -27,3 +27,6 @@ export * from './conversation';
 
 // Job types
 export * from './job';
+
+// Chunk strategy types
+export * from './chunkStrategy';
