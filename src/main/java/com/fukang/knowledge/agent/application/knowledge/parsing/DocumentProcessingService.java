@@ -61,27 +61,6 @@ public class DocumentProcessingService {
         }
     }
 
-    public DocumentParseResult parseDocument(InputStream inputStream, String fileName, long fileSizeInBytes) {
-        if (inputStream == null) {
-            log.warn("文档输入流为空，无法解析: fileName={}", fileName);
-            throw new BaseException(ErrorCodeEnum.FILE_EMPTY);
-        }
-
-        if (fileName == null || fileName.isBlank()) {
-            log.warn("文档文件名为空，无法选择解析器");
-            throw new BaseException(ErrorCodeEnum.FILE_NAME_EMPTY);
-        }
-
-        String extension = extractExtension(fileName);
-        DocumentParser parser = getParser(extension);
-        return parseWithLangchain4j(parser, inputStream, fileName, extension, fileSizeInBytes);
-    }
-
-    public ChunkResult chunkDocument(DocumentParseResult parseResult) {
-        // 默认使用 LangChain4j 分块策略，具体按配置选择 paragraph/sentence/fixed。
-        return chunkDocument(parseResult, chunkStrategyAppService.resolveDefaultChunkStrategy());
-    }
-
     public ChunkResult chunkDocument(DocumentParseResult parseResult, Long chunkStrategyId) {
         ChunkStrategy strategy = chunkStrategyId != null
                 ? chunkStrategyAppService.resolveChunkStrategy(chunkStrategyId)
@@ -89,7 +68,7 @@ public class DocumentProcessingService {
         return chunkDocument(parseResult, strategy);
     }
 
-    public ChunkResult chunkDocument(DocumentParseResult parseResult, ChunkStrategy strategy) {
+    private ChunkResult chunkDocument(DocumentParseResult parseResult, ChunkStrategy strategy) {
         if (parseResult == null) {
             log.warn("文档解析结果为空，无法分块");
             throw new BaseException(ErrorCodeEnum.DOCUMENT_CONTENT_EMPTY);
@@ -97,7 +76,7 @@ public class DocumentProcessingService {
 
         if (strategy == null) {
             log.warn("分块策略为空，降级使用 LangChain4j 默认分块策略");
-            return chunkDocument(parseResult, chunkStrategyAppService.resolveDefaultChunkStrategy());
+            strategy = chunkStrategyAppService.resolveDefaultChunkStrategy();
         }
 
         // 真正的分块动作在 ChunkStrategy.chunk(...) 内部完成。
