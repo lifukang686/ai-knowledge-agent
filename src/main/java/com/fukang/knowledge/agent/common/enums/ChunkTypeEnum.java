@@ -28,6 +28,6 @@ public enum ChunkTypeEnum {
     }
 
     public boolean executable() {
-        return this == PARAGRAPH || this == SENTENCE || this == CHARACTER;
+        return this == CONTENT_OWNERSHIP || this == PARAGRAPH || this == SENTENCE || this == CHARACTER;
     }
 }

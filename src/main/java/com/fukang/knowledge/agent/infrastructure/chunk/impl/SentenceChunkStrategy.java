@@ -1,6 +1,7 @@
-package com.fukang.knowledge.agent.infrastructure.chunk;
+package com.fukang.knowledge.agent.infrastructure.chunk.impl;
 
 import com.fukang.knowledge.agent.common.enums.ChunkTypeEnum;
+import com.fukang.knowledge.agent.infrastructure.chunk.AbstractChunkStrategy;
 import dev.langchain4j.data.document.DocumentSplitter;
 import dev.langchain4j.data.document.splitter.DocumentBySentenceSplitter;
 

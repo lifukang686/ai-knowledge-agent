@@ -8,10 +8,11 @@ import com.fukang.knowledge.agent.common.enums.ChunkTypeEnum;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.common.result.PageResponse;
-import com.fukang.knowledge.agent.infrastructure.chunk.CharacterChunkStrategy;
 import com.fukang.knowledge.agent.infrastructure.chunk.ChunkStrategy;
-import com.fukang.knowledge.agent.infrastructure.chunk.ParagraphChunkStrategy;
-import com.fukang.knowledge.agent.infrastructure.chunk.SentenceChunkStrategy;
+import com.fukang.knowledge.agent.infrastructure.chunk.impl.CharacterChunkStrategy;
+import com.fukang.knowledge.agent.infrastructure.chunk.impl.ContentOwnershipChunkStrategy;
+import com.fukang.knowledge.agent.infrastructure.chunk.impl.ParagraphChunkStrategy;
+import com.fukang.knowledge.agent.infrastructure.chunk.impl.SentenceChunkStrategy;
 import com.fukang.knowledge.agent.infrastructure.config.ChunkingProperties;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.DocumentChunkStrategyDO;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,9 @@ public class DocumentChunkStrategyAppService {
     private final DocumentChunkStrategyRepository chunkStrategyRepository;
     private final ChunkingProperties chunkingProperties;
 
+    /**
+     * 创建分块策略。
+     */
     @Transactional(rollbackFor = Exception.class)
     public Long createStrategy(CreateChunkStrategyCommand command) {
         validateChunkType(command.chunkType());
@@ -48,6 +52,9 @@ public class DocumentChunkStrategyAppService {
         return strategy.getId();
     }
 
+    /**
+     * 分页查询分块策略。
+     */
     public PageResponse<DocumentChunkStrategyDO> listStrategies(long page, long pageSize, String keyword) {
         IPage<DocumentChunkStrategyDO> resultPage = chunkStrategyRepository.page(page, pageSize, keyword);
         return new PageResponse<>(
@@ -57,6 +64,9 @@ public class DocumentChunkStrategyAppService {
                 resultPage.getSize());
     }
 
+    /**
+     * 更新分块策略。
+     */
     @Transactional(rollbackFor = Exception.class)
     public void updateStrategy(Long id, UpdateChunkStrategyCommand command) {
         DocumentChunkStrategyDO strategy = findStrategyById(id);
@@ -82,6 +92,9 @@ public class DocumentChunkStrategyAppService {
         log.info("分块策略已更新: id={}, name={}", id, strategy.getStrategyName());
     }
 
+    /**
+     * 删除分块策略。
+     */
     @Transactional(rollbackFor = Exception.class)
     public void deleteStrategy(Long id) {
         DocumentChunkStrategyDO strategy = findStrategyById(id);
@@ -89,6 +102,9 @@ public class DocumentChunkStrategyAppService {
         log.info("分块策略已删除: id={}, name={}", id, strategy.getStrategyName());
     }
 
+    /**
+     * 设置默认分块策略。
+     */
     @Transactional(rollbackFor = Exception.class)
     public void setDefaultStrategy(Long id) {
         DocumentChunkStrategyDO strategy = findStrategyById(id);
@@ -104,6 +120,9 @@ public class DocumentChunkStrategyAppService {
                 id, strategy.getStrategyName(), strategy.getChunkType());
     }
 
+    /**
+     * 解析默认分块策略。
+     */
     public ChunkStrategy resolveDefaultChunkStrategy() {
         DocumentChunkStrategyDO strategy = chunkStrategyRepository.findDefault();
         if (strategy == null) {
@@ -116,6 +135,9 @@ public class DocumentChunkStrategyAppService {
                 strategy.getOverlapSize());
     }
 
+    /**
+     * 解析指定分块策略。
+     */
     public ChunkStrategy resolveChunkStrategy(Long chunkStrategyId) {
         DocumentChunkStrategyDO strategy = findStrategyById(chunkStrategyId);
         return buildChunkStrategy(
@@ -125,6 +147,9 @@ public class DocumentChunkStrategyAppService {
                 strategy.getOverlapSize());
     }
 
+    /**
+     * 构建配置兜底策略。
+     */
     private ChunkStrategy buildFallbackStrategy() {
         String strategy = chunkingProperties.getStrategy();
         ChunkingProperties.SplitterProperties active = chunkingProperties.active();
@@ -142,6 +167,9 @@ public class DocumentChunkStrategyAppService {
         };
     }
 
+    /**
+     * 构建分块策略实例。
+     */
     private ChunkStrategy buildChunkStrategy(String strategyName, String chunkType,
                                              int maxSegmentSize, int overlapSize) {
         ChunkTypeEnum type = validateChunkType(chunkType);
@@ -149,12 +177,16 @@ public class DocumentChunkStrategyAppService {
             case PARAGRAPH -> new ParagraphChunkStrategy(strategyName, maxSegmentSize, overlapSize);
             case SENTENCE -> new SentenceChunkStrategy(strategyName, maxSegmentSize, overlapSize);
             case CHARACTER -> new CharacterChunkStrategy(strategyName, maxSegmentSize, overlapSize);
-            case CONTENT_OWNERSHIP, SEMANTIC -> throw new BaseException(
+            case CONTENT_OWNERSHIP -> new ContentOwnershipChunkStrategy(strategyName, maxSegmentSize, overlapSize);
+            case SEMANTIC -> throw new BaseException(
                     ErrorCodeEnum.DOCUMENT_CHUNK_FAILED.getCode(),
                     "当前分块类型暂未实现: " + chunkType);
         };
     }
 
+    /**
+     * 查询分块策略。
+     */
     private DocumentChunkStrategyDO findStrategyById(Long id) {
         DocumentChunkStrategyDO strategy = id != null ? chunkStrategyRepository.findById(id) : null;
         if (strategy == null) {
@@ -163,6 +195,9 @@ public class DocumentChunkStrategyAppService {
         return strategy;
     }
 
+    /**
+     * 校验分块类型。
+     */
     private ChunkTypeEnum validateChunkType(String chunkType) {
         try {
             return ChunkTypeEnum.fromCode(chunkType);
@@ -171,6 +206,9 @@ public class DocumentChunkStrategyAppService {
         }
     }
 
+    /**
+     * 校验分块长度配置。
+     */
     private void validateSegmentSize(Integer maxSegmentSize, Integer overlapSize) {
         if (maxSegmentSize == null || maxSegmentSize < 1) {
             throw badRequest("最大字符数必须大于 0");
@@ -183,6 +221,9 @@ public class DocumentChunkStrategyAppService {
         }
     }
 
+    /**
+     * 构建请求异常。
+     */
     private BaseException badRequest(String message) {
         return new BaseException(ErrorCodeEnum.BAD_REQUEST.getCode(), message);
     }
