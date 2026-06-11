@@ -21,7 +21,7 @@ public class DocumentChunkStrategyDO extends BaseEntity {
     @Column(name = "strategy_name", nullable = false, length = 100)
     private String strategyName;
 
-    /** 分块类型：按内容归属、按语义、按段落、按句子、按字符 */
+    /** 分块类型：按内容归属、按段落、按句子、按字符 */
     @Column(name = "chunk_type", nullable = false, length = 32)
     private String chunkType;
 

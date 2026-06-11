@@ -70,12 +70,12 @@ public class DocumentChunkStrategyAppService {
     @Transactional(rollbackFor = Exception.class)
     public void updateStrategy(Long id, UpdateChunkStrategyCommand command) {
         DocumentChunkStrategyDO strategy = findStrategyById(id);
-        ChunkTypeEnum chunkType = validateChunkType(strategy.getChunkType());
+        validateChunkType(strategy.getChunkType());
         if (StringUtils.hasText(command.strategyName())) {
             strategy.setStrategyName(command.strategyName());
         }
         if (StringUtils.hasText(command.chunkType())) {
-            chunkType = validateChunkType(command.chunkType());
+            validateChunkType(command.chunkType());
             strategy.setChunkType(command.chunkType());
         }
         if (command.maxSegmentSize() != null) {
@@ -85,9 +85,6 @@ public class DocumentChunkStrategyAppService {
             strategy.setOverlapSize(command.overlapSize());
         }
         validateSegmentSize(strategy.getMaxSegmentSize(), strategy.getOverlapSize());
-        if (Boolean.TRUE.equals(strategy.getIsDefault()) && !chunkType.executable()) {
-            throw badRequest("默认策略必须使用已实现的分块类型");
-        }
         chunkStrategyRepository.updateById(strategy);
         log.info("分块策略已更新: id={}, name={}", id, strategy.getStrategyName());
     }
@@ -108,10 +105,7 @@ public class DocumentChunkStrategyAppService {
     @Transactional(rollbackFor = Exception.class)
     public void setDefaultStrategy(Long id) {
         DocumentChunkStrategyDO strategy = findStrategyById(id);
-        ChunkTypeEnum type = validateChunkType(strategy.getChunkType());
-        if (!type.executable()) {
-            throw badRequest("当前分块类型暂未实现，不能设为默认策略: " + strategy.getChunkType());
-        }
+        validateChunkType(strategy.getChunkType());
 
         chunkStrategyRepository.clearDefault();
         strategy.setIsDefault(true);
@@ -178,9 +172,6 @@ public class DocumentChunkStrategyAppService {
             case SENTENCE -> new SentenceChunkStrategy(strategyName, maxSegmentSize, overlapSize);
             case CHARACTER -> new CharacterChunkStrategy(strategyName, maxSegmentSize, overlapSize);
             case CONTENT_OWNERSHIP -> new ContentOwnershipChunkStrategy(strategyName, maxSegmentSize, overlapSize);
-            case SEMANTIC -> throw new BaseException(
-                    ErrorCodeEnum.DOCUMENT_CHUNK_FAILED.getCode(),
-                    "当前分块类型暂未实现: " + chunkType);
         };
     }
 

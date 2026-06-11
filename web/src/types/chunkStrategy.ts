@@ -1,6 +1,6 @@
 import { ListResponse } from './common';
 
-export type ChunkType = '按内容归属' | '按语义' | '按段落' | '按句子' | '按字符';
+export type ChunkType = '按内容归属' | '按段落' | '按句子' | '按字符';
 
 export interface ChunkStrategy {
   id: string;

@@ -11,7 +11,6 @@ import lombok.Getter;
 public enum ChunkTypeEnum {
 
     CONTENT_OWNERSHIP("按内容归属"),
-    SEMANTIC("按语义"),
     PARAGRAPH("按段落"),
     SENTENCE("按句子"),
     CHARACTER("按字符");
@@ -27,7 +26,4 @@ public enum ChunkTypeEnum {
         throw new IllegalArgumentException("未知的分块类型: " + code);
     }
 
-    public boolean executable() {
-        return this == CONTENT_OWNERSHIP || this == PARAGRAPH || this == SENTENCE || this == CHARACTER;
-    }
 }

@@ -11,12 +11,11 @@ import type {
 } from '@/types/chunkStrategy';
 import { formatDateTime } from '@/utils/format';
 
-const CHUNK_TYPE_OPTIONS: { value: ChunkType; label: string; executable: boolean }[] = [
-  { value: '按段落', label: '按段落', executable: true },
-  { value: '按句子', label: '按句子', executable: true },
-  { value: '按字符', label: '按字符', executable: true },
-  { value: '按内容归属', label: '按内容归属', executable: false },
-  { value: '按语义', label: '按语义', executable: false },
+const CHUNK_TYPE_OPTIONS: { value: ChunkType; label: string }[] = [
+  { value: '按段落', label: '按段落' },
+  { value: '按句子', label: '按句子' },
+  { value: '按字符', label: '按字符' },
+  { value: '按内容归属', label: '按内容归属' },
 ];
 
 const INITIAL_FORM: CreateChunkStrategyReq = {
@@ -383,7 +382,7 @@ const ChunkStrategyList: React.FC = () => {
             >
               {CHUNK_TYPE_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
-                  {option.label}{option.executable ? '' : '（暂不可设为默认）'}
+                  {option.label}
                 </option>
               ))}
             </select>
@@ -392,10 +391,11 @@ const ChunkStrategyList: React.FC = () => {
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 最大字符数 <span className="text-red-500">*</span>
+                <span className="ml-2 text-xs font-normal text-gray-400">建议 500-1200</span>
               </label>
               <input
                 type="number"
@@ -412,6 +412,7 @@ const ChunkStrategyList: React.FC = () => {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 重叠字符数 <span className="text-red-500">*</span>
+                <span className="ml-2 text-xs font-normal text-gray-400">建议为最大值的 10%-30%</span>
               </label>
               <input
                 type="number"
