@@ -253,18 +253,54 @@ public class RagAppService {
         return text.trim().length() <= 30 && CHITCHAT_PATTERN.matcher(text).find();
     }
 
+    /**
+     * 流式 RAG 处理上下文。
+     */
     private static class RagStreamContext {
 
+        /**
+         * 用户原始问题。
+         */
         private final String question;
+
+        /**
+         * 知识库 ID。
+         */
         private final Long knowledgeBaseId;
+
+        /**
+         * 会话记忆上下文。
+         */
         private final ConversationMemoryContext memory;
+
+        /**
+         * 用户长期记忆上下文。
+         */
         private final UserMemoryContext userMemory;
 
+        /**
+         * 问题意图。
+         */
         private QaIntent intent;
+
+        /**
+         * 改写后的检索查询。
+         */
         private String rewrittenQuery;
+
+        /**
+         * 原始召回结果。
+         */
         private List<SearchResult> retrieved = List.of();
+
+        /**
+         * 重排后的结果。
+         */
         private List<SearchResult> reranked = List.of();
 
+        /**
+         * 创建流式 RAG 上下文。
+         */
         private RagStreamContext(String question,
                                  Long knowledgeBaseId,
                                  ConversationMemoryContext memory,

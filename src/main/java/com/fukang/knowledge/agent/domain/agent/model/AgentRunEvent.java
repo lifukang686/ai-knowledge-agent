@@ -17,13 +17,44 @@ import java.util.Map;
  * @param timestamp  事件产生时间
  */
 public record AgentRunEvent(
+    /**
+     * 事件类型。
+     */
     String type,
+
+    /**
+     * 计划步骤序号。
+     */
     Integer stepOrder,
+
+    /**
+     * 工具名称。
+     */
     String toolName,
+
+    /**
+     * 事件载荷。
+     */
     Map<String, Object> payload,
+
+    /**
+     * 是否成功。
+     */
     Boolean success,
+
+    /**
+     * 执行耗时。
+     */
     Long durationMs,
+
+    /**
+     * 展示消息。
+     */
     String message,
+
+    /**
+     * 事件时间。
+     */
     LocalDateTime timestamp
 ) {
 
@@ -44,6 +75,9 @@ public record AgentRunEvent(
         FINAL_ANSWER("final_answer"),
         ERROR("error");
 
+        /**
+         * 类型编码。
+         */
         private final String code;
 
         EventType(String code) {

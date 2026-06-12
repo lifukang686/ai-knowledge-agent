@@ -47,12 +47,29 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @RequestMapping("/api/service-desk")
 public class ServiceDeskController {
 
+    /**
+     * SSE 流式响应超时时间。
+     */
     private static final long STREAM_TIMEOUT_MS = 120_000L;
 
+    /**
+     * 服务台问答应用服务。
+     */
     private final ServiceDeskAppService serviceDeskAppService;
+
+    /**
+     * 工单应用服务。
+     */
     private final TicketAppService ticketAppService;
+
+    /**
+     * 问答流式执行线程池。
+     */
     private final ThreadPoolTaskExecutor qaStreamExecutor;
 
+    /**
+     * 创建服务台控制器。
+     */
     public ServiceDeskController(ServiceDeskAppService serviceDeskAppService,
                                  TicketAppService ticketAppService,
                                  @Qualifier("qaStreamExecutor") ThreadPoolTaskExecutor qaStreamExecutor) {
@@ -61,6 +78,9 @@ public class ServiceDeskController {
         this.qaStreamExecutor = qaStreamExecutor;
     }
 
+    /**
+     * 流式提交服务台问题。
+     */
     @PostMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter askStream(@RequestBody ServiceDeskAskReq req) {
         validateQuestion(req);
@@ -79,6 +99,9 @@ public class ServiceDeskController {
         return emitter;
     }
 
+    /**
+     * 分页查询当前用户工单。
+     */
     @GetMapping("/tickets")
     public Result<PageResponse<ServiceTicketResp>> listTickets(
             @RequestParam(value = "page", defaultValue = "1") long page,
@@ -94,11 +117,17 @@ public class ServiceDeskController {
                 tickets.getPageSize()));
     }
 
+    /**
+     * 确认工单处理完成。
+     */
     @PostMapping("/tickets/{id}/confirm")
     public Result<ServiceTicketResp> confirmTicket(@PathVariable("id") Long id) {
         return Result.success(toTicketResp(serviceDeskAppService.confirmTicket(id)));
     }
 
+    /**
+     * 提交服务台运行反馈。
+     */
     @PostMapping("/runs/{runId}/feedback")
     public Result<ServiceDeskFeedbackResp> submitFeedback(@PathVariable("runId") Long runId,
                                                           @RequestBody ServiceDeskFeedbackReq req) {
@@ -110,12 +139,18 @@ public class ServiceDeskController {
         return Result.success(toFeedbackResp(feedback));
     }
 
+    /**
+     * 校验问题参数。
+     */
     private void validateQuestion(ServiceDeskAskReq req) {
         if (req == null || req.question() == null || req.question().isBlank()) {
             throw new BaseException(ErrorCodeEnum.BAD_REQUEST.getCode(), "问题不能为空");
         }
     }
 
+    /**
+     * 获取当前登录用户 ID。
+     */
     private Long currentUserId() {
         Long userId = UserContextHolder.getUserId();
         if (userId == null) {
@@ -124,10 +159,16 @@ public class ServiceDeskController {
         return userId;
     }
 
+    /**
+     * 转换问答命令。
+     */
     private ServiceDeskAskCommand toCommand(ServiceDeskAskReq req) {
         return new ServiceDeskAskCommand(req.question(), req.serviceType(), req.knowledgeBaseId(), req.conversationId());
     }
 
+    /**
+     * 转换工单响应。
+     */
     private ServiceTicketResp toTicketResp(ServiceTicketResult ticket) {
         return new ServiceTicketResp(ticket.id(), ticket.ticketNo(), ticket.serviceType(), ticket.category(),
                 ticket.priority(), ticket.status(), ticket.title(), ticket.description(), ticket.agentSummary(),
@@ -136,11 +177,17 @@ public class ServiceDeskController {
                 ticket.createTime(), ticket.updateTime());
     }
 
+    /**
+     * 转换工单事件响应。
+     */
     private ServiceTicketEventResp toTicketEventResp(ServiceTicketEventResult event) {
         return new ServiceTicketEventResp(event.id(), event.ticketId(), event.eventType(), event.fromStatus(),
                 event.toStatus(), event.operatorId(), event.message(), event.payload(), event.createTime());
     }
 
+    /**
+     * 转换反馈响应。
+     */
     private ServiceDeskFeedbackResp toFeedbackResp(ServiceDeskFeedbackResult feedback) {
         return new ServiceDeskFeedbackResp(feedback.id(), feedback.runId(), feedback.ticketId(), feedback.resolved(),
                 feedback.comment(), feedback.userId(), feedback.createTime());
@@ -151,23 +198,42 @@ public class ServiceDeskController {
      */
     private static class SseServiceDeskHandler implements ServiceDeskStreamHandler {
 
+        /**
+         * SSE 响应发送器。
+         */
         private final SseEmitter emitter;
+
+        /**
+         * 完成状态标记。
+         */
         private final AtomicBoolean completed = new AtomicBoolean(false);
 
+        /**
+         * 创建 SSE 事件处理器。
+         */
         private SseServiceDeskHandler(SseEmitter emitter) {
             this.emitter = emitter;
         }
 
+        /**
+         * 发送阶段事件。
+         */
         @Override
         public void onStage(String stage, String message) {
             send("stage", Map.of("stage", stage, "message", message));
         }
 
+        /**
+         * 发送回答 token。
+         */
         @Override
         public void onToken(String token) {
             send("token", Map.of("text", token != null ? token : ""));
         }
 
+        /**
+         * 发送完成事件。
+         */
         @Override
         public void onDone(ServiceDeskAnswerResult result) {
             Map<String, Object> payload = new LinkedHashMap<>();
@@ -187,12 +253,18 @@ public class ServiceDeskController {
             complete();
         }
 
+        /**
+         * 发送错误事件。
+         */
         @Override
         public void onError(String message, Throwable error) {
             log.warn("服务台 SSE 处理失败: {}", message, error);
             completeWithError(message);
         }
 
+        /**
+         * 发送 SSE 事件。
+         */
         private void send(String eventName, Object data) {
             if (completed.get()) {
                 return;
@@ -205,6 +277,9 @@ public class ServiceDeskController {
             }
         }
 
+        /**
+         * 发送错误并结束流。
+         */
         private void completeWithError(String message) {
             if (!completed.compareAndSet(false, true)) {
                 return;
@@ -218,16 +293,25 @@ public class ServiceDeskController {
             }
         }
 
+        /**
+         * 正常结束流。
+         */
         private void complete() {
             if (completed.compareAndSet(false, true)) {
                 emitter.complete();
             }
         }
 
+        /**
+         * 标记流已结束。
+         */
         private void markCompleted() {
             completed.set(true);
         }
 
+        /**
+         * 转换工单数据。
+         */
         private Map<String, Object> toTicketMap(ServiceTicketResult ticket) {
             Map<String, Object> data = new LinkedHashMap<>();
             data.put("id", ticket.id());

@@ -26,12 +26,27 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class PlanExecuteAgentRuntime {
 
+    /**
+     * Agent 规划器。
+     */
     private final AgentPlanner agentPlanner;
+
+    /**
+     * Agent 执行器。
+     */
     private final AgentExecutor agentExecutor;
+
+    /**
+     * Agent 推理器。
+     */
     private final AgentReasoner agentReasoner;
 
     /**
      * 执行一次 Plan-Execute Agent 任务。
+     *
+     * @param task    任务内容
+     * @param options 运行配置
+     * @return 运行结果
      */
     public RuntimeResult runTask(String task, AgentRuntimeOptions options) {
         AgentRuntimeOptions runtimeOptions = options != null
@@ -98,6 +113,14 @@ public class PlanExecuteAgentRuntime {
         }
     }
 
+    /**
+     * 执行步骤并记录事件。
+     *
+     * @param context   运行上下文
+     * @param step      计划步骤
+     * @param toolScope 工具范围
+     * @param events    事件列表
+     */
     private void executeAndRecord(AgentContext context, PlanStep step, ToolScope toolScope,
                                   List<AgentRunEvent> events) {
         events.add(event(AgentRunEvent.EventType.TOOL_CALL, step.stepOrder(), step.toolName(),
@@ -115,6 +138,15 @@ public class PlanExecuteAgentRuntime {
                 observation.result(), observation.durationMs(), observation.success(), observation.errorMessage()));
     }
 
+    /**
+     * 完成任务并返回结果。
+     *
+     * @param context   运行上下文
+     * @param events    事件列表
+     * @param answer    最终回答
+     * @param startTime 开始时间
+     * @return 运行结果
+     */
     private RuntimeResult complete(AgentContext context, List<AgentRunEvent> events,
                                    String answer, long startTime) {
         context.setStatus(AgentContext.AgentContextStatus.COMPLETED);
@@ -124,6 +156,16 @@ public class PlanExecuteAgentRuntime {
                 List.copyOf(events), System.currentTimeMillis() - startTime);
     }
 
+    /**
+     * 标记失败并返回结果。
+     *
+     * @param context   运行上下文
+     * @param events    事件列表
+     * @param message   失败消息
+     * @param startTime 开始时间
+     * @param reason    失败原因
+     * @return 运行结果
+     */
     private RuntimeResult fail(AgentContext context, List<AgentRunEvent> events,
                                String message, long startTime, String reason) {
         context.setStatus(AgentContext.AgentContextStatus.FAILED);
@@ -133,22 +175,63 @@ public class PlanExecuteAgentRuntime {
                 List.copyOf(events), System.currentTimeMillis() - startTime);
     }
 
+    /**
+     * 记录推理事件。
+     *
+     * @param events    事件列表
+     * @param reasoning 推理结果
+     * @param message   展示消息
+     */
     private void recordReasoning(List<AgentRunEvent> events, ReasoningResult reasoning, String message) {
         events.add(event(AgentRunEvent.EventType.REASONING, null, null,
                 Map.of("decision", reasoning.decision().name(), "content", reasoning.content()),
                 true, null, message));
     }
 
+    /**
+     * 创建运行事件。
+     *
+     * @param type       事件类型
+     * @param stepOrder  步骤序号
+     * @param toolName   工具名称
+     * @param payload    事件载荷
+     * @param success    是否成功
+     * @param durationMs 执行耗时
+     * @param message    展示消息
+     * @return 运行事件
+     */
     private AgentRunEvent event(AgentRunEvent.EventType type, Integer stepOrder, String toolName,
                                 Map<String, Object> payload, Boolean success, Long durationMs, String message) {
         return AgentRunEvent.of(type, stepOrder, toolName, payload, success, durationMs, message);
     }
 
+    /**
+     * Agent 运行结果。
+     */
     public record RuntimeResult(
+            /**
+             * 最终回答。
+             */
             String answer,
+
+            /**
+             * 运行状态。
+             */
             String status,
+
+            /**
+             * 已执行步骤。
+             */
             List<AgentStep> steps,
+
+            /**
+             * 运行事件列表。
+             */
             List<AgentRunEvent> events,
+
+            /**
+             * 总耗时。
+             */
             long totalDurationMs
     ) {
     }
