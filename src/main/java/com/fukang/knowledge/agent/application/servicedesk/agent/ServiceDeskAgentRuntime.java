@@ -28,12 +28,34 @@ import java.util.Objects;
 @RequiredArgsConstructor
 public class ServiceDeskAgentRuntime {
 
+    /**
+     * 最大执行步数。
+     */
     private static final int MAX_STEPS = 4;
+
+    /**
+     * 规划提示词模板。
+     */
     private static final String PLANNING_PROMPT = "service-desk/agent-planning.v1";
 
+    /**
+     * 通用 Plan-Execute 运行时。
+     */
     private final PlanExecuteAgentRuntime planExecuteAgentRuntime;
+
+    /**
+     * 服务台工具工厂。
+     */
     private final ServiceDeskAgentToolFactory toolFactory;
+
+    /**
+     * 提示词模板管理器。
+     */
     private final PromptTemplateManager promptTemplateManager;
+
+    /**
+     * JSON 序列化工具。
+     */
     private final ObjectMapper objectMapper;
 
     /**
@@ -61,6 +83,9 @@ public class ServiceDeskAgentRuntime {
         }
     }
 
+    /**
+     * 转换服务台回答结果。
+     */
     private ServiceDeskAnswerResult toAnswerResult(PlanExecuteAgentRuntime.RuntimeResult result,
                                                    Long runId, String serviceType) {
         ToolOutcome outcome = extractOutcome(result.steps());
@@ -87,6 +112,9 @@ public class ServiceDeskAgentRuntime {
         );
     }
 
+    /**
+     * 提取工具执行结果。
+     */
     private ToolOutcome extractOutcome(List<AgentStep> steps) {
         ToolOutcome outcome = ToolOutcome.empty();
         for (AgentStep step : steps) {
@@ -97,6 +125,9 @@ public class ServiceDeskAgentRuntime {
         return outcome;
     }
 
+    /**
+     * 转换单个工具结果。
+     */
     private ToolOutcome toolOutcome(String toolName, Map<String, Object> output) {
         if (ServiceDeskToolNames.KNOWLEDGE_QA.equals(toolName)) {
             return new ToolOutcome("knowledge_qa", text(output, "answer"), text(output, "status"),
@@ -118,6 +149,9 @@ public class ServiceDeskAgentRuntime {
         return ToolOutcome.empty();
     }
 
+    /**
+     * 转换工单类结果。
+     */
     private ToolOutcome ticketOutcome(String intent, Map<String, Object> output) {
         Long ticketId = longValue(output.get("ticketId"));
         String ticketNo = text(output, "ticketNo");
@@ -147,6 +181,9 @@ public class ServiceDeskAgentRuntime {
         return new ToolOutcome(intent, answer, "success", ticketId, ticketNo, null, true, pendingTicket);
     }
 
+    /**
+     * 转换工单查询结果。
+     */
     private ToolOutcome queryOutcome(Map<String, Object> output) {
         Object ticket = output.get("ticket");
         if (ticket instanceof Map<?, ?> map) {
@@ -162,6 +199,9 @@ public class ServiceDeskAgentRuntime {
                 "success", null, null, null, false, null);
     }
 
+    /**
+     * 解析观察结果。
+     */
     private Map<String, Object> parseObservation(String observation) {
         if (observation == null || observation.isBlank()) {
             return Map.of();
@@ -173,19 +213,31 @@ public class ServiceDeskAgentRuntime {
         }
     }
 
+    /**
+     * 标准化运行状态。
+     */
     private String normalizeStatus(String runtimeStatus) {
         return "COMPLETED".equalsIgnoreCase(runtimeStatus) ? "success" : "failed";
     }
 
+    /**
+     * 读取文本字段。
+     */
     private String text(Map<String, Object> map, String key) {
         return text(map, key, null);
     }
 
+    /**
+     * 读取文本字段，支持默认值。
+     */
     private String text(Map<String, Object> map, String key, String fallback) {
         Object value = map != null ? map.get(key) : null;
         return value != null && !String.valueOf(value).isBlank() ? String.valueOf(value) : fallback;
     }
 
+    /**
+     * 转换 Long 值。
+     */
     private Long longValue(Object value) {
         if (value instanceof Number number) {
             return number.longValue();
@@ -200,20 +252,60 @@ public class ServiceDeskAgentRuntime {
         return null;
     }
 
+    /**
+     * 工具执行汇总结果。
+     */
     private record ToolOutcome(
+            /**
+             * 识别意图。
+             */
             String intent,
+
+            /**
+             * 回答内容。
+             */
             String answer,
+
+            /**
+             * 处理状态。
+             */
             String status,
+
+            /**
+             * 工单 ID。
+             */
             Long ticketId,
+
+            /**
+             * 工单编号。
+             */
             String ticketNo,
+
+            /**
+             * 会话 ID。
+             */
             Long conversationId,
+
+            /**
+             * 是否需要确认。
+             */
             boolean approvalRequired,
+
+            /**
+             * 待确认工单。
+             */
             ServiceTicketResult pendingTicket
     ) {
+        /**
+         * 创建空结果。
+         */
         static ToolOutcome empty() {
             return new ToolOutcome("knowledge_qa", null, null, null, null, null, false, null);
         }
 
+        /**
+         * 合并后续结果。
+         */
         ToolOutcome merge(ToolOutcome next) {
             if (next == null) {
                 return this;

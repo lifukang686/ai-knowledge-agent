@@ -61,27 +61,27 @@ public class PlanExecuteAgentRuntime {
             List<PlanStep> plan = agentPlanner.plan(task, runtimeOptions.toolScope(), runtimeOptions.planningExtraPrompt());
             context.setPlanSteps(plan);
             events.add(event(AgentRunEvent.EventType.PLAN, null, null,
-                    Map.of("steps", plan), true, null, "Plan generated"));
+                    Map.of("steps", plan), true, null, "规划已生成"));
 
             context.setStatus(AgentContext.AgentContextStatus.EXECUTING);
             int stepCount = 0;
             while (stepCount < runtimeOptions.maxSteps()) {
                 // 每轮先让 Reasoner 基于历史观察判断：继续、重试、终止或生成最终答案。
                 ReasoningResult reasoning = agentReasoner.reason(context);
-                recordReasoning(events, reasoning, "Reasoning decision");
+                recordReasoning(events, reasoning, "推理决策");
 
                 if (reasoning.decision() == ReasoningResult.Decision.FINAL_ANSWER) {
                     return complete(context, events, reasoning.content(), startTime);
                 }
                 if (reasoning.decision() == ReasoningResult.Decision.ABORT) {
-                    return fail(context, events, reasoning.content(), startTime, "Agent aborted");
+                    return fail(context, events, reasoning.content(), startTime, "智能体已终止");
                 }
                 if (reasoning.decision() == ReasoningResult.Decision.RETRY) {
                     AgentStep lastStep = context.getLastStep();
                     if (lastStep != null) {
                         // 重试复用上一步工具和参数，仅修改说明，避免重新规划引入额外不确定性。
                         PlanStep retryStep = new PlanStep(lastStep.stepOrder(),
-                                lastStep.toolName(), lastStep.parameters(), "Retry previous step");
+                                lastStep.toolName(), lastStep.parameters(), "重试上一步");
                         executeAndRecord(context, retryStep, runtimeOptions.toolScope(), events);
                         stepCount++;
                     }
@@ -90,7 +90,7 @@ public class PlanExecuteAgentRuntime {
 
                 if (context.getRemainingSteps().isEmpty()) {
                     ReasoningResult finalReason = agentReasoner.reason(context);
-                    recordReasoning(events, finalReason, "Final reasoning decision");
+                    recordReasoning(events, finalReason, "最终推理决策");
                     if (finalReason.decision() == ReasoningResult.Decision.FINAL_ANSWER) {
                         return complete(context, events, finalReason.content(), startTime);
                     }
@@ -102,13 +102,13 @@ public class PlanExecuteAgentRuntime {
                 stepCount++;
             }
 
-            return fail(context, events, "Agent reached max steps limit: " + runtimeOptions.maxSteps(),
-                    startTime, "Max steps exceeded");
+            return fail(context, events, "智能体达到最大执行步数限制：" + runtimeOptions.maxSteps(),
+                    startTime, "超过最大执行步数");
         } catch (BaseException e) {
             return fail(context, events, e.getMessage(), startTime, e.getClass().getSimpleName());
         } catch (Exception e) {
-            log.error("Plan-Execute runtime failed", e);
-            return fail(context, events, "System error: " + e.getMessage(), startTime,
+            log.error("规划执行运行时执行失败", e);
+            return fail(context, events, "系统错误：" + e.getMessage(), startTime,
                     e.getClass().getSimpleName());
         }
     }
@@ -126,13 +126,13 @@ public class PlanExecuteAgentRuntime {
         events.add(event(AgentRunEvent.EventType.TOOL_CALL, step.stepOrder(), step.toolName(),
                 Map.of("parameters", step.parameters() != null ? step.parameters() : Map.of(),
                         "reasoning", step.reasoning() != null ? step.reasoning() : ""),
-                null, null, "Plan-Execute tool call"));
+                null, null, "规划执行工具调用"));
 
         Observation observation = agentExecutor.executeStep(step, toolScope);
         events.add(event(AgentRunEvent.EventType.OBSERVATION, observation.stepOrder(), observation.toolName(),
                 Map.of("result", observation.result() != null ? observation.result() : "",
                         "errorMessage", observation.errorMessage() != null ? observation.errorMessage() : ""),
-                observation.success(), observation.durationMs(), "Tool observation"));
+                observation.success(), observation.durationMs(), "工具观察结果"));
 
         context.addStep(new AgentStep(step.stepOrder(), step.toolName(), step.parameters(),
                 observation.result(), observation.durationMs(), observation.success(), observation.errorMessage()));
@@ -151,7 +151,7 @@ public class PlanExecuteAgentRuntime {
                                    String answer, long startTime) {
         context.setStatus(AgentContext.AgentContextStatus.COMPLETED);
         events.add(event(AgentRunEvent.EventType.FINAL_ANSWER, null, null,
-                Map.of("answer", answer != null ? answer : ""), true, null, "Final answer"));
+                Map.of("answer", answer != null ? answer : ""), true, null, "最终答案"));
         return new RuntimeResult(answer, "COMPLETED", context.getSteps(),
                 List.copyOf(events), System.currentTimeMillis() - startTime);
     }

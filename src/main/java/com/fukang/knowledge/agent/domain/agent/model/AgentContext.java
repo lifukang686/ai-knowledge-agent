@@ -91,10 +91,15 @@ public class AgentContext {
      * Agent 上下文状态枚举
      */
     public enum AgentContextStatus {
+        // 计划中
         PLANNING,
+        // 执行中
         EXECUTING,
+        // 已完成
         COMPLETED,
+        // 已失败
         FAILED,
+        // 已取消
         CANCELLED
     }
 }

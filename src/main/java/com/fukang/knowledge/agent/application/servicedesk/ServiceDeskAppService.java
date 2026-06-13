@@ -39,40 +39,30 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ServiceDeskAppService {
 
+    /**
+     * 工单应用服务。
+     */
     private final TicketAppService ticketAppService;
+
+    /**
+     * 服务台 Agent 运行时。
+     */
     private final ServiceDeskAgentRuntime serviceDeskAgentRuntime;
+
+    /**
+     * 服务台运行记录仓储。
+     */
     private final ServiceDeskRunRepository serviceDeskRunRepository;
+
+    /**
+     * 服务台反馈仓储。
+     */
     private final ServiceDeskFeedbackRepository serviceDeskFeedbackRepository;
+
+    /**
+     * JSON 序列化工具。
+     */
     private final ObjectMapper objectMapper;
-
-    /**
-     * 同步执行服务台 Agent，并落库运行记录。
-     */
-    @Transactional(rollbackFor = Exception.class)
-    public ServiceDeskAnswerResult ask(ServiceDeskAskCommand command) {
-        Long userId = currentUserId();
-        if (!StringUtils.hasText(command.question())) {
-            throw new BaseException(ErrorCodeEnum.BAD_REQUEST.getCode(), "问题不能为空");
-        }
-
-        ServiceDeskRunDO run = createRun(userId, command);
-        try {
-            ServiceDeskAnswerResult result = serviceDeskAgentRuntime.run(command, userId, run.getId());
-            List<AgentRunEvent> events = completeRun(run, result, result.events());
-            return result.withEvents(List.copyOf(events));
-        } catch (Exception e) {
-            failRun(run, List.of(), e);
-            throw e;
-        }
-    }
-
-    /**
-     * 使用当前登录用户执行流式服务台 Agent。
-     */
-    public void askStream(ServiceDeskAskCommand command, ServiceDeskStreamHandler handler) {
-        Long userId = currentUserId();
-        askStreamAsUser(command, userId, handler);
-    }
 
     /**
      * 指定用户上下文执行流式服务台 Agent，供 Controller 的异步线程复用。
@@ -106,20 +96,8 @@ public class ServiceDeskAppService {
     }
 
     /**
-     * 查询当前用户可见的服务台运行详情。
+     * 确认服务台工单。
      */
-    public ServiceDeskRunResult getRun(Long runId) {
-        ServiceDeskRunDO run = serviceDeskRunRepository.findById(runId);
-        if (run == null) {
-            throw new BaseException(ErrorCodeEnum.NOT_FOUND.getCode(), "服务台运行记录不存在");
-        }
-        Long userId = currentUserId();
-        if (!userId.equals(run.getUserId())) {
-            throw new BaseException(ErrorCodeEnum.FORBIDDEN);
-        }
-        return toRunResult(run);
-    }
-
     @Transactional(rollbackFor = Exception.class)
     public ServiceTicketResult confirmTicket(Long ticketId) {
         Long userId = currentUserId();
@@ -167,6 +145,9 @@ public class ServiceDeskAppService {
         return toFeedbackResult(feedback);
     }
 
+    /**
+     * 创建服务台运行记录。
+     */
     private ServiceDeskRunDO createRun(Long userId, ServiceDeskAskCommand command) {
         ServiceDeskRunDO run = new ServiceDeskRunDO();
         run.setUserId(userId);
@@ -181,6 +162,9 @@ public class ServiceDeskAppService {
         return run;
     }
 
+    /**
+     * 完成运行并保存结果。
+     */
     private List<AgentRunEvent> completeRun(ServiceDeskRunDO run, ServiceDeskAnswerResult result,
                                             List<AgentRunEvent> events) {
         // Runtime 返回的事件可能是不可变列表，落库前统一复制，避免追加收尾事件时抛异常。
@@ -205,6 +189,9 @@ public class ServiceDeskAppService {
         return mutableEvents;
     }
 
+    /**
+     * 标记运行失败。
+     */
     private void failRun(ServiceDeskRunDO run, List<AgentRunEvent> events, Exception e) {
         log.error("服务台 Agent 运行失败: runId={}", run.getId(), e);
         // 异常处理也可能收到 List.of()，这里同样做防御性复制，确保错误能被正常记录。
@@ -220,10 +207,16 @@ public class ServiceDeskAppService {
         serviceDeskRunRepository.updateById(run);
     }
 
+    /**
+     * 创建运行事件。
+     */
     private AgentRunEvent event(AgentRunEvent.EventType type, String message, Map<String, Object> payload) {
         return AgentRunEvent.of(type, null, null, payload, true, null, message);
     }
 
+    /**
+     * 序列化运行事件。
+     */
     private String serializeEvents(List<AgentRunEvent> events) {
         try {
             return objectMapper.writeValueAsString(events);
@@ -233,35 +226,24 @@ public class ServiceDeskAppService {
         }
     }
 
-    private List<AgentRunEvent> parseEvents(String eventLog) {
-        if (!StringUtils.hasText(eventLog)) {
-            return List.of();
-        }
-        try {
-            return objectMapper.readValue(eventLog, new TypeReference<>() {});
-        } catch (Exception e) {
-            log.warn("服务台事件解析失败", e);
-            return List.of();
-        }
-    }
-
-    private ServiceDeskRunResult toRunResult(ServiceDeskRunDO run) {
-        return new ServiceDeskRunResult(run.getId(), run.getUserId(), run.getQuestion(), run.getServiceType(),
-                run.getIntent(), run.getKnowledgeBaseId(), run.getConversationId(), run.getAnswer(),
-                run.getStatus(), run.getTicketId(), run.getApprovalRequired(), run.getPendingTicketId(),
-                run.getFeedbackId(), parseEvents(run.getEventLog()),
-                run.getStartTime(), run.getEndTime(), run.getCreateTime());
-    }
-
+    /**
+     * 查询用户反馈。
+     */
     private ServiceDeskFeedbackDO findFeedback(Long runId, Long userId) {
         return serviceDeskFeedbackRepository.findByRunIdAndUserId(runId, userId);
     }
 
+    /**
+     * 转换反馈结果。
+     */
     private ServiceDeskFeedbackResult toFeedbackResult(ServiceDeskFeedbackDO feedback) {
         return new ServiceDeskFeedbackResult(feedback.getId(), feedback.getRunId(), feedback.getTicketId(),
                 feedback.getResolved(), feedback.getComment(), feedback.getUserId(), feedback.getCreateTime());
     }
 
+    /**
+     * 裁剪反馈备注。
+     */
     private String trimComment(String comment) {
         if (!StringUtils.hasText(comment)) {
             return null;
@@ -270,6 +252,9 @@ public class ServiceDeskAppService {
         return trimmed.length() > 1000 ? trimmed.substring(0, 1000) : trimmed;
     }
 
+    /**
+     * 获取当前用户 ID。
+     */
     private Long currentUserId() {
         Long userId = UserContextHolder.getUserId();
         if (userId == null) {
@@ -278,12 +263,18 @@ public class ServiceDeskAppService {
         return userId;
     }
 
+    /**
+     * 发送阶段消息。
+     */
     private void stage(ServiceDeskStreamHandler handler, String stage, String message) {
         if (handler != null) {
             handler.onStage(stage, message);
         }
     }
 
+    /**
+     * 发送文本片段。
+     */
     private void token(ServiceDeskStreamHandler handler, String text) {
         if (handler != null && text != null) {
             handler.onToken(text);
