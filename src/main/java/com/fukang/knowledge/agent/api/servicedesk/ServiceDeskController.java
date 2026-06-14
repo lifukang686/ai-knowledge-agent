@@ -3,16 +3,12 @@ package com.fukang.knowledge.agent.api.servicedesk;
 import com.fukang.knowledge.agent.api.servicedesk.dto.ServiceDeskAskReq;
 import com.fukang.knowledge.agent.api.servicedesk.dto.ServiceDeskFeedbackReq;
 import com.fukang.knowledge.agent.api.servicedesk.dto.ServiceDeskFeedbackResp;
-import com.fukang.knowledge.agent.api.servicedesk.dto.ServiceTicketEventResp;
 import com.fukang.knowledge.agent.api.servicedesk.dto.ServiceTicketResp;
 import com.fukang.knowledge.agent.application.servicedesk.ServiceDeskAppService;
-import com.fukang.knowledge.agent.application.servicedesk.ServiceDeskStreamHandler;
 import com.fukang.knowledge.agent.application.servicedesk.TicketAppService;
 import com.fukang.knowledge.agent.application.servicedesk.command.ServiceDeskAskCommand;
 import com.fukang.knowledge.agent.application.servicedesk.command.SubmitFeedbackCommand;
-import com.fukang.knowledge.agent.application.servicedesk.result.ServiceDeskAnswerResult;
 import com.fukang.knowledge.agent.application.servicedesk.result.ServiceDeskFeedbackResult;
-import com.fukang.knowledge.agent.application.servicedesk.result.ServiceTicketEventResult;
 import com.fukang.knowledge.agent.application.servicedesk.result.ServiceTicketResult;
 import com.fukang.knowledge.agent.common.context.UserContextHolder;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
@@ -34,11 +30,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import java.io.IOException;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
-
 /**
  * 企业 IT/HR 服务台 Agent 控制器。
  */
@@ -47,35 +38,18 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @RequestMapping("/api/service-desk")
 public class ServiceDeskController {
 
-    /**
-     * SSE 流式响应超时时间。
-     */
     private static final long STREAM_TIMEOUT_MS = 120_000L;
 
-    /**
-     * 服务台问答应用服务。
-     */
     private final ServiceDeskAppService serviceDeskAppService;
-
-    /**
-     * 工单应用服务。
-     */
     private final TicketAppService ticketAppService;
+    private final ThreadPoolTaskExecutor aiStreamExecutor;
 
-    /**
-     * 问答流式执行线程池。
-     */
-    private final ThreadPoolTaskExecutor qaStreamExecutor;
-
-    /**
-     * 创建服务台控制器。
-     */
     public ServiceDeskController(ServiceDeskAppService serviceDeskAppService,
                                  TicketAppService ticketAppService,
-                                 @Qualifier("qaStreamExecutor") ThreadPoolTaskExecutor qaStreamExecutor) {
+                                 @Qualifier("aiStreamExecutor") ThreadPoolTaskExecutor aiStreamExecutor) {
         this.serviceDeskAppService = serviceDeskAppService;
         this.ticketAppService = ticketAppService;
-        this.qaStreamExecutor = qaStreamExecutor;
+        this.aiStreamExecutor = aiStreamExecutor;
     }
 
     /**
@@ -84,24 +58,29 @@ public class ServiceDeskController {
     @PostMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter askStream(@RequestBody ServiceDeskAskReq req) {
         validateQuestion(req);
-        Long userId = UserContextHolder.getUserId();
-        if (userId == null) {
-            throw new BaseException(ErrorCodeEnum.UNAUTHORIZED);
-        }
+        Long userId = currentUserId();
 
         SseEmitter emitter = new SseEmitter(STREAM_TIMEOUT_MS);
-        SseServiceDeskHandler handler = new SseServiceDeskHandler(emitter);
+        ServiceDeskSseHandler handler = new ServiceDeskSseHandler(emitter);
         emitter.onTimeout(() -> handler.completeWithError("服务台处理超时，请稍后重试"));
         emitter.onError(error -> handler.markCompleted());
         emitter.onCompletion(handler::markCompleted);
 
-        qaStreamExecutor.execute(() -> serviceDeskAppService.askStreamAsUser(toCommand(req), userId, handler));
+        try {
+            aiStreamExecutor.execute(() -> serviceDeskAppService.askStreamAsUser(toCommand(req), userId, handler));
+        } catch (RuntimeException e) {
+            if (!isTaskRejected(e)) {
+                throw e;
+            }
+            log.warn("服务台流式任务提交被拒绝: activeCount={}, poolSize={}, queueSize={}",
+                    aiStreamExecutor.getActiveCount(),
+                    aiStreamExecutor.getPoolSize(),
+                    aiStreamExecutor.getThreadPoolExecutor().getQueue().size(), e);
+            handler.completeWithError("服务台当前请求较多，请稍后重试");
+        }
         return emitter;
     }
 
-    /**
-     * 分页查询当前用户工单。
-     */
     @GetMapping("/tickets")
     public Result<PageResponse<ServiceTicketResp>> listTickets(
             @RequestParam(value = "page", defaultValue = "1") long page,
@@ -111,7 +90,7 @@ public class ServiceDeskController {
         PageResponse<ServiceTicketResult> tickets = ticketAppService.listTickets(
                 currentUserId(), page, pageSize, TicketStatus.from(status), ServiceType.from(serviceType));
         return Result.success(new PageResponse<>(
-                tickets.getItems().stream().map(this::toTicketResp).toList(),
+                tickets.getItems().stream().map(ServiceDeskResponseMapper::toTicketResp).toList(),
                 tickets.getTotal(),
                 tickets.getPage(),
                 tickets.getPageSize()));
@@ -122,7 +101,7 @@ public class ServiceDeskController {
      */
     @PostMapping("/tickets/{id}/confirm")
     public Result<ServiceTicketResp> confirmTicket(@PathVariable("id") Long id) {
-        return Result.success(toTicketResp(serviceDeskAppService.confirmTicket(id)));
+        return Result.success(ServiceDeskResponseMapper.toTicketResp(serviceDeskAppService.confirmTicket(id)));
     }
 
     /**
@@ -136,7 +115,7 @@ public class ServiceDeskController {
         }
         ServiceDeskFeedbackResult feedback = serviceDeskAppService.submitFeedback(
                 new SubmitFeedbackCommand(runId, currentUserId(), req.resolved(), req.comment()));
-        return Result.success(toFeedbackResp(feedback));
+        return Result.success(ServiceDeskResponseMapper.toFeedbackResp(feedback));
     }
 
     /**
@@ -166,172 +145,8 @@ public class ServiceDeskController {
         return new ServiceDeskAskCommand(req.question(), req.serviceType(), req.knowledgeBaseId(), req.conversationId());
     }
 
-    /**
-     * 转换工单响应。
-     */
-    private ServiceTicketResp toTicketResp(ServiceTicketResult ticket) {
-        return new ServiceTicketResp(ticket.id(), ticket.ticketNo(), ticket.serviceType(), ticket.category(),
-                ticket.priority(), ticket.status(), ticket.title(), ticket.description(), ticket.agentSummary(),
-                ticket.creatorId(), ticket.assigneeId(), ticket.sourceRunId(), ticket.sourceConversationId(),
-                ticket.events().stream().map(this::toTicketEventResp).toList(), ticket.eventCount(),
-                ticket.createTime(), ticket.updateTime());
-    }
-
-    /**
-     * 转换工单事件响应。
-     */
-    private ServiceTicketEventResp toTicketEventResp(ServiceTicketEventResult event) {
-        return new ServiceTicketEventResp(event.id(), event.ticketId(), event.eventType(), event.fromStatus(),
-                event.toStatus(), event.operatorId(), event.message(), event.payload(), event.createTime());
-    }
-
-    /**
-     * 转换反馈响应。
-     */
-    private ServiceDeskFeedbackResp toFeedbackResp(ServiceDeskFeedbackResult feedback) {
-        return new ServiceDeskFeedbackResp(feedback.id(), feedback.runId(), feedback.ticketId(), feedback.resolved(),
-                feedback.comment(), feedback.userId(), feedback.createTime());
-    }
-
-    /**
-     * 服务台 SSE 事件发送器。
-     */
-    private static class SseServiceDeskHandler implements ServiceDeskStreamHandler {
-
-        /**
-         * SSE 响应发送器。
-         */
-        private final SseEmitter emitter;
-
-        /**
-         * 完成状态标记。
-         */
-        private final AtomicBoolean completed = new AtomicBoolean(false);
-
-        /**
-         * 创建 SSE 事件处理器。
-         */
-        private SseServiceDeskHandler(SseEmitter emitter) {
-            this.emitter = emitter;
-        }
-
-        /**
-         * 发送阶段事件。
-         */
-        @Override
-        public void onStage(String stage, String message) {
-            send("stage", Map.of("stage", stage, "message", message));
-        }
-
-        /**
-         * 发送回答 token。
-         */
-        @Override
-        public void onToken(String token) {
-            send("token", Map.of("text", token != null ? token : ""));
-        }
-
-        /**
-         * 发送完成事件。
-         */
-        @Override
-        public void onDone(ServiceDeskAnswerResult result) {
-            Map<String, Object> payload = new LinkedHashMap<>();
-            payload.put("answer", result.answer() != null ? result.answer() : "");
-            payload.put("intent", result.intent() != null ? result.intent() : "");
-            payload.put("serviceType", result.serviceType() != null ? result.serviceType() : "");
-            payload.put("status", result.status() != null ? result.status() : "success");
-            payload.put("runId", result.runId());
-            payload.put("ticketId", result.ticketId());
-            payload.put("ticketNo", result.ticketNo());
-            payload.put("conversationId", result.conversationId());
-            payload.put("approvalRequired", result.approvalRequired());
-            payload.put("pendingTicket", result.pendingTicket() != null ? toTicketMap(result.pendingTicket()) : null);
-            payload.put("events", result.events());
-            payload.put("feedbackSubmitted", result.feedbackSubmitted());
-            send("done", payload);
-            complete();
-        }
-
-        /**
-         * 发送错误事件。
-         */
-        @Override
-        public void onError(String message, Throwable error) {
-            log.warn("服务台 SSE 处理失败: {}", message, error);
-            completeWithError(message);
-        }
-
-        /**
-         * 发送 SSE 事件。
-         */
-        private void send(String eventName, Object data) {
-            if (completed.get()) {
-                return;
-            }
-            try {
-                emitter.send(SseEmitter.event().name(eventName).data(data));
-            } catch (IOException | IllegalStateException e) {
-                completed.set(true);
-                log.warn("发送服务台 SSE 事件失败: event={}", eventName, e);
-            }
-        }
-
-        /**
-         * 发送错误并结束流。
-         */
-        private void completeWithError(String message) {
-            if (!completed.compareAndSet(false, true)) {
-                return;
-            }
-            try {
-                emitter.send(SseEmitter.event().name("error").data(Map.of("message", message)));
-            } catch (IOException | IllegalStateException e) {
-                log.warn("发送服务台 SSE 错误事件失败", e);
-            } finally {
-                emitter.complete();
-            }
-        }
-
-        /**
-         * 正常结束流。
-         */
-        private void complete() {
-            if (completed.compareAndSet(false, true)) {
-                emitter.complete();
-            }
-        }
-
-        /**
-         * 标记流已结束。
-         */
-        private void markCompleted() {
-            completed.set(true);
-        }
-
-        /**
-         * 转换工单数据。
-         */
-        private Map<String, Object> toTicketMap(ServiceTicketResult ticket) {
-            Map<String, Object> data = new LinkedHashMap<>();
-            data.put("id", ticket.id());
-            data.put("ticketNo", ticket.ticketNo());
-            data.put("serviceType", ticket.serviceType());
-            data.put("category", ticket.category());
-            data.put("priority", ticket.priority());
-            data.put("status", ticket.status());
-            data.put("title", ticket.title());
-            data.put("description", ticket.description());
-            data.put("agentSummary", ticket.agentSummary());
-            data.put("creatorId", ticket.creatorId());
-            data.put("assigneeId", ticket.assigneeId());
-            data.put("sourceRunId", ticket.sourceRunId());
-            data.put("sourceConversationId", ticket.sourceConversationId());
-            data.put("events", ticket.events());
-            data.put("eventCount", ticket.eventCount());
-            data.put("createTime", ticket.createTime());
-            data.put("updateTime", ticket.updateTime());
-            return data;
-        }
+    private boolean isTaskRejected(RuntimeException e) {
+        return e instanceof org.springframework.core.task.TaskRejectedException
+                || e instanceof java.util.concurrent.RejectedExecutionException;
     }
 }

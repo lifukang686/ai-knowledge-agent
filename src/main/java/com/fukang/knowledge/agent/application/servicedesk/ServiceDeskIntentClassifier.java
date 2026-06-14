@@ -131,7 +131,7 @@ public class ServiceDeskIntentClassifier {
                 || text.contains("账号") || text.contains("密码") || text.contains("网络")) {
             return ServiceType.IT;
         }
-        return ServiceType.AUTO;
+        return ServiceType.IT;
     }
 
     private String guessCategory(String question) {

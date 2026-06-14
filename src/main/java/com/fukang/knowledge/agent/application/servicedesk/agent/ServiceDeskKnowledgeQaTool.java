@@ -2,11 +2,16 @@ package com.fukang.knowledge.agent.application.servicedesk.agent;
 
 import com.fukang.knowledge.agent.application.rag.RagAppService;
 import com.fukang.knowledge.agent.application.rag.result.QaResult;
+import com.fukang.knowledge.agent.application.rag.stream.QaStreamHandler;
+import com.fukang.knowledge.agent.application.servicedesk.ServiceDeskStreamHandler;
 import com.fukang.knowledge.agent.infrastructure.tool.LocalMethodTool;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * 服务台知识问答工具：复用现有 RAG 链路回答 IT/HR 知识问题。
@@ -14,6 +19,10 @@ import java.util.Map;
 @Component
 @RequiredArgsConstructor
 public class ServiceDeskKnowledgeQaTool implements LocalMethodTool {
+
+    private static final long STREAM_WAIT_TIMEOUT_SECONDS = 115L;
+    private static final String NO_RESULT_HINT = "\n\n如果这个问题比较紧急，或者知识库没有覆盖到你的场景，"
+            + "可以补充现象、影响范围和发生时间，我可以继续帮你生成工单草稿。";
 
     private final RagAppService ragAppService;
 
@@ -26,16 +35,77 @@ public class ServiceDeskKnowledgeQaTool implements LocalMethodTool {
     public Object execute(Map<String, Object> arguments) {
         ServiceDeskAgentContext context = ServiceDeskAgentContextHolder.getRequired();
         String question = text(arguments, "question", context.question());
-        QaResult result = ragAppService.answer(question, context.knowledgeBaseId(), context.conversationId());
-        String answer = result.answer();
-        if ("no_results".equalsIgnoreCase(result.status())) {
-            answer = answer + "\n\n如果这个问题比较紧急，或者知识库没有覆盖到你的场景，可以补充现象、影响范围和发生时间，我可以继续帮你生成工单草稿。";
+        if (context.streamHandler() != null) {
+            return executeStream(question, context);
         }
+        QaResult result = ragAppService.answer(question, context.knowledgeBaseId(), context.conversationId());
+        return toPayload(result, withNoResultHint(result), false);
+    }
+
+    private Object executeStream(String question, ServiceDeskAgentContext context) {
+        CountDownLatch done = new CountDownLatch(1);
+        AtomicReference<QaResult> resultRef = new AtomicReference<>();
+        AtomicReference<Throwable> errorRef = new AtomicReference<>();
+        ServiceDeskStreamHandler serviceDeskHandler = context.streamHandler();
+
+        ragAppService.answerStream(question, context.knowledgeBaseId(), context.conversationId(), new QaStreamHandler() {
+            @Override
+            public void onStage(String stage, String message) {
+                serviceDeskHandler.onStage("rag_" + stage, message);
+            }
+
+            @Override
+            public void onToken(String token) {
+                serviceDeskHandler.onToken(token);
+            }
+
+            @Override
+            public void onDone(QaResult result) {
+                resultRef.set(result);
+                done.countDown();
+            }
+
+            @Override
+            public void onError(String message, Throwable error) {
+                errorRef.set(error != null ? error : new IllegalStateException(message));
+                done.countDown();
+            }
+        });
+
+        awaitStream(done);
+        if (errorRef.get() != null) {
+            throw new IllegalStateException("服务台知识问答流式生成失败", errorRef.get());
+        }
+        QaResult result = resultRef.get();
+        if (result == null) {
+            throw new IllegalStateException("服务台知识问答流式生成未返回结果");
+        }
+        return toPayload(result, result.answer(), true);
+    }
+
+    private void awaitStream(CountDownLatch done) {
+        try {
+            if (!done.await(STREAM_WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                throw new IllegalStateException("服务台知识问答流式生成超时");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("服务台知识问答流式生成被中断", e);
+        }
+    }
+
+    private String withNoResultHint(QaResult result) {
+        String answer = result.answer();
+        return "no_results".equalsIgnoreCase(result.status()) ? answer + NO_RESULT_HINT : answer;
+    }
+
+    private Map<String, Object> toPayload(QaResult result, String answer, boolean streamedTokens) {
         return Map.of(
-                "answer", answer,
-                "status", result.status(),
+                "answer", answer != null ? answer : "",
+                "status", result.status() != null ? result.status() : "",
                 "conversationId", result.conversationId() != null ? result.conversationId() : "",
-                "rewrittenQuery", result.rewrittenQuery() != null ? result.rewrittenQuery() : ""
+                "rewrittenQuery", result.rewrittenQuery() != null ? result.rewrittenQuery() : "",
+                "streamedTokens", streamedTokens
         );
     }
 

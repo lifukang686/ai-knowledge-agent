@@ -55,15 +55,15 @@ public class AsyncConfig {
      * QA 流式问答线程池。
      * <p>SSE 请求会长时间占用连接，单独线程池可以避免影响文档处理等后台任务。</p>
      */
-    @Bean("qaStreamExecutor")
-    public ThreadPoolTaskExecutor qaStreamExecutor() {
+    @Bean({"aiStreamExecutor", "qaStreamExecutor"})
+    public ThreadPoolTaskExecutor aiStreamExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         executor.setCorePoolSize(4);
         executor.setMaxPoolSize(12);
         executor.setQueueCapacity(100);
         executor.setKeepAliveSeconds(60);
         executor.setThreadNamePrefix("qa-stream-");
-        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
         executor.setWaitForTasksToCompleteOnShutdown(true);
         executor.setAwaitTerminationSeconds(30);
         executor.initialize();

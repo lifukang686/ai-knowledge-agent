@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fukang.knowledge.agent.application.agent.runtime.AgentRuntimeOptions;
 import com.fukang.knowledge.agent.application.agent.runtime.PlanExecuteAgentRuntime;
 import com.fukang.knowledge.agent.application.agent.tool.ScopedToolRegistry;
+import com.fukang.knowledge.agent.application.servicedesk.ServiceDeskStreamHandler;
 import com.fukang.knowledge.agent.application.servicedesk.command.ServiceDeskAskCommand;
 import com.fukang.knowledge.agent.application.servicedesk.result.ServiceDeskAnswerResult;
 import com.fukang.knowledge.agent.application.servicedesk.result.ServiceTicketResult;
@@ -61,11 +62,12 @@ public class ServiceDeskAgentRuntime {
     /**
      * 在服务台受控工具集合内执行一次用户问题处理。
      */
-    public ServiceDeskAnswerResult run(ServiceDeskAskCommand command, Long userId, Long runId) {
+    public ServiceDeskAnswerResult run(ServiceDeskAskCommand command, Long userId, Long runId,
+                                       ServiceDeskStreamHandler handler) {
         ServiceType serviceType = ServiceType.from(command.serviceType());
         ServiceDeskAgentContext context = new ServiceDeskAgentContext(
                 userId, runId, command.knowledgeBaseId(), command.conversationId(),
-                serviceType, command.question());
+                serviceType, command.question(), handler);
         ScopedToolRegistry toolScope = toolFactory.createScope();
         String planningPrompt = promptTemplateManager.renderText(PLANNING_PROMPT, Map.of(
                 "serviceType", serviceType.name(),
@@ -75,8 +77,9 @@ public class ServiceDeskAgentRuntime {
 
         try {
             ServiceDeskAgentContextHolder.set(context);
-            PlanExecuteAgentRuntime.RuntimeResult result = planExecuteAgentRuntime.runTask(
-                    command.question(), AgentRuntimeOptions.of(MAX_STEPS, planningPrompt, toolScope));
+            AgentRuntimeOptions options = AgentRuntimeOptions.of(MAX_STEPS, planningPrompt, toolScope)
+                    .withEventListener(handler != null ? handler::onAgentEvent : null);
+            PlanExecuteAgentRuntime.RuntimeResult result = planExecuteAgentRuntime.runTask(command.question(), options);
             return toAnswerResult(result, runId, serviceType.name());
         } finally {
             ServiceDeskAgentContextHolder.clear();
@@ -96,11 +99,15 @@ public class ServiceDeskAgentRuntime {
         } else if (answer == null || answer.isBlank()) {
             answer = outcome.answer() != null ? outcome.answer() : "服务台 Agent 已完成处理。";
         }
+        String status = normalizeStatus(result.status());
+        if (!"failed".equals(status) && outcome.status() != null) {
+            status = outcome.status();
+        }
         return new ServiceDeskAnswerResult(
                 answer,
                 outcome.intent(),
                 serviceType,
-                outcome.status() != null ? outcome.status() : normalizeStatus(result.status()),
+                status,
                 runId,
                 outcome.ticketId(),
                 outcome.ticketNo(),

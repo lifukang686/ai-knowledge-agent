@@ -1,6 +1,5 @@
 package com.fukang.knowledge.agent.application.servicedesk;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fukang.knowledge.agent.application.servicedesk.agent.ServiceDeskAgentRuntime;
 import com.fukang.knowledge.agent.application.servicedesk.command.ConfirmTicketCommand;
@@ -10,7 +9,6 @@ import com.fukang.knowledge.agent.application.servicedesk.port.ServiceDeskFeedba
 import com.fukang.knowledge.agent.application.servicedesk.port.ServiceDeskRunRepository;
 import com.fukang.knowledge.agent.application.servicedesk.result.ServiceDeskAnswerResult;
 import com.fukang.knowledge.agent.application.servicedesk.result.ServiceDeskFeedbackResult;
-import com.fukang.knowledge.agent.application.servicedesk.result.ServiceDeskRunResult;
 import com.fukang.knowledge.agent.application.servicedesk.result.ServiceTicketResult;
 import com.fukang.knowledge.agent.common.context.UserContextHolder;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
@@ -29,6 +27,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * 企业服务台 Agent 应用服务。
@@ -43,6 +42,7 @@ public class ServiceDeskAppService {
      * 工单应用服务。
      */
     private final TicketAppService ticketAppService;
+    private final ServiceDeskIntentClassifier serviceDeskIntentClassifier;
 
     /**
      * 服务台 Agent 运行时。
@@ -77,22 +77,33 @@ public class ServiceDeskAppService {
         }
 
         ServiceDeskRunDO run = null;
+        RecordingStreamHandler recordingHandler = new RecordingStreamHandler(handler);
         try {
-            run = createRun(userId, command);
-            stage(handler, "agent_start", "服务台 Agent 正在规划处理步骤");
-            ServiceDeskAnswerResult result = serviceDeskAgentRuntime.run(command, userId, run.getId());
+            ServiceDeskAskCommand resolvedCommand = resolveCommand(command);
+            run = createRun(userId, resolvedCommand);
+            stage(recordingHandler, "agent_start", "服务台 Agent 正在规划处理步骤");
+            ServiceDeskAnswerResult result = serviceDeskAgentRuntime.run(
+                    resolvedCommand, userId, run.getId(), recordingHandler);
             List<AgentRunEvent> events = completeRun(run, result, result.events());
-            token(handler, result.answer());
-            handler.onDone(result.withEvents(List.copyOf(events)));
+            if (!hasStreamedTokens(result.events())) {
+                token(recordingHandler, result.answer());
+            }
+            recordingHandler.onDone(result.withEvents(List.copyOf(events)));
         } catch (Exception e) {
             log.error("服务台流式处理失败", e);
             if (run != null) {
-                failRun(run, List.of(), e);
+                failRun(run, recordingHandler.events(), e);
             }
-            handler.onError("服务台处理失败，请稍后重试", e);
+            recordingHandler.onError("服务台处理失败，请稍后重试", e);
         } finally {
             UserContextHolder.clear();
         }
+    }
+
+    private ServiceDeskAskCommand resolveCommand(ServiceDeskAskCommand command) {
+        ServiceDeskDecision decision = serviceDeskIntentClassifier.classify(
+                command.question(), ServiceType.from(command.serviceType()));
+        return command.withServiceType(decision.serviceType());
     }
 
     /**
@@ -176,7 +187,7 @@ public class ServiceDeskAppService {
                 "approvalRequired", Boolean.TRUE.equals(result.approvalRequired())
         )));
         run.setAnswer(result.answer());
-        run.setStatus("COMPLETED");
+        run.setStatus(isFailed(result) ? "FAILED" : "COMPLETED");
         run.setIntent(result.intent());
         run.setServiceType(result.serviceType());
         run.setTicketId(result.ticketId());
@@ -212,6 +223,37 @@ public class ServiceDeskAppService {
      */
     private AgentRunEvent event(AgentRunEvent.EventType type, String message, Map<String, Object> payload) {
         return AgentRunEvent.of(type, null, null, payload, true, null, message);
+    }
+
+    private boolean isFailed(ServiceDeskAnswerResult result) {
+        return result.status() != null && "failed".equalsIgnoreCase(result.status());
+    }
+
+    private boolean hasStreamedTokens(List<AgentRunEvent> events) {
+        if (events == null) {
+            return false;
+        }
+        return events.stream().anyMatch(this::hasStreamedTokens);
+    }
+
+    private boolean hasStreamedTokens(AgentRunEvent event) {
+        if (event.payload() == null) {
+            return false;
+        }
+        Object directFlag = event.payload().get("streamedTokens");
+        if (Boolean.TRUE.equals(directFlag)) {
+            return true;
+        }
+        Object result = event.payload().get("result");
+        if (!(result instanceof String text) || !StringUtils.hasText(text)) {
+            return false;
+        }
+        try {
+            Map<String, Object> payload = objectMapper.readValue(text, new com.fasterxml.jackson.core.type.TypeReference<>() {});
+            return Boolean.TRUE.equals(payload.get("streamedTokens"));
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     /**
@@ -278,6 +320,56 @@ public class ServiceDeskAppService {
     private void token(ServiceDeskStreamHandler handler, String text) {
         if (handler != null && text != null) {
             handler.onToken(text);
+        }
+    }
+
+    private static class RecordingStreamHandler implements ServiceDeskStreamHandler {
+
+        private final ServiceDeskStreamHandler delegate;
+        private final List<AgentRunEvent> events = new CopyOnWriteArrayList<>();
+
+        private RecordingStreamHandler(ServiceDeskStreamHandler delegate) {
+            this.delegate = delegate;
+        }
+
+        private List<AgentRunEvent> events() {
+            return List.copyOf(events);
+        }
+
+        @Override
+        public void onStage(String stage, String message) {
+            if (delegate != null) {
+                delegate.onStage(stage, message);
+            }
+        }
+
+        @Override
+        public void onToken(String token) {
+            if (delegate != null) {
+                delegate.onToken(token);
+            }
+        }
+
+        @Override
+        public void onAgentEvent(AgentRunEvent event) {
+            events.add(event);
+            if (delegate != null) {
+                delegate.onAgentEvent(event);
+            }
+        }
+
+        @Override
+        public void onDone(ServiceDeskAnswerResult result) {
+            if (delegate != null) {
+                delegate.onDone(result);
+            }
+        }
+
+        @Override
+        public void onError(String message, Throwable error) {
+            if (delegate != null) {
+                delegate.onError(message, error);
+            }
         }
     }
 
