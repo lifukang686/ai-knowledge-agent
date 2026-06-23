@@ -18,6 +18,9 @@ public class MyBatisDocumentChunkRepository implements DocumentChunkRepository {
 
     private final DocumentChunkMapper documentChunkMapper;
 
+    /**
+     * 查询文档块 ID 列表。
+     */
     @Override
     public List<Long> findIdsByDocumentId(Long documentId) {
         return documentChunkMapper.selectList(
@@ -29,12 +32,18 @@ public class MyBatisDocumentChunkRepository implements DocumentChunkRepository {
                 .toList();
     }
 
+    /**
+     * 删除单文档块。
+     */
     @Override
     public long deleteByDocumentId(Long documentId) {
         return documentChunkMapper.delete(
                 new LambdaQueryWrapper<DocumentChunkDO>().eq(DocumentChunkDO::getDocumentId, documentId));
     }
 
+    /**
+     * 批量删除文档块。
+     */
     @Override
     public long deleteByDocumentIds(List<Long> documentIds) {
         if (documentIds == null || documentIds.isEmpty()) {
@@ -44,6 +53,9 @@ public class MyBatisDocumentChunkRepository implements DocumentChunkRepository {
                 new LambdaQueryWrapper<DocumentChunkDO>().in(DocumentChunkDO::getDocumentId, documentIds));
     }
 
+    /**
+     * 查询文档块并按块序排序。
+     */
     @Override
     public List<DocumentChunkDO> findByDocumentId(Long documentId) {
         return documentChunkMapper.selectList(

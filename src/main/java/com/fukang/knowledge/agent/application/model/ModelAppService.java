@@ -95,6 +95,9 @@ public class ModelAppService {
         return modelConfigRepository.findByProviderId(providerId);
     }
 
+    /**
+     * 根据 ID 查询模型配置。
+     */
     public ModelConfigDO findModelById(Long id) {
         return id != null ? modelConfigRepository.findById(id) : null;
     }

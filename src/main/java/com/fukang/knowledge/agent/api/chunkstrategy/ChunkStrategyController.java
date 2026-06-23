@@ -31,6 +31,9 @@ public class ChunkStrategyController {
 
     private final DocumentChunkStrategyAppService chunkStrategyAppService;
 
+    /**
+     * 创建分块策略。
+     */
     @PostMapping
     public Result<Long> createStrategy(@RequestBody @Validated ChunkStrategyReq req) {
         return Result.success(chunkStrategyAppService.createStrategy(
@@ -41,6 +44,9 @@ public class ChunkStrategyController {
                         req.overlapSize())));
     }
 
+    /**
+     * 更新分块策略。
+     */
     @PutMapping("/{id}")
     public Result<Void> updateStrategy(@PathVariable("id") Long id,
                                        @RequestBody @Validated ChunkStrategyUpdateReq req) {
@@ -53,12 +59,18 @@ public class ChunkStrategyController {
         return Result.success();
     }
 
+    /**
+     * 删除分块策略。
+     */
     @DeleteMapping("/{id}")
     public Result<Void> deleteStrategy(@PathVariable("id") Long id) {
         chunkStrategyAppService.deleteStrategy(id);
         return Result.success();
     }
 
+    /**
+     * 分页查询分块策略。
+     */
     @GetMapping
     public Result<PageResponse<ChunkStrategyResp>> listStrategies(
             @RequestParam(value = "page", defaultValue = "1") long page,
@@ -73,12 +85,18 @@ public class ChunkStrategyController {
                 pageResult.getPageSize()));
     }
 
+    /**
+     * 设置默认分块策略。
+     */
     @PutMapping("/{id}/default")
     public Result<Void> setDefaultStrategy(@PathVariable("id") Long id) {
         chunkStrategyAppService.setDefaultStrategy(id);
         return Result.success();
     }
 
+    /**
+     * 转换分块策略响应。
+     */
     private ChunkStrategyResp toResp(DocumentChunkStrategyDO strategy) {
         return new ChunkStrategyResp(
                 strategy.getId(),

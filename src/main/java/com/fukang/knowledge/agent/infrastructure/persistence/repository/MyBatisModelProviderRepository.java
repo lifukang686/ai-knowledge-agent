@@ -19,38 +19,59 @@ public class MyBatisModelProviderRepository implements ModelProviderRepository {
 
     private final ModelProviderMapper providerMapper;
 
+    /**
+     * 新增模型提供商。
+     */
     @Override
     public void insert(ModelProviderDO provider) {
         providerMapper.insert(provider);
     }
 
+    /**
+     * 查询全部模型提供商。
+     */
     @Override
     public List<ModelProviderDO> findAll() {
         return providerMapper.selectList(new LambdaQueryWrapper<>());
     }
 
+    /**
+     * 按 ID 查询模型提供商。
+     */
     @Override
     public ModelProviderDO findById(Long id) {
         return providerMapper.selectById(id);
     }
 
+    /**
+     * 查询默认模型提供商。
+     */
     @Override
     public ModelProviderDO findDefault() {
         return providerMapper.selectOne(
                 new LambdaQueryWrapper<ModelProviderDO>().eq(ModelProviderDO::getIsDefault, true));
     }
 
+    /**
+     * 更新模型提供商。
+     */
     @Override
     public void updateById(ModelProviderDO provider) {
         providerMapper.updateById(provider);
     }
 
+    /**
+     * 清除默认提供商标记。
+     */
     @Override
     public void clearDefault() {
         providerMapper.update(null,
                 new LambdaUpdateWrapper<ModelProviderDO>().set(ModelProviderDO::getIsDefault, false));
     }
 
+    /**
+     * 删除模型提供商。
+     */
     @Override
     public void deleteById(Long id) {
         providerMapper.deleteById(id);

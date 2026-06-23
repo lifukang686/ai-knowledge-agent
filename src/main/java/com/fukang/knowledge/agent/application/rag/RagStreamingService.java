@@ -34,12 +34,14 @@ public class RagStreamingService {
         streamingChatCompletionPort.completeStream(messages, new StreamingChatCompletionPort.StreamHandler() {
             @Override
             public void onToken(String token) {
+                // 同步累积 token，兜底处理模型未返回 fullText 的情况。
                 answer.append(token);
                 handler.onToken(token);
             }
 
             @Override
             public void onComplete(String fullText) {
+                // 优先使用模型最终文本，缺失时回落到已收到的 token。
                 String finalAnswer = fullText != null && !fullText.isBlank()
                         ? fullText
                         : answer.toString();
@@ -51,6 +53,7 @@ public class RagStreamingService {
 
             @Override
             public void onError(Throwable error) {
+                // 流式异常也要保存失败用户消息，保证会话轨迹完整。
                 runWithUserContext(userId, () -> {
                     ragConversationService.saveUserFailure(conversationId, originalQuestion, rewrittenQuery);
                     handler.onError("生成失败，请稍后重试", error);

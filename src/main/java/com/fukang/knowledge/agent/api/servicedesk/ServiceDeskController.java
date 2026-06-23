@@ -38,12 +38,18 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 @RequestMapping("/api/service-desk")
 public class ServiceDeskController {
 
+    /**
+     * 服务台流式处理 SSE 超时时间。
+     */
     private static final long STREAM_TIMEOUT_MS = 120_000L;
 
     private final ServiceDeskAppService serviceDeskAppService;
     private final TicketAppService ticketAppService;
     private final ThreadPoolTaskExecutor aiStreamExecutor;
 
+    /**
+     * 创建服务台控制器。
+     */
     public ServiceDeskController(ServiceDeskAppService serviceDeskAppService,
                                  TicketAppService ticketAppService,
                                  @Qualifier("aiStreamExecutor") ThreadPoolTaskExecutor aiStreamExecutor) {
@@ -82,6 +88,9 @@ public class ServiceDeskController {
         return emitter;
     }
 
+    /**
+     * 查询当前用户工单列表。
+     */
     @GetMapping("/tickets")
     public Result<PageResponse<ServiceTicketResp>> listTickets(
             @RequestParam(value = "page", defaultValue = "1") long page,
@@ -147,6 +156,9 @@ public class ServiceDeskController {
         return new ServiceDeskAskCommand(req.question(), req.serviceType(), req.knowledgeBaseId(), req.conversationId());
     }
 
+    /**
+     * 判断是否为线程池拒绝异常。
+     */
     private boolean isTaskRejected(RuntimeException e) {
         return e instanceof org.springframework.core.task.TaskRejectedException
                 || e instanceof java.util.concurrent.RejectedExecutionException;

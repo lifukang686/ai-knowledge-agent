@@ -40,6 +40,9 @@ public class EvaluationController {
 
     private final EvaluationAppService evaluationAppService;
 
+    /**
+     * 分页查询评测集。
+     */
     @GetMapping("/datasets")
     public Result<PageResponse<EvaluationDatasetResp>> listDatasets(
             @RequestParam(value = "page", defaultValue = "1") long page,
@@ -53,6 +56,9 @@ public class EvaluationController {
                 datasets.getTotal(), datasets.getPage(), datasets.getPageSize()));
     }
 
+    /**
+     * 创建评测集。
+     */
     @PostMapping("/datasets")
     public Result<Long> createDataset(@RequestBody EvaluationDatasetReq req) {
         Long id = evaluationAppService.createDataset(
@@ -60,11 +66,17 @@ public class EvaluationController {
         return Result.success(id);
     }
 
+    /**
+     * 查询评测集详情。
+     */
     @GetMapping("/datasets/{id}")
     public Result<EvaluationDatasetResp> getDataset(@PathVariable("id") Long id) {
         return Result.success(toDatasetResp(evaluationAppService.getDataset(id)));
     }
 
+    /**
+     * 更新评测集。
+     */
     @PutMapping("/datasets/{id}")
     public Result<Void> updateDataset(@PathVariable("id") Long id, @RequestBody EvaluationDatasetReq req) {
         evaluationAppService.updateDataset(id,
@@ -72,12 +84,18 @@ public class EvaluationController {
         return Result.success();
     }
 
+    /**
+     * 删除评测集。
+     */
     @DeleteMapping("/datasets/{id}")
     public Result<Void> deleteDataset(@PathVariable("id") Long id) {
         evaluationAppService.deleteDataset(id);
         return Result.success();
     }
 
+    /**
+     * 分页查询评测用例。
+     */
     @GetMapping("/datasets/{id}/cases")
     public Result<PageResponse<EvaluationCaseResp>> listCases(
             @PathVariable("id") Long datasetId,
@@ -89,33 +107,51 @@ public class EvaluationController {
                 cases.getTotal(), cases.getPage(), cases.getPageSize()));
     }
 
+    /**
+     * 创建评测用例。
+     */
     @PostMapping("/datasets/{id}/cases")
     public Result<Long> createCase(@PathVariable("id") Long datasetId, @RequestBody EvaluationCaseReq req) {
         return Result.success(evaluationAppService.createCase(datasetId, toCaseCommand(req)));
     }
 
+    /**
+     * 更新评测用例。
+     */
     @PutMapping("/cases/{id}")
     public Result<Void> updateCase(@PathVariable("id") Long id, @RequestBody EvaluationCaseReq req) {
         evaluationAppService.updateCase(id, toCaseCommand(req));
         return Result.success();
     }
 
+    /**
+     * 删除评测用例。
+     */
     @DeleteMapping("/cases/{id}")
     public Result<Void> deleteCase(@PathVariable("id") Long id) {
         evaluationAppService.deleteCase(id);
         return Result.success();
     }
 
+    /**
+     * 手动运行评测集。
+     */
     @PostMapping("/datasets/{id}/runs")
     public Result<EvaluationRunCreateResp> runDataset(@PathVariable("id") Long datasetId) {
         return Result.success(new EvaluationRunCreateResp(evaluationAppService.runDataset(datasetId)));
     }
 
+    /**
+     * 查询运行汇总。
+     */
     @GetMapping("/runs/{runId}")
     public Result<EvaluationRunResp> getRun(@PathVariable("runId") Long runId) {
         return Result.success(toRunResp(evaluationAppService.getRun(runId)));
     }
 
+    /**
+     * 分页查询运行明细。
+     */
     @GetMapping("/runs/{runId}/results")
     public Result<PageResponse<EvaluationCaseResultResp>> listRunResults(
             @PathVariable("runId") Long runId,
@@ -127,23 +163,35 @@ public class EvaluationController {
                 results.getTotal(), results.getPage(), results.getPageSize()));
     }
 
+    /**
+     * 请求 DTO 转应用命令。
+     */
     private SaveEvaluationCaseCommand toCaseCommand(EvaluationCaseReq req) {
         return new SaveEvaluationCaseCommand(req.question(), req.expectedAnswer(), req.expectedKeywords(),
                 req.expectedChunkIds(), req.expectedStatus(), req.metadata(), req.enabled());
     }
 
+    /**
+     * 应用结果转评测集响应。
+     */
     private EvaluationDatasetResp toDatasetResp(EvaluationDatasetResult result) {
         return new EvaluationDatasetResp(result.id(), result.name(), result.description(), result.knowledgeBaseId(),
                 result.targetType(), result.caseCount(), result.lastRunId(), result.lastRunStatus(),
                 result.lastAvgScore(), result.createTime(), result.updateTime());
     }
 
+    /**
+     * 应用结果转用例响应。
+     */
     private EvaluationCaseResp toCaseResp(EvaluationCaseResult result) {
         return new EvaluationCaseResp(result.id(), result.datasetId(), result.question(), result.expectedAnswer(),
                 result.expectedKeywords(), result.expectedChunkIds(), result.expectedStatus(), result.metadata(),
                 result.enabled(), result.createTime(), result.updateTime());
     }
 
+    /**
+     * 应用结果转运行响应。
+     */
     private EvaluationRunResp toRunResp(EvaluationRunResult result) {
         return new EvaluationRunResp(result.id(), result.datasetId(), result.name(), result.targetType(),
                 result.status(), result.totalCount(), result.passedCount(), result.failedCount(), result.avgScore(),
@@ -151,6 +199,9 @@ public class EvaluationController {
                 result.createTime(), result.updateTime());
     }
 
+    /**
+     * 应用结果转运行明细响应。
+     */
     private EvaluationCaseResultResp toCaseResultResp(EvaluationCaseRunResult result) {
         return new EvaluationCaseResultResp(result.id(), result.runId(), result.caseId(), result.question(),
                 result.expectedAnswer(), result.actualAnswer(), result.rewrittenQuery(), result.expectedStatus(),
@@ -161,6 +212,9 @@ public class EvaluationController {
                 result.passed(), result.metricDetail(), result.latencyMs(), result.errorMessage(), result.createTime());
     }
 
+    /**
+     * 应用片段结果转前端响应。
+     */
     private EvaluationChunkResp toChunkResp(EvaluationChunkResult result) {
         return new EvaluationChunkResp(result.chunkId(), result.chunkText(), result.similarity(), result.metadata(),
                 result.vectorScore(), result.bm25Score(), result.rrfScore(), result.rerankScore());

@@ -15,6 +15,9 @@ public enum QaIntent {
     /** 无法判断时按 RAG 问答处理。 */
     UNKNOWN;
 
+    /**
+     * 是否无需检索知识库。
+     */
     public boolean bypassRetrieval() {
         return this == DIRECT_CHAT || this == MEMORY_UPDATE || this == MEMORY_CHAT;
     }

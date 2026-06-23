@@ -18,11 +18,17 @@ public class MyBatisServiceTicketEventRepository implements ServiceTicketEventRe
 
     private final ServiceTicketEventMapper serviceTicketEventMapper;
 
+    /**
+     * 新增工单事件。
+     */
     @Override
     public void insert(ServiceTicketEventDO event) {
         serviceTicketEventMapper.insert(event);
     }
 
+    /**
+     * 查询工单事件列表。
+     */
     @Override
     public List<ServiceTicketEventDO> findByTicketId(Long ticketId) {
         LambdaQueryWrapper<ServiceTicketEventDO> wrapper = new LambdaQueryWrapper<>();
@@ -31,6 +37,9 @@ public class MyBatisServiceTicketEventRepository implements ServiceTicketEventRe
         return serviceTicketEventMapper.selectList(wrapper);
     }
 
+    /**
+     * 统计工单事件数量。
+     */
     @Override
     public Long countByTicketId(Long ticketId) {
         LambdaQueryWrapper<ServiceTicketEventDO> wrapper = new LambdaQueryWrapper<>();

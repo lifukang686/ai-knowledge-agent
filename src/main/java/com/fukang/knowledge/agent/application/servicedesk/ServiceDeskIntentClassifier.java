@@ -24,23 +24,44 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class ServiceDeskIntentClassifier {
 
+    /**
+     * LLM 意图识别提示词模板。
+     */
     private static final String INTENT_TEMPLATE = "service-desk/intent-classifier.v1";
+    /**
+     * 工单号匹配规则。
+     */
     private static final Pattern TICKET_NO_PATTERN = Pattern.compile("T\\d{18}");
+    /**
+     * 创建工单意图规则。
+     */
     private static final Pattern CREATE_TICKET_PATTERN = Pattern.compile(
             "(报修|提交工单|创建工单|开通权限|无法|不能|连不上|打不开|失败|故障|坏了|异常|权限不足|账号锁定|密码错误|VPN|邮箱|电脑)",
             Pattern.CASE_INSENSITIVE);
+    /**
+     * 查询工单意图规则。
+     */
     private static final Pattern QUERY_TICKET_PATTERN = Pattern.compile(
             "(查询|查看|进度|状态|处理到哪|处理了吗|我的工单|工单.*状态)",
             Pattern.CASE_INSENSITIVE);
+    /**
+     * 人工介入意图规则。
+     */
     private static final Pattern HANDOFF_PATTERN = Pattern.compile(
             "(工资|薪资|绩效|劳动合同|仲裁|投诉|数据丢失|生产系统|安全事件|账号被盗)",
             Pattern.CASE_INSENSITIVE);
+    /**
+     * 文档总结意图规则。
+     */
     private static final Pattern SUMMARY_PATTERN = Pattern.compile("(总结|概括|提炼|摘要).*(文档|文件|材料|内容)?");
 
     private final ChatCompletionPort chatCompletionPort;
     private final PromptTemplateManager promptTemplateManager;
     private final ObjectMapper objectMapper;
 
+    /**
+     * 识别服务台问题意图。
+     */
     public ServiceDeskDecision classify(String question, ServiceType preferredType) {
         ServiceDeskDecision ruleDecision = classifyByRule(question, preferredType);
         if (ruleDecision.intent() != ServiceDeskIntent.KNOWLEDGE_QA) {
@@ -63,6 +84,9 @@ public class ServiceDeskIntentClassifier {
         }
     }
 
+    /**
+     * 规则优先识别高确定性意图。
+     */
     private ServiceDeskDecision classifyByRule(String question, ServiceType preferredType) {
         String text = question != null ? question.trim() : "";
         ServiceType serviceType = normalizeServiceType(preferredType, text);
@@ -88,6 +112,9 @@ public class ServiceDeskIntentClassifier {
                 titleFromQuestion(text), text, "默认知识问答");
     }
 
+    /**
+     * 解析 LLM 返回的结构化意图。
+     */
     private ServiceDeskDecision parseDecision(String rawJson, String question, ServiceType preferredType) throws Exception {
         String json = extractJson(rawJson);
         Map<String, Object> map = objectMapper.readValue(json, new TypeReference<>() {});
@@ -104,6 +131,9 @@ public class ServiceDeskIntentClassifier {
         return decision(intent, serviceType, category, priority, title, summary, reason);
     }
 
+    /**
+     * 从模型输出中提取 JSON 对象。
+     */
     private String extractJson(String text) {
         if (text == null) {
             return "{}";
@@ -116,11 +146,17 @@ public class ServiceDeskIntentClassifier {
         return text;
     }
 
+    /**
+     * 构造意图识别结果。
+     */
     private ServiceDeskDecision decision(ServiceDeskIntent intent, ServiceType serviceType, String category,
                                          TicketPriority priority, String title, String summary, String reason) {
         return new ServiceDeskDecision(intent, serviceType, category, priority, title, summary, reason);
     }
 
+    /**
+     * 根据显式选择或关键词确定服务类型。
+     */
     private ServiceType normalizeServiceType(ServiceType preferredType, String question) {
         if (preferredType != null && preferredType != ServiceType.AUTO) {
             return preferredType;
@@ -137,6 +173,9 @@ public class ServiceDeskIntentClassifier {
         return ServiceType.IT;
     }
 
+    /**
+     * 根据问题关键词猜测工单分类。
+     */
     private String guessCategory(String question) {
         String text = question != null ? question.toLowerCase(Locale.ROOT) : "";
         if (text.contains("vpn") || text.contains("网络") || text.contains("连不上")) {
@@ -157,6 +196,9 @@ public class ServiceDeskIntentClassifier {
         return "综合";
     }
 
+    /**
+     * 根据问题关键词猜测优先级。
+     */
     private TicketPriority guessPriority(String question) {
         String text = question != null ? question : "";
         if (text.contains("紧急") || text.contains("生产") || text.contains("全部") || text.contains("无法办公")) {
@@ -165,6 +207,9 @@ public class ServiceDeskIntentClassifier {
         return TicketPriority.MEDIUM;
     }
 
+    /**
+     * 从问题生成简短标题。
+     */
     private String titleFromQuestion(String question) {
         String text = question != null ? question.trim().replaceAll("\\s+", " ") : "服务台请求";
         if (text.isBlank()) {
@@ -173,10 +218,16 @@ public class ServiceDeskIntentClassifier {
         return text.length() > 60 ? text.substring(0, 60) : text;
     }
 
+    /**
+     * 将对象安全转为字符串。
+     */
     private String stringValue(Object value) {
         return value != null ? String.valueOf(value).trim() : "";
     }
 
+    /**
+     * 空字符串回退默认值。
+     */
     private String nonBlank(String value, String fallback) {
         return value != null && !value.isBlank() ? value : fallback;
     }

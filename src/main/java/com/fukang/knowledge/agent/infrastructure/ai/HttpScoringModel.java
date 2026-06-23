@@ -25,6 +25,9 @@ import java.util.Map;
  */
 public class HttpScoringModel implements ScoringModel {
 
+    /**
+     * 重排序请求默认超时时间。
+     */
     private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(60);
 
     private final ModelProviderDO provider;
@@ -33,10 +36,16 @@ public class HttpScoringModel implements ScoringModel {
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient;
 
+    /**
+     * 创建 HTTP 重排序模型。
+     */
     public HttpScoringModel(ModelProviderDO provider, ModelConfigDO modelConfig, ObjectMapper objectMapper) {
         this(provider, modelConfig, objectMapper, null);
     }
 
+    /**
+     * 创建 HTTP 重排序模型，测试可注入 HttpClient。
+     */
     HttpScoringModel(ModelProviderDO provider,
                      ModelConfigDO modelConfig,
                      ObjectMapper objectMapper,
@@ -52,17 +61,26 @@ public class HttpScoringModel implements ScoringModel {
                         .build();
     }
 
+    /**
+     * 对单个文本评分。
+     */
     @Override
     public Response<Double> score(String text, String query) {
         return score(TextSegment.from(text), query);
     }
 
+    /**
+     * 对单个文本片段评分。
+     */
     @Override
     public Response<Double> score(TextSegment segment, String query) {
         List<Double> scores = scoreAll(List.of(segment), query).content();
         return Response.from(scores.isEmpty() ? 0.0 : scores.getFirst());
     }
 
+    /**
+     * 批量计算文本片段重排分。
+     */
     @Override
     public Response<List<Double>> scoreAll(List<TextSegment> segments, String query) {
         try {
@@ -79,6 +97,9 @@ public class HttpScoringModel implements ScoringModel {
         }
     }
 
+    /**
+     * 构建通用 rerank HTTP 请求。
+     */
     HttpRequest buildRequest(String query, List<TextSegment> segments) throws Exception {
         if (options.isDashScopeFormat() || isDashScopeProvider(provider.getApiBaseUrl())) {
             return buildDashScopeRequest(query, segments);
@@ -141,6 +162,9 @@ public class HttpScoringModel implements ScoringModel {
         return builder.build();
     }
 
+    /**
+     * 构造 DashScope 文本输入。
+     */
     private Object dashScopeTextInput(String text) {
         if (!usesDashScopeObjectInput()) {
             return text;
@@ -148,6 +172,9 @@ public class HttpScoringModel implements ScoringModel {
         return Map.of("text", text != null ? text : "");
     }
 
+    /**
+     * 构造 DashScope 文档输入。
+     */
     private Object dashScopeDocumentInput(String text) {
         if (!usesDashScopeObjectInput()) {
             return text;
@@ -180,6 +207,9 @@ public class HttpScoringModel implements ScoringModel {
         return modelName;
     }
 
+    /**
+     * 解析重排序分数。
+     */
     private List<Double> parseScores(String responseBody, int segmentCount) throws Exception {
         JsonNode root = objectMapper.readTree(responseBody);
         JsonNode scoresNode = root.get("scores");
@@ -221,6 +251,9 @@ public class HttpScoringModel implements ScoringModel {
         return scores;
     }
 
+    /**
+     * 解析 scores 数组格式。
+     */
     private List<Double> parseScoreArray(JsonNode scoresNode, int segmentCount) {
         List<Double> scores = initScores(segmentCount);
         int count = Math.min(scoresNode.size(), segmentCount);
@@ -233,6 +266,9 @@ public class HttpScoringModel implements ScoringModel {
         return scores;
     }
 
+    /**
+     * 初始化默认分数列表。
+     */
     private List<Double> initScores(int segmentCount) {
         List<Double> scores = new ArrayList<>(segmentCount);
         for (int i = 0; i < segmentCount; i++) {
@@ -241,6 +277,9 @@ public class HttpScoringModel implements ScoringModel {
         return scores;
     }
 
+    /**
+     * 拼接通用 rerank 接口地址。
+     */
     private String resolveEndpoint(String baseUrl, String path) {
         String normalizedBase = baseUrl != null ? baseUrl.trim() : "";
         if (normalizedBase.isBlank()) {
@@ -259,10 +298,16 @@ public class HttpScoringModel implements ScoringModel {
         return normalizedBase + normalizedPath;
     }
 
+    /**
+     * 判断是否为 DashScope 服务地址。
+     */
     private boolean isDashScopeProvider(String baseUrl) {
         return baseUrl != null && baseUrl.toLowerCase().contains("dashscope.aliyuncs.com");
     }
 
+    /**
+     * 拼接 DashScope rerank 接口地址。
+     */
     private String resolveDashScopeEndpoint(String baseUrl, String path) {
         String normalizedPath = path != null && !path.isBlank() ? path.trim() : "";
         if (normalizedPath.startsWith("http://") || normalizedPath.startsWith("https://")) {
@@ -288,6 +333,9 @@ public class HttpScoringModel implements ScoringModel {
         return origin + normalizedPath;
     }
 
+    /**
+     * Rerank HTTP 调用选项。
+     */
     private record RerankHttpOptions(
             String path,
             String requestFormat,
@@ -300,10 +348,16 @@ public class HttpScoringModel implements ScoringModel {
             Duration timeout,
             Map<String, Object> requestParams
     ) {
+        /**
+         * 是否使用 DashScope 请求格式。
+         */
         boolean isDashScopeFormat() {
             return "dashscope".equalsIgnoreCase(requestFormat);
         }
 
+        /**
+         * 从模型默认参数解析调用选项。
+         */
         static RerankHttpOptions from(ModelConfigDO modelConfig, ObjectMapper objectMapper) {
             Map<String, Object> params = parseParams(modelConfig, objectMapper);
             return new RerankHttpOptions(
@@ -320,6 +374,9 @@ public class HttpScoringModel implements ScoringModel {
             );
         }
 
+        /**
+         * 解析模型默认参数 JSON。
+         */
         private static Map<String, Object> parseParams(ModelConfigDO modelConfig, ObjectMapper objectMapper) {
             String raw = modelConfig.getDefaultParams();
             if (raw == null || raw.isBlank()) {
@@ -332,11 +389,17 @@ public class HttpScoringModel implements ScoringModel {
             }
         }
 
+        /**
+         * 读取字符串参数。
+         */
         private static String stringParam(Map<String, Object> params, String key, String defaultValue) {
             Object value = params.get(key);
             return value != null && !String.valueOf(value).isBlank() ? String.valueOf(value) : defaultValue;
         }
 
+        /**
+         * 读取 long 参数。
+         */
         private static long longParam(Map<String, Object> params, String key, long defaultValue) {
             Object value = params.get(key);
             if (value instanceof Number number) {
@@ -352,6 +415,9 @@ public class HttpScoringModel implements ScoringModel {
             return defaultValue;
         }
 
+        /**
+         * 读取 map 参数。
+         */
         @SuppressWarnings("unchecked")
         private static Map<String, Object> mapParam(Map<String, Object> params, String key) {
             Object value = params.get(key);

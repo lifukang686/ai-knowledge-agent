@@ -16,6 +16,9 @@ public class HybridQaIntentClassifier implements QaIntentClassifier {
     private final RuleBasedQaIntentClassifier ruleBasedQaIntentClassifier;
     private final LlmQaIntentClassifier llmQaIntentClassifier;
 
+    /**
+     * 先规则识别，规则无法判断时再调用 LLM。
+     */
     @Override
     public QaIntentResult classifyResult(String question) {
         QaIntentResult ruleResult = ruleBasedQaIntentClassifier.classifyResult(question);

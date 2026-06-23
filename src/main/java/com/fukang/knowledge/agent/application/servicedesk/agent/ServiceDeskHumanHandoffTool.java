@@ -20,11 +20,17 @@ public class ServiceDeskHumanHandoffTool implements LocalMethodTool {
 
     private final TicketAppService ticketAppService;
 
+    /**
+     * 返回工具名称。
+     */
     @Override
     public String name() {
         return ServiceDeskToolNames.REQUEST_HUMAN_HANDOFF;
     }
 
+    /**
+     * 生成人工介入草稿工单。
+     */
     @Override
     public Object execute(Map<String, Object> arguments) {
         ServiceDeskAgentContext context = ServiceDeskAgentContextHolder.getRequired();
@@ -47,11 +53,17 @@ public class ServiceDeskHumanHandoffTool implements LocalMethodTool {
         return ServiceDeskDraftTicketTool.toDraftPayload(ticket);
     }
 
+    /**
+     * 读取文本参数。
+     */
     private String text(Map<String, Object> args, String key, String fallback) {
         Object value = args != null ? args.get(key) : null;
         return value != null && !String.valueOf(value).isBlank() ? String.valueOf(value) : fallback;
     }
 
+    /**
+     * 从问题生成工单标题。
+     */
     private String titleFromQuestion(String question) {
         String text = question != null ? question.trim().replaceAll("\\s+", " ") : "人工介入请求";
         if (text.isBlank()) {

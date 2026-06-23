@@ -50,10 +50,25 @@ import java.util.Objects;
 @RequiredArgsConstructor
 public class EvaluationAppService {
 
+    /**
+     * 当前评测对象仅覆盖 RAG 问答。
+     */
     private static final String TARGET_TYPE_RAG_QA = "RAG_QA";
+    /**
+     * 评测运行中。
+     */
     private static final String STATUS_RUNNING = "RUNNING";
+    /**
+     * 评测已完成。
+     */
     private static final String STATUS_COMPLETED = "COMPLETED";
+    /**
+     * 评测执行失败。
+     */
     private static final String STATUS_FAILED = "FAILED";
+    /**
+     * 用例通过阈值。
+     */
     private static final double PASS_THRESHOLD = 70.0D;
 
     private final EvaluationDatasetMapper datasetMapper;
@@ -64,6 +79,9 @@ public class EvaluationAppService {
     private final RagAppService ragAppService;
     private final ObjectMapper objectMapper;
 
+    /**
+     * 分页查询评测集。
+     */
     public PageResponse<EvaluationDatasetResult> listDatasets(long page, long pageSize, String keyword,
                                                               Long knowledgeBaseId) {
         LambdaQueryWrapper<EvaluationDatasetDO> wrapper = new LambdaQueryWrapper<>();
@@ -83,6 +101,9 @@ public class EvaluationAppService {
         return new PageResponse<>(items, resultPage.getTotal(), resultPage.getCurrent(), resultPage.getSize());
     }
 
+    /**
+     * 创建 RAG 评测集。
+     */
     @Transactional(rollbackFor = Exception.class)
     public Long createDataset(CreateEvaluationDatasetCommand command) {
         validateDataset(command.name(), command.knowledgeBaseId());
@@ -95,10 +116,16 @@ public class EvaluationAppService {
         return dataset.getId();
     }
 
+    /**
+     * 查询评测集详情。
+     */
     public EvaluationDatasetResult getDataset(Long id) {
         return toDatasetResult(findDataset(id));
     }
 
+    /**
+     * 更新评测集基础信息。
+     */
     @Transactional(rollbackFor = Exception.class)
     public void updateDataset(Long id, UpdateEvaluationDatasetCommand command) {
         EvaluationDatasetDO dataset = findDataset(id);
@@ -109,9 +136,13 @@ public class EvaluationAppService {
         datasetMapper.updateById(dataset);
     }
 
+    /**
+     * 删除评测集及其用例、运行和结果。
+     */
     @Transactional(rollbackFor = Exception.class)
     public void deleteDataset(Long id) {
         findDataset(id);
+        // 先删除结果，再删运行和用例，避免残留孤儿数据。
         List<Long> runIds = runMapper.selectList(new LambdaQueryWrapper<EvaluationRunDO>()
                         .select(EvaluationRunDO::getId)
                         .eq(EvaluationRunDO::getDatasetId, id))
@@ -127,6 +158,9 @@ public class EvaluationAppService {
         datasetMapper.deleteById(id);
     }
 
+    /**
+     * 分页查询评测用例。
+     */
     public PageResponse<EvaluationCaseResult> listCases(Long datasetId, long page, long pageSize) {
         findDataset(datasetId);
         IPage<EvaluationCaseDO> resultPage = caseMapper.selectPage(new Page<>(page, pageSize),
@@ -137,6 +171,9 @@ public class EvaluationAppService {
                 resultPage.getTotal(), resultPage.getCurrent(), resultPage.getSize());
     }
 
+    /**
+     * 创建评测用例。
+     */
     @Transactional(rollbackFor = Exception.class)
     public Long createCase(Long datasetId, SaveEvaluationCaseCommand command) {
         findDataset(datasetId);
@@ -147,6 +184,9 @@ public class EvaluationAppService {
         return testCase.getId();
     }
 
+    /**
+     * 更新评测用例。
+     */
     @Transactional(rollbackFor = Exception.class)
     public void updateCase(Long id, SaveEvaluationCaseCommand command) {
         EvaluationCaseDO testCase = findCase(id);
@@ -155,6 +195,9 @@ public class EvaluationAppService {
         caseMapper.updateById(testCase);
     }
 
+    /**
+     * 删除评测用例及历史结果。
+     */
     @Transactional(rollbackFor = Exception.class)
     public void deleteCase(Long id) {
         findCase(id);
@@ -163,6 +206,9 @@ public class EvaluationAppService {
         caseMapper.deleteById(id);
     }
 
+    /**
+     * 同步运行整个评测集。
+     */
     @Transactional(rollbackFor = Exception.class)
     public Long runDataset(Long datasetId) {
         EvaluationDatasetDO dataset = findDataset(datasetId);
@@ -173,6 +219,7 @@ public class EvaluationAppService {
                 .orderByAsc(EvaluationCaseDO::getCreateTime));
 
         if (cases.isEmpty()) {
+            // 空评测集不产生用例结果，直接标记失败便于前端提示。
             run.setStatus(STATUS_FAILED);
             run.setTotalCount(0);
             run.setPassedCount(0);
@@ -189,6 +236,7 @@ public class EvaluationAppService {
         double scoreSum = 0.0D;
         long latencySum = 0L;
         for (EvaluationCaseDO testCase : cases) {
+            // 每条用例独立捕获异常，避免单条失败中断整批评测。
             EvaluationCaseResultDO result = runCase(run.getId(), dataset.getKnowledgeBaseId(), testCase);
             caseResultMapper.insert(result);
             if (Boolean.TRUE.equals(result.getPassed())) {
@@ -209,6 +257,9 @@ public class EvaluationAppService {
         return run.getId();
     }
 
+    /**
+     * 查询评测运行汇总。
+     */
     public EvaluationRunResult getRun(Long runId) {
         EvaluationRunDO run = runMapper.selectById(runId);
         if (run == null) {
@@ -217,6 +268,9 @@ public class EvaluationAppService {
         return toRunResult(run);
     }
 
+    /**
+     * 分页查询评测运行明细。
+     */
     public PageResponse<EvaluationCaseRunResult> listRunResults(Long runId, long page, long pageSize) {
         getRun(runId);
         IPage<EvaluationCaseResultDO> resultPage = caseResultMapper.selectPage(new Page<>(page, pageSize),
@@ -227,6 +281,9 @@ public class EvaluationAppService {
                 resultPage.getTotal(), resultPage.getCurrent(), resultPage.getSize());
     }
 
+    /**
+     * 初始化运行记录。
+     */
     private EvaluationRunDO createRun(EvaluationDatasetDO dataset) {
         EvaluationRunDO run = new EvaluationRunDO();
         run.setDatasetId(dataset.getId());
@@ -241,6 +298,9 @@ public class EvaluationAppService {
         return run;
     }
 
+    /**
+     * 执行单条评测用例并落评分结果。
+     */
     private EvaluationCaseResultDO runCase(Long runId, Long knowledgeBaseId, EvaluationCaseDO testCase) {
         EvaluationCaseResultDO result = baseCaseResult(runId, testCase);
         try {
@@ -249,6 +309,7 @@ public class EvaluationAppService {
             result.setActualAnswer(ragResult.answer());
             result.setRewrittenQuery(ragResult.rewrittenQuery());
             result.setActualStatus(ragResult.status());
+            // 保存检索 trace，便于结果页定位召回和重排问题。
             result.setRetrievedChunks(toJson(toChunkResults(ragResult.retrievedChunks())));
             result.setRerankedChunks(toJson(toChunkResults(ragResult.rerankedChunks())));
             result.setRetrievalHitScore(score.retrievalHitScore());
@@ -269,6 +330,9 @@ public class EvaluationAppService {
         return result;
     }
 
+    /**
+     * 构造用例结果快照，避免后续用例修改影响历史结果。
+     */
     private EvaluationCaseResultDO baseCaseResult(Long runId, EvaluationCaseDO testCase) {
         EvaluationCaseResultDO result = new EvaluationCaseResultDO();
         result.setRunId(runId);
@@ -283,6 +347,9 @@ public class EvaluationAppService {
         return result;
     }
 
+    /**
+     * 按已配置指标计算总分。
+     */
     private Score score(EvaluationCaseDO testCase, RagEvalResult ragResult) {
         List<Double> parts = new ArrayList<>();
         Map<String, Object> detail = new LinkedHashMap<>();
@@ -290,6 +357,7 @@ public class EvaluationAppService {
         List<Long> expectedChunkIds = parseLongList(testCase.getExpectedChunkIds());
         Double retrievalScore = null;
         if (!expectedChunkIds.isEmpty()) {
+            // 期望 Chunk 命中原始召回或重排结果均算召回成功。
             boolean hit = hasChunkHit(expectedChunkIds, ragResult.retrievedChunks())
                     || hasChunkHit(expectedChunkIds, ragResult.rerankedChunks());
             retrievalScore = hit ? 100.0D : 0.0D;
@@ -300,6 +368,7 @@ public class EvaluationAppService {
         List<String> keywords = parseStringList(testCase.getExpectedKeywords());
         Double keywordScore = null;
         if (!keywords.isEmpty()) {
+            // 关键词按答案覆盖比例计分。
             long hitCount = keywords.stream().filter(keyword -> contains(ragResult.answer(), keyword)).count();
             keywordScore = round(hitCount * 100.0D / keywords.size());
             parts.add(keywordScore);
@@ -309,6 +378,7 @@ public class EvaluationAppService {
 
         Double statusScore = null;
         if (StringUtils.hasText(testCase.getExpectedStatus())) {
+            // 状态用于校验 success/no_results 等链路结果。
             boolean match = testCase.getExpectedStatus().equalsIgnoreCase(
                     ragResult.status() != null ? ragResult.status() : "");
             statusScore = match ? 100.0D : 0.0D;
@@ -325,6 +395,9 @@ public class EvaluationAppService {
         return new Score(retrievalScore, keywordScore, statusScore, totalScore, passed, detail);
     }
 
+    /**
+     * 判断期望片段是否被召回。
+     */
     private boolean hasChunkHit(List<Long> expectedChunkIds, List<SearchResult> chunks) {
         if (chunks == null || chunks.isEmpty()) {
             return false;
@@ -332,6 +405,9 @@ public class EvaluationAppService {
         return chunks.stream().map(SearchResult::chunkId).filter(Objects::nonNull).anyMatch(expectedChunkIds::contains);
     }
 
+    /**
+     * 忽略大小写判断答案是否包含关键词。
+     */
     private boolean contains(String answer, String keyword) {
         if (!StringUtils.hasText(answer) || !StringUtils.hasText(keyword)) {
             return false;
@@ -339,6 +415,9 @@ public class EvaluationAppService {
         return answer.toLowerCase(Locale.ROOT).contains(keyword.toLowerCase(Locale.ROOT));
     }
 
+    /**
+     * 校验评测集基础字段。
+     */
     private void validateDataset(String name, Long knowledgeBaseId) {
         if (!StringUtils.hasText(name)) {
             throw new BaseException(ErrorCodeEnum.BAD_REQUEST.getCode(), "评测集名称不能为空");
@@ -348,12 +427,18 @@ public class EvaluationAppService {
         }
     }
 
+    /**
+     * 校验评测用例基础字段。
+     */
     private void validateCase(SaveEvaluationCaseCommand command) {
         if (command == null || !StringUtils.hasText(command.question())) {
             throw new BaseException(ErrorCodeEnum.BAD_REQUEST.getCode(), "评测问题不能为空");
         }
     }
 
+    /**
+     * 填充用例持久化字段。
+     */
     private void fillCase(EvaluationCaseDO testCase, Long datasetId, SaveEvaluationCaseCommand command) {
         testCase.setDatasetId(datasetId);
         testCase.setQuestion(command.question().trim());
@@ -365,6 +450,9 @@ public class EvaluationAppService {
         testCase.setEnabled(command.enabled() == null || command.enabled());
     }
 
+    /**
+     * 查询评测集，不存在时抛业务异常。
+     */
     private EvaluationDatasetDO findDataset(Long id) {
         EvaluationDatasetDO dataset = datasetMapper.selectById(id);
         if (dataset == null) {
@@ -373,6 +461,9 @@ public class EvaluationAppService {
         return dataset;
     }
 
+    /**
+     * 查询评测用例，不存在时抛业务异常。
+     */
     private EvaluationCaseDO findCase(Long id) {
         EvaluationCaseDO testCase = caseMapper.selectById(id);
         if (testCase == null) {
@@ -381,6 +472,9 @@ public class EvaluationAppService {
         return testCase;
     }
 
+    /**
+     * 转换评测集结果，并附带用例数和最近运行摘要。
+     */
     private EvaluationDatasetResult toDatasetResult(EvaluationDatasetDO dataset) {
         long caseCount = caseMapper.selectCount(new LambdaQueryWrapper<EvaluationCaseDO>()
                 .eq(EvaluationCaseDO::getDatasetId, dataset.getId()));
@@ -396,6 +490,9 @@ public class EvaluationAppService {
                 dataset.getCreateTime(), dataset.getUpdateTime());
     }
 
+    /**
+     * 转换用例结果。
+     */
     private EvaluationCaseResult toCaseResult(EvaluationCaseDO testCase) {
         return new EvaluationCaseResult(testCase.getId(), testCase.getDatasetId(), testCase.getQuestion(),
                 testCase.getExpectedAnswer(), parseStringList(testCase.getExpectedKeywords()),
@@ -403,6 +500,9 @@ public class EvaluationAppService {
                 testCase.getEnabled(), testCase.getCreateTime(), testCase.getUpdateTime());
     }
 
+    /**
+     * 转换运行汇总结果。
+     */
     private EvaluationRunResult toRunResult(EvaluationRunDO run) {
         return new EvaluationRunResult(run.getId(), run.getDatasetId(), run.getName(), run.getTargetType(),
                 run.getStatus(), run.getTotalCount(), run.getPassedCount(), run.getFailedCount(), run.getAvgScore(),
@@ -410,6 +510,9 @@ public class EvaluationAppService {
                 run.getCreateTime(), run.getUpdateTime());
     }
 
+    /**
+     * 转换单条运行结果。
+     */
     private EvaluationCaseRunResult toCaseRunResult(EvaluationCaseResultDO result) {
         return new EvaluationCaseRunResult(result.getId(), result.getRunId(), result.getCaseId(),
                 result.getQuestion(), result.getExpectedAnswer(), result.getActualAnswer(), result.getRewrittenQuery(),
@@ -420,6 +523,9 @@ public class EvaluationAppService {
                 result.getLatencyMs(), result.getErrorMessage(), result.getCreateTime());
     }
 
+    /**
+     * 转换召回片段展示结果。
+     */
     private List<EvaluationChunkResult> toChunkResults(List<SearchResult> chunks) {
         if (chunks == null) {
             return List.of();
@@ -430,6 +536,9 @@ public class EvaluationAppService {
                 .toList();
     }
 
+    /**
+     * 解析字符串数组 JSON。
+     */
     private List<String> parseStringList(String json) {
         if (!StringUtils.hasText(json)) {
             return List.of();
@@ -441,6 +550,9 @@ public class EvaluationAppService {
         }
     }
 
+    /**
+     * 解析 Long 数组 JSON。
+     */
     private List<Long> parseLongList(String json) {
         if (!StringUtils.hasText(json)) {
             return List.of();
@@ -452,6 +564,9 @@ public class EvaluationAppService {
         }
     }
 
+    /**
+     * 解析召回片段 JSON。
+     */
     private List<EvaluationChunkResult> parseChunkList(String json) {
         if (!StringUtils.hasText(json)) {
             return List.of();
@@ -463,6 +578,9 @@ public class EvaluationAppService {
         }
     }
 
+    /**
+     * 解析评分明细 JSON。
+     */
     private Map<String, Object> parseMap(String json) {
         if (!StringUtils.hasText(json)) {
             return Map.of();
@@ -474,6 +592,9 @@ public class EvaluationAppService {
         }
     }
 
+    /**
+     * 序列化对象为 JSON。
+     */
     private String toJson(Object value) {
         try {
             return objectMapper.writeValueAsString(value);
@@ -482,14 +603,23 @@ public class EvaluationAppService {
         }
     }
 
+    /**
+     * 去除空白，空值转 null。
+     */
     private String trimToNull(String value) {
         return StringUtils.hasText(value) ? value.trim() : null;
     }
 
+    /**
+     * 分数保留两位小数。
+     */
     private double round(double value) {
         return Math.round(value * 100.0D) / 100.0D;
     }
 
+    /**
+     * 单条用例评分明细。
+     */
     private record Score(
             Double retrievalHitScore,
             Double keywordScore,

@@ -25,11 +25,17 @@ public class MyBatisConversationMemoryRepository implements ConversationMemoryRe
     private final ConversationMessageMapper conversationMessageMapper;
     private final ConversationSummaryMapper conversationSummaryMapper;
 
+    /**
+     * 按 ID 查询会话。
+     */
     @Override
     public ConversationDO findConversationById(Long conversationId) {
         return conversationMapper.selectById(conversationId);
     }
 
+    /**
+     * 查询用户会话列表。
+     */
     @Override
     public List<ConversationDO> findConversationsByUser(Long userId, Long knowledgeBaseId, int limit) {
         LambdaQueryWrapper<ConversationDO> wrapper = new LambdaQueryWrapper<>();
@@ -43,6 +49,9 @@ public class MyBatisConversationMemoryRepository implements ConversationMemoryRe
         return conversationMapper.selectList(wrapper);
     }
 
+    /**
+     * 统计会话消息数。
+     */
     @Override
     public long countMessages(Long conversationId) {
         LambdaQueryWrapper<ConversationMessageDO> wrapper = new LambdaQueryWrapper<>();
@@ -50,21 +59,33 @@ public class MyBatisConversationMemoryRepository implements ConversationMemoryRe
         return conversationMessageMapper.selectCount(wrapper);
     }
 
+    /**
+     * 新增会话。
+     */
     @Override
     public void insertConversation(ConversationDO conversation) {
         conversationMapper.insert(conversation);
     }
 
+    /**
+     * 更新会话。
+     */
     @Override
     public void updateConversation(ConversationDO conversation) {
         conversationMapper.updateById(conversation);
     }
 
+    /**
+     * 新增会话消息。
+     */
     @Override
     public void insertMessage(ConversationMessageDO message) {
         conversationMessageMapper.insert(message);
     }
 
+    /**
+     * 查询最近消息并按时间正序返回。
+     */
     @Override
     public List<ConversationMessageDO> findRecentMessages(Long conversationId, int limit) {
         LambdaQueryWrapper<ConversationMessageDO> wrapper = new LambdaQueryWrapper<>();
@@ -77,6 +98,9 @@ public class MyBatisConversationMemoryRepository implements ConversationMemoryRe
                 .toList();
     }
 
+    /**
+     * 查询会话全部消息。
+     */
     @Override
     public List<ConversationMessageDO> findAllMessages(Long conversationId) {
         LambdaQueryWrapper<ConversationMessageDO> wrapper = new LambdaQueryWrapper<>();
@@ -85,6 +109,9 @@ public class MyBatisConversationMemoryRepository implements ConversationMemoryRe
         return conversationMessageMapper.selectList(wrapper);
     }
 
+    /**
+     * 查询最新会话摘要。
+     */
     @Override
     public ConversationSummaryDO findLatestSummary(Long conversationId) {
         LambdaQueryWrapper<ConversationSummaryDO> wrapper = new LambdaQueryWrapper<>();
@@ -94,11 +121,17 @@ public class MyBatisConversationMemoryRepository implements ConversationMemoryRe
         return conversationSummaryMapper.selectOne(wrapper);
     }
 
+    /**
+     * 新增会话摘要。
+     */
     @Override
     public void insertSummary(ConversationSummaryDO summary) {
         conversationSummaryMapper.insert(summary);
     }
 
+    /**
+     * 更新会话摘要。
+     */
     @Override
     public void updateSummary(ConversationSummaryDO summary) {
         conversationSummaryMapper.updateById(summary);

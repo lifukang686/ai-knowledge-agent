@@ -333,15 +333,24 @@ public class ServiceDeskAppService {
         }
     }
 
+    /**
+     * 记录 Agent 事件并转发给真实 SSE 处理器。
+     */
     private static class RecordingStreamHandler implements ServiceDeskStreamHandler {
 
         private final ServiceDeskStreamHandler delegate;
         private final List<AgentRunEvent> events = new CopyOnWriteArrayList<>();
 
+        /**
+         * 创建记录型流处理器。
+         */
         private RecordingStreamHandler(ServiceDeskStreamHandler delegate) {
             this.delegate = delegate;
         }
 
+        /**
+         * 返回已记录事件。
+         */
         private List<AgentRunEvent> events() {
             return List.copyOf(events);
         }

@@ -6,6 +6,7 @@ import { DataTable, Pagination } from '@/components/common';
 import { evaluationService } from '@/services/evaluation';
 import { EvaluationCaseResult, EvaluationRun } from '@/types/evaluation';
 
+/** 评测运行详情页。 */
 const EvaluationRunDetail: React.FC = () => {
   const { runId } = useParams<{ runId: string }>();
   const navigate = useNavigate();
@@ -16,6 +17,7 @@ const EvaluationRunDetail: React.FC = () => {
   const [pageSize, setPageSize] = useState(10);
   const [total, setTotal] = useState(0);
 
+  /** 同时加载运行汇总和单条结果。 */
   const loadData = useCallback(async (nextPage = page, size = pageSize) => {
     if (!runId) return;
     setLoading(true);
@@ -156,6 +158,7 @@ const EvaluationRunDetail: React.FC = () => {
   );
 };
 
+/** 格式化可空分数。 */
 function fmt(value?: number): string {
   return value == null ? '-' : value.toFixed(1);
 }

@@ -11,8 +11,14 @@ import java.util.Optional;
  */
 public interface RerankModelPort {
 
+    /**
+     * 对候选片段重排序。
+     */
     Optional<List<RerankScore>> rerank(String query, List<SearchResult> candidates);
 
+    /**
+     * 单条重排序得分。
+     */
     record RerankScore(int index, Long chunkId, double score) {
     }
 }

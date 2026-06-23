@@ -21,12 +21,18 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class LlmQaIntentClassifier {
 
+    /**
+     * RAG 意图识别提示词模板。
+     */
     private static final String INTENT_TEMPLATE = "rag/intent-classifier.v1";
 
     private final ChatCompletionPort chatCompletionPort;
     private final PromptTemplateManager promptTemplateManager;
     private final ObjectMapper objectMapper;
 
+    /**
+     * 调用 LLM 识别 QA 意图。
+     */
     public QaIntentResult classifyResult(String question) {
         try {
             String userPrompt = promptTemplateManager.renderText(INTENT_TEMPLATE, Map.of(
@@ -43,6 +49,9 @@ public class LlmQaIntentClassifier {
         }
     }
 
+    /**
+     * 解析 LLM JSON 输出。
+     */
     private QaIntentResult parse(String raw) throws Exception {
         if (raw == null || raw.isBlank()) {
             return QaIntentResult.of(QaIntent.RAG_QA, 0.3, "empty llm response");
@@ -54,6 +63,9 @@ public class LlmQaIntentClassifier {
         return QaIntentResult.of(intent, clamp(confidence), reason);
     }
 
+    /**
+     * 解析意图枚举。
+     */
     private QaIntent parseIntent(String value) {
         try {
             return QaIntent.valueOf(value.trim().toUpperCase(Locale.ROOT));
@@ -62,6 +74,9 @@ public class LlmQaIntentClassifier {
         }
     }
 
+    /**
+     * 从模型输出中提取 JSON 对象。
+     */
     private String extractJson(String raw) {
         int start = raw.indexOf('{');
         int end = raw.lastIndexOf('}');
@@ -71,6 +86,9 @@ public class LlmQaIntentClassifier {
         return raw;
     }
 
+    /**
+     * 将置信度限制在 0-1。
+     */
     private double clamp(double confidence) {
         if (confidence < 0) {
             return 0;

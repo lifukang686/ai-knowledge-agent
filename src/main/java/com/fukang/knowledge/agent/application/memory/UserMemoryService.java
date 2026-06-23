@@ -25,10 +25,25 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class UserMemoryService {
 
+    /**
+     * 生效记忆状态。
+     */
     private static final String STATUS_ACTIVE = "active";
+    /**
+     * 用户记忆提取提示词模板。
+     */
     private static final String EXTRACT_TEMPLATE = "rag/user-memory-extract.v1";
+    /**
+     * 单次注入 Prompt 的最大记忆条数。
+     */
     private static final int MEMORY_LIMIT = 20;
+    /**
+     * 单条记忆最大长度。
+     */
     private static final int CONTENT_MAX_LENGTH = 300;
+    /**
+     * 允许保存的记忆类型。
+     */
     private static final List<String> ALLOWED_TYPES = List.of("profile", "preference", "fact", "goal");
 
     private final UserMemoryRepository userMemoryRepository;
@@ -236,10 +251,16 @@ public class UserMemoryService {
         return Math.max(0.1D, Math.min(1D, confidence));
     }
 
+    /**
+     * 获取当前用户 ID。
+     */
     private Long currentUserId() {
         Long userId = UserContextHolder.getUserId();
         return userId;
     }
 
+    /**
+     * LLM 提取出的候选记忆。
+     */
     private record MemoryCandidate(String type, String content, Double confidence) {}
 }

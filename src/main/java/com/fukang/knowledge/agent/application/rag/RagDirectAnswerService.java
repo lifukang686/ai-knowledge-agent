@@ -21,8 +21,17 @@ import java.util.List;
 @RequiredArgsConstructor
 public class RagDirectAnswerService {
 
+    /**
+     * 闲聊回答系统提示词。
+     */
     private static final String CHITCHAT_SYSTEM_TEMPLATE = "rag/chitchat-system.v1";
+    /**
+     * 直接回答失败时的兜底话术。
+     */
     private static final String DEFAULT_DIRECT_ANSWER = "你好！我是你的知识库问答助手，可以帮你基于已上传文档进行问答。";
+    /**
+     * 记忆更新确认话术。
+     */
     private static final String MEMORY_UPDATE_ANSWER = "好的，我记住了。";
 
     private final PromptTemplateManager promptTemplateManager;

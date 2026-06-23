@@ -12,11 +12,17 @@ import java.util.Map;
 @Component
 public class ServiceDeskAskForMoreInfoTool implements LocalMethodTool {
 
+    /**
+     * 返回工具名称。
+     */
     @Override
     public String name() {
         return ServiceDeskToolNames.ASK_FOR_MORE_INFO;
     }
 
+    /**
+     * 生成补充信息提示。
+     */
     @Override
     public Object execute(Map<String, Object> arguments) {
         Object rawFields = arguments != null ? arguments.get("missingFields") : null;
@@ -28,6 +34,9 @@ public class ServiceDeskAskForMoreInfoTool implements LocalMethodTool {
         return Map.of("status", "collect_info", "message", message, "missingFields", fields);
     }
 
+    /**
+     * 读取文本参数。
+     */
     private String text(Map<String, Object> args, String key, String fallback) {
         Object value = args != null ? args.get(key) : null;
         return value != null && !String.valueOf(value).isBlank() ? String.valueOf(value) : fallback;

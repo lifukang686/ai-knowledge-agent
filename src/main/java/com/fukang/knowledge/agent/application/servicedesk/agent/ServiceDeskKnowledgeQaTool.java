@@ -20,17 +20,29 @@ import java.util.concurrent.atomic.AtomicReference;
 @RequiredArgsConstructor
 public class ServiceDeskKnowledgeQaTool implements LocalMethodTool {
 
+    /**
+     * 等待 RAG 流式结果的最长时间。
+     */
     private static final long STREAM_WAIT_TIMEOUT_SECONDS = 115L;
+    /**
+     * 无知识库结果时追加的服务台引导话术。
+     */
     private static final String NO_RESULT_HINT = "\n\n如果这个问题比较紧急，或者知识库没有覆盖到你的场景，"
             + "可以补充现象、影响范围和发生时间，我可以继续帮你生成工单草稿。";
 
     private final RagAppService ragAppService;
 
+    /**
+     * 返回工具名称。
+     */
     @Override
     public String name() {
         return ServiceDeskToolNames.KNOWLEDGE_QA;
     }
 
+    /**
+     * 执行知识库问答。
+     */
     @Override
     public Object execute(Map<String, Object> arguments) {
         ServiceDeskAgentContext context = ServiceDeskAgentContextHolder.getRequired();
@@ -44,6 +56,9 @@ public class ServiceDeskKnowledgeQaTool implements LocalMethodTool {
         return toPayload(result, withNoResultHint(result), false);
     }
 
+    /**
+     * 执行流式知识库问答。
+     */
     private Object executeStream(String question, ServiceDeskAgentContext context) {
         CountDownLatch done = new CountDownLatch(1);
         AtomicReference<QaResult> resultRef = new AtomicReference<>();
@@ -86,6 +101,9 @@ public class ServiceDeskKnowledgeQaTool implements LocalMethodTool {
         return toPayload(result, result.answer(), true);
     }
 
+    /**
+     * 等待流式问答结束。
+     */
     private void awaitStream(CountDownLatch done) {
         try {
             // Agent 工具需要等待 RAG 完成，才能把完整结果作为 observation 返回。
@@ -98,11 +116,17 @@ public class ServiceDeskKnowledgeQaTool implements LocalMethodTool {
         }
     }
 
+    /**
+     * 无结果时追加服务台下一步引导。
+     */
     private String withNoResultHint(QaResult result) {
         String answer = result.answer();
         return "no_results".equalsIgnoreCase(result.status()) ? answer + NO_RESULT_HINT : answer;
     }
 
+    /**
+     * 转换工具输出载荷。
+     */
     private Map<String, Object> toPayload(QaResult result, String answer, boolean streamedTokens) {
         return Map.of(
                 "answer", answer != null ? answer : "",
@@ -113,6 +137,9 @@ public class ServiceDeskKnowledgeQaTool implements LocalMethodTool {
         );
     }
 
+    /**
+     * 读取文本参数。
+     */
     private String text(Map<String, Object> args, String key, String fallback) {
         Object value = args != null ? args.get(key) : null;
         return value != null && !String.valueOf(value).isBlank() ? String.valueOf(value) : fallback;

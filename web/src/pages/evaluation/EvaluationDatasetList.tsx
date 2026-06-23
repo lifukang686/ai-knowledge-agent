@@ -9,12 +9,14 @@ import { EvaluationDataset, EvaluationDatasetReq } from '@/types/evaluation';
 import { KnowledgeBase } from '@/types/knowledgeBase';
 import { formatDateTime } from '@/utils/format';
 
+/** 新建评测集表单默认值。 */
 const INITIAL_FORM: EvaluationDatasetReq = {
   name: '',
   description: '',
   knowledgeBaseId: '',
 };
 
+/** 评测集列表页。 */
 const EvaluationDatasetList: React.FC = () => {
   const navigate = useNavigate();
   const [datasets, setDatasets] = useState<EvaluationDataset[]>([]);
@@ -31,6 +33,7 @@ const EvaluationDatasetList: React.FC = () => {
   const [deleting, setDeleting] = useState(false);
   const [runningId, setRunningId] = useState<string | null>(null);
 
+  /** 加载评测集分页数据。 */
   const loadDatasets = useCallback(async (page = current, size = pageSize) => {
     setLoading(true);
     try {
@@ -49,6 +52,7 @@ const EvaluationDatasetList: React.FC = () => {
     }
   }, [current, keyword, pageSize]);
 
+  /** 加载知识库下拉数据。 */
   const loadKnowledgeBases = useCallback(async () => {
     try {
       const data = await getKnowledgeBases({ page: 1, pageSize: 100 });
@@ -63,11 +67,13 @@ const EvaluationDatasetList: React.FC = () => {
     loadKnowledgeBases();
   }, []);
 
+  /** 打开新建评测集弹窗。 */
   const openCreate = () => {
     setFormData(INITIAL_FORM);
     setModalOpen(true);
   };
 
+  /** 提交新建评测集。 */
   const handleSubmit = async () => {
     if (!formData.name.trim()) {
       toast.error('请输入评测集名称');
@@ -89,6 +95,7 @@ const EvaluationDatasetList: React.FC = () => {
     }
   };
 
+  /** 同步运行评测集并跳转结果页。 */
   const handleRun = async (dataset: EvaluationDataset) => {
     setRunningId(dataset.id);
     try {
@@ -102,6 +109,7 @@ const EvaluationDatasetList: React.FC = () => {
     }
   };
 
+  /** 删除评测集及其关联数据。 */
   const handleDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);

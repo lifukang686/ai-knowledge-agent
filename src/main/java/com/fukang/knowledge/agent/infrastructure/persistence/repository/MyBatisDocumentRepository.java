@@ -22,16 +22,25 @@ public class MyBatisDocumentRepository implements DocumentRepository {
 
     private final DocumentMapper documentMapper;
 
+    /**
+     * 新增文档。
+     */
     @Override
     public void insert(DocumentDO document) {
         documentMapper.insert(document);
     }
 
+    /**
+     * 按 ID 查询文档。
+     */
     @Override
     public DocumentDO findById(Long id) {
         return documentMapper.selectById(id);
     }
 
+    /**
+     * 按知识库分页查询文档。
+     */
     @Override
     public IPage<DocumentDO> pageByKnowledgeBase(Long knowledgeBaseId, long page, long pageSize) {
         LambdaQueryWrapper<DocumentDO> wrapper = new LambdaQueryWrapper<>();
@@ -42,17 +51,26 @@ public class MyBatisDocumentRepository implements DocumentRepository {
         return documentMapper.selectPage(new Page<>(page, pageSize), wrapper);
     }
 
+    /**
+     * 更新文档。
+     */
     @Override
     public void updateById(DocumentDO document) {
         documentMapper.updateById(document);
     }
 
+    /**
+     * 统计知识库文档数。
+     */
     @Override
     public long countByKnowledgeBase(Long knowledgeBaseId) {
         return documentMapper.selectCount(
                 new LambdaQueryWrapper<DocumentDO>().eq(DocumentDO::getKnowledgeBaseId, knowledgeBaseId));
     }
 
+    /**
+     * 批量统计知识库文档数。
+     */
     @Override
     public Map<Long, Long> countByKnowledgeBaseIds(List<Long> knowledgeBaseIds) {
         if (knowledgeBaseIds == null || knowledgeBaseIds.isEmpty()) {
@@ -65,23 +83,35 @@ public class MyBatisDocumentRepository implements DocumentRepository {
                 .collect(Collectors.groupingBy(DocumentDO::getKnowledgeBaseId, Collectors.counting()));
     }
 
+    /**
+     * 查询知识库下全部文档。
+     */
     @Override
     public List<DocumentDO> findByKnowledgeBase(Long knowledgeBaseId) {
         return documentMapper.selectList(
                 new LambdaQueryWrapper<DocumentDO>().eq(DocumentDO::getKnowledgeBaseId, knowledgeBaseId));
     }
 
+    /**
+     * 按处理状态查询文档。
+     */
     @Override
     public List<DocumentDO> findByStatus(String status) {
         return documentMapper.selectList(
                 new LambdaQueryWrapper<DocumentDO>().eq(DocumentDO::getStatus, status));
     }
 
+    /**
+     * 删除单个文档。
+     */
     @Override
     public void deleteById(Long id) {
         documentMapper.deleteById(id);
     }
 
+    /**
+     * 删除知识库下文档。
+     */
     @Override
     public void deleteByKnowledgeBase(Long knowledgeBaseId) {
         documentMapper.delete(new LambdaQueryWrapper<DocumentDO>().eq(DocumentDO::getKnowledgeBaseId, knowledgeBaseId));

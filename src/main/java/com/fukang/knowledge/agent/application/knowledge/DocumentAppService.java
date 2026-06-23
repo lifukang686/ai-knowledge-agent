@@ -126,6 +126,9 @@ public class DocumentAppService {
         );
     }
 
+    /**
+     * 拼接已解析的文档块内容。
+     */
     private String buildParsedContent(Long documentId) {
         return documentChunkRepository.findByDocumentId(documentId).stream()
                 .map(DocumentChunkDO::getChunkText)
@@ -165,6 +168,9 @@ public class DocumentAppService {
         minioStorageService.deleteFile(document.getFilePath());
     }
 
+    /**
+     * 查询文档，不存在时抛业务异常。
+     */
     private DocumentDO findDocumentById(Long documentId) {
         DocumentDO document = documentRepository.findById(documentId);
         if (document == null) {
@@ -174,6 +180,9 @@ public class DocumentAppService {
         return document;
     }
 
+    /**
+     * 解析文档状态。
+     */
     private String resolveStatus(DocumentDO document) {
         if (document.getStatus() != null && !document.getStatus().isBlank()) {
             return document.getStatus();
@@ -181,6 +190,9 @@ public class DocumentAppService {
         return document.getFilePath() != null ? "uploaded" : "pending";
     }
 
+    /**
+     * 转换文档列表结果。
+     */
     private DocumentResult toDocumentResult(DocumentDO doc) {
         String status = resolveStatus(doc);
         String uploadedBy = doc.getUploaderId() != null ? doc.getUploaderId().toString() : "";
@@ -198,6 +210,9 @@ public class DocumentAppService {
         );
     }
 
+    /**
+     * 校验上传文件扩展名。
+     */
     private void validateFileExtension(String fileName) {
         String extension = extractExtension(fileName);
         if (!ALLOWED_EXTENSIONS.contains(extension)) {
@@ -206,6 +221,9 @@ public class DocumentAppService {
         }
     }
 
+    /**
+     * 提取文件扩展名。
+     */
     private String extractExtension(String fileName) {
         int dotIndex = fileName.lastIndexOf('.');
         if (dotIndex == -1 || dotIndex == fileName.length() - 1) {

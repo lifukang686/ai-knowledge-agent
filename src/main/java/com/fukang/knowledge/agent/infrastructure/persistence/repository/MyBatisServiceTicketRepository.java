@@ -22,16 +22,25 @@ public class MyBatisServiceTicketRepository implements ServiceTicketRepository {
 
     private final ServiceTicketMapper serviceTicketMapper;
 
+    /**
+     * 新增工单。
+     */
     @Override
     public void insert(ServiceTicketDO ticket) {
         serviceTicketMapper.insert(ticket);
     }
 
+    /**
+     * 按 ID 查询工单。
+     */
     @Override
     public ServiceTicketDO findById(Long ticketId) {
         return serviceTicketMapper.selectById(ticketId);
     }
 
+    /**
+     * 按工单号和创建人查询工单。
+     */
     @Override
     public ServiceTicketDO findByTicketNoAndCreatorId(String ticketNo, Long creatorId) {
         LambdaQueryWrapper<ServiceTicketDO> wrapper = new LambdaQueryWrapper<>();
@@ -40,6 +49,9 @@ public class MyBatisServiceTicketRepository implements ServiceTicketRepository {
         return serviceTicketMapper.selectOne(wrapper);
     }
 
+    /**
+     * 分页查询当前用户工单。
+     */
     @Override
     public IPage<ServiceTicketDO> pageByCreator(Long creatorId, long page, long pageSize,
                                                 TicketStatus status, ServiceType serviceType) {
@@ -55,6 +67,9 @@ public class MyBatisServiceTicketRepository implements ServiceTicketRepository {
         return serviceTicketMapper.selectPage(new Page<>(page, pageSize), wrapper);
     }
 
+    /**
+     * 查询当前用户最近工单。
+     */
     @Override
     public List<ServiceTicketDO> findRecentByCreator(Long creatorId, int limit) {
         LambdaQueryWrapper<ServiceTicketDO> wrapper = new LambdaQueryWrapper<>();
@@ -65,6 +80,9 @@ public class MyBatisServiceTicketRepository implements ServiceTicketRepository {
         return serviceTicketMapper.selectList(wrapper);
     }
 
+    /**
+     * 更新工单。
+     */
     @Override
     public void updateById(ServiceTicketDO ticket) {
         serviceTicketMapper.updateById(ticket);

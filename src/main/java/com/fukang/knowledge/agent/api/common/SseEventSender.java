@@ -17,11 +17,17 @@ public class SseEventSender {
     private final String logName;
     private final AtomicBoolean completed = new AtomicBoolean(false);
 
+    /**
+     * 创建 SSE 发送器。
+     */
     public SseEventSender(SseEmitter emitter, String logName) {
         this.emitter = emitter;
         this.logName = logName;
     }
 
+    /**
+     * 发送普通 SSE 事件。
+     */
     public void send(String eventName, Object data) {
         if (completed.get()) {
             return;
@@ -34,6 +40,9 @@ public class SseEventSender {
         }
     }
 
+    /**
+     * 发送错误事件并关闭连接。
+     */
     public void completeWithError(String message) {
         if (!completed.compareAndSet(false, true)) {
             return;
@@ -47,12 +56,18 @@ public class SseEventSender {
         }
     }
 
+    /**
+     * 正常关闭连接。
+     */
     public void complete() {
         if (completed.compareAndSet(false, true)) {
             emitter.complete();
         }
     }
 
+    /**
+     * 标记连接已由框架回调关闭。
+     */
     public void markCompleted() {
         completed.set(true);
     }

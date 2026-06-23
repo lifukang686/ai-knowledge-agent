@@ -18,11 +18,17 @@ public class ServiceDeskQueryTicketTool implements LocalMethodTool {
 
     private final TicketAppService ticketAppService;
 
+    /**
+     * 返回工具名称。
+     */
     @Override
     public String name() {
         return ServiceDeskToolNames.QUERY_TICKET;
     }
 
+    /**
+     * 查询当前用户工单。
+     */
     @Override
     public Object execute(Map<String, Object> arguments) {
         ServiceDeskAgentContext context = ServiceDeskAgentContextHolder.getRequired();
@@ -42,6 +48,9 @@ public class ServiceDeskQueryTicketTool implements LocalMethodTool {
         return Map.of("found", !tickets.isEmpty(), "tickets", tickets);
     }
 
+    /**
+     * 转换工单查询载荷。
+     */
     private Map<String, Object> toTicketPayload(ServiceTicketResult ticket) {
         return Map.of(
                 "ticketId", ticket.id(),
@@ -54,6 +63,9 @@ public class ServiceDeskQueryTicketTool implements LocalMethodTool {
         );
     }
 
+    /**
+     * 读取文本参数。
+     */
     private String text(Map<String, Object> args, String key, String fallback) {
         Object value = args != null ? args.get(key) : null;
         return value != null ? String.valueOf(value).trim() : fallback;

@@ -11,8 +11,14 @@ import java.util.List;
  */
 public interface EmbeddingPort {
 
+    /**
+     * 批量生成文本向量。
+     */
     BatchResult embedBatch(ModelConfigDO modelConfig, List<String> texts, int chunkOrderOffset);
 
+    /**
+     * 批量向量化结果。
+     */
     record BatchResult(List<EmbeddingVector> vectors, int totalTokens) {
     }
 }

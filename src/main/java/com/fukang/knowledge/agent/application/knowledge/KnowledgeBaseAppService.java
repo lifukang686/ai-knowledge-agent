@@ -97,6 +97,9 @@ public class KnowledgeBaseAppService {
         log.info("知识库已删除: id={}, name={}", id, kb.getName());
     }
 
+    /**
+     * 查询知识库，不存在时抛业务异常。
+     */
     private KnowledgeBaseDO findKnowledgeBaseById(Long id) {
         KnowledgeBaseDO kb = knowledgeBaseRepository.findById(id);
         if (kb == null) {
@@ -106,6 +109,9 @@ public class KnowledgeBaseAppService {
         return kb;
     }
 
+    /**
+     * 批量加载知识库文档数量。
+     */
     private Map<Long, Long> loadDocumentCounts(List<KnowledgeBaseDO> knowledgeBases) {
         if (knowledgeBases.isEmpty()) {
             return Map.of();
@@ -114,6 +120,9 @@ public class KnowledgeBaseAppService {
         return documentRepository.countByKnowledgeBaseIds(kbIds);
     }
 
+    /**
+     * 转换知识库结果。
+     */
     private KnowledgeBaseResult toKnowledgeBaseResult(KnowledgeBaseDO kb, long documentCount) {
         return new KnowledgeBaseResult(
                 kb.getId(),

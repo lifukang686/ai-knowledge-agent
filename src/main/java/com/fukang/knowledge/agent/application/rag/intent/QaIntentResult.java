@@ -12,6 +12,9 @@ public record QaIntentResult(
         double confidence,
         String reason
 ) {
+    /**
+     * 创建意图识别结果。
+     */
     public static QaIntentResult of(QaIntent intent, double confidence, String reason) {
         return new QaIntentResult(intent, confidence, reason);
     }

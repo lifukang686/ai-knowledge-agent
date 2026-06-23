@@ -38,6 +38,9 @@ import java.util.concurrent.ThreadLocalRandom;
 @RequiredArgsConstructor
 public class TicketAppService {
 
+    /**
+     * 工单编号时间部分格式。
+     */
     private static final DateTimeFormatter TICKET_NO_TIME_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
     private final ServiceTicketRepository serviceTicketRepository;
@@ -79,10 +82,16 @@ public class TicketAppService {
         return new PageResponse<>(items, resultPage.getTotal(), resultPage.getCurrent(), resultPage.getSize());
     }
 
+    /**
+     * 查询当前用户最近工单。
+     */
     public List<ServiceTicketResult> listRecentTickets(Long userId, int limit) {
         return serviceTicketRepository.findRecentByCreator(userId, limit).stream().map(this::toResult).toList();
     }
 
+    /**
+     * 查询当前用户的单个工单详情。
+     */
     public ServiceTicketResult getTicket(Long ticketId, Long userId) {
         ServiceTicketDO ticket = serviceTicketRepository.findById(ticketId);
         if (ticket == null || !userId.equals(ticket.getCreatorId())) {
@@ -91,11 +100,17 @@ public class TicketAppService {
         return toResult(ticket, true);
     }
 
+    /**
+     * 按工单号查询当前用户工单。
+     */
     public ServiceTicketResult getTicketByNo(String ticketNo, Long userId) {
         ServiceTicketDO ticket = serviceTicketRepository.findByTicketNoAndCreatorId(ticketNo, userId);
         return ticket != null ? toResult(ticket) : null;
     }
 
+    /**
+     * 绑定服务台运行记录。
+     */
     @Transactional(rollbackFor = Exception.class)
     public void attachRun(Long ticketId, Long runId) {
         if (ticketId == null || runId == null) {
@@ -132,6 +147,9 @@ public class TicketAppService {
         return toResult(ticket, true);
     }
 
+    /**
+     * 记录人工介入事件。
+     */
     @Transactional(rollbackFor = Exception.class)
     public void recordHandoffRequested(Long ticketId, Long operatorId, String reason) {
         ServiceTicketDO ticket = serviceTicketRepository.findById(ticketId);
@@ -142,6 +160,9 @@ public class TicketAppService {
                 operatorId, "已请求人工介入", Map.of("reason", reason != null ? reason : ""));
     }
 
+    /**
+     * 生成工单编号。
+     */
     private String generateTicketNo() {
         // 时间戳加四位随机数，保证人工可读并降低同秒冲突概率。
         String time = LocalDateTime.now().format(TICKET_NO_TIME_FORMAT);
@@ -149,27 +170,45 @@ public class TicketAppService {
         return "T" + time + random;
     }
 
+    /**
+     * 解析服务类型。
+     */
     private ServiceType resolveServiceType(ServiceType serviceType) {
         return serviceType != null && serviceType != ServiceType.AUTO ? serviceType : ServiceType.IT;
     }
 
+    /**
+     * 解析工单优先级。
+     */
     private TicketPriority resolvePriority(TicketPriority priority) {
         return priority != null ? priority : TicketPriority.MEDIUM;
     }
 
+    /**
+     * 解析初始工单状态。
+     */
     private TicketStatus resolveStatus(TicketStatus status) {
         return status != null ? status : TicketStatus.OPEN;
     }
 
+    /**
+     * 截断文本到指定长度。
+     */
     private String trimToLength(String value, int maxLength, String fallback) {
         String text = StringUtils.hasText(value) ? value.trim() : fallback;
         return text.length() > maxLength ? text.substring(0, maxLength) : text;
     }
 
+    /**
+     * 转换工单结果，不包含事件明细。
+     */
     private ServiceTicketResult toResult(ServiceTicketDO ticket) {
         return toResult(ticket, false);
     }
 
+    /**
+     * 转换工单结果。
+     */
     private ServiceTicketResult toResult(ServiceTicketDO ticket, boolean includeEvents) {
         List<ServiceTicketEventResult> events = includeEvents ? listTicketEvents(ticket.getId()) : List.of();
         Long eventCount = includeEvents ? (long) events.size() : countTicketEvents(ticket.getId());
@@ -194,14 +233,23 @@ public class TicketAppService {
         );
     }
 
+    /**
+     * 查询工单事件列表。
+     */
     private List<ServiceTicketEventResult> listTicketEvents(Long ticketId) {
         return serviceTicketEventRepository.findByTicketId(ticketId).stream().map(this::toEventResult).toList();
     }
 
+    /**
+     * 统计工单事件数量。
+     */
     private Long countTicketEvents(Long ticketId) {
         return serviceTicketEventRepository.countByTicketId(ticketId);
     }
 
+    /**
+     * 写入工单事件。
+     */
     private void writeEvent(Long ticketId, TicketEventType eventType, TicketStatus fromStatus, TicketStatus toStatus,
                             Long operatorId, String message, Map<String, Object> payload) {
         // 工单事件是状态审计来源，状态变化和操作原因都通过事件表沉淀。
@@ -216,6 +264,9 @@ public class TicketAppService {
         serviceTicketEventRepository.insert(event);
     }
 
+    /**
+     * 序列化事件载荷。
+     */
     private String serializePayload(Map<String, Object> payload) {
         if (payload == null || payload.isEmpty()) {
             return "{}";
@@ -228,6 +279,9 @@ public class TicketAppService {
         }
     }
 
+    /**
+     * 转换工单事件结果。
+     */
     private ServiceTicketEventResult toEventResult(ServiceTicketEventDO event) {
         return new ServiceTicketEventResult(
                 event.getId(),

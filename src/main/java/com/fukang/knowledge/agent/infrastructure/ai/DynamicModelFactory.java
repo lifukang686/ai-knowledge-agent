@@ -27,11 +27,20 @@ import java.util.Map;
 @Component
 public class DynamicModelFactory {
 
+    /**
+     * 模型调用默认超时时间。
+     */
     private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(60);
+    /**
+     * 模型调用默认重试次数。
+     */
     private static final int DEFAULT_MAX_RETRIES = 2;
 
     private final ObjectMapper objectMapper;
 
+    /**
+     * 创建动态模型工厂。
+     */
     public DynamicModelFactory(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
     }

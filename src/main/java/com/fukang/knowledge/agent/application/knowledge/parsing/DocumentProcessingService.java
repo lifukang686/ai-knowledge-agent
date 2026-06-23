@@ -32,11 +32,17 @@ public class DocumentProcessingService {
     private final Map<String, DocumentParser> parsersByExtension;
     private final DocumentChunkStrategyAppService chunkStrategyAppService;
 
+    /**
+     * 初始化文档解析服务。
+     */
     public DocumentProcessingService(DocumentChunkStrategyAppService chunkStrategyAppService) {
         this.parsersByExtension = createLangchain4jParsers();
         this.chunkStrategyAppService = chunkStrategyAppService;
     }
 
+    /**
+     * 解析上传文档。
+     */
     public DocumentParseResult parseDocument(byte[] fileBytes, String fileName, long fileSizeInBytes) {
         if (fileBytes == null || fileBytes.length == 0) {
             log.warn("文档字节数据为空，无法解析: fileName={}", fileName);
@@ -61,6 +67,9 @@ public class DocumentProcessingService {
         }
     }
 
+    /**
+     * 使用指定或默认策略切分文档。
+     */
     public ChunkResult chunkDocument(DocumentParseResult parseResult, Long chunkStrategyId) {
         ChunkStrategy strategy = chunkStrategyId != null
                 ? chunkStrategyAppService.resolveChunkStrategy(chunkStrategyId)
@@ -68,6 +77,9 @@ public class DocumentProcessingService {
         return chunkDocument(parseResult, strategy);
     }
 
+    /**
+     * 使用已解析策略切分文档。
+     */
     private ChunkResult chunkDocument(DocumentParseResult parseResult, ChunkStrategy strategy) {
         if (parseResult == null) {
             log.warn("文档解析结果为空，无法分块");
@@ -83,6 +95,9 @@ public class DocumentProcessingService {
         return strategy.chunk(parseResult);
     }
 
+    /**
+     * 提取文件扩展名。
+     */
     private String extractExtension(String fileName) {
         int dotIndex = fileName.lastIndexOf('.');
         if (dotIndex == -1 || dotIndex == fileName.length() - 1) {
@@ -91,6 +106,9 @@ public class DocumentProcessingService {
         return fileName.substring(dotIndex + 1).toLowerCase(Locale.ROOT);
     }
 
+    /**
+     * 创建 LangChain4j 文档解析器映射。
+     */
     private Map<String, DocumentParser> createLangchain4jParsers() {
         Map<String, DocumentParser> parsers = new HashMap<>();
         DocumentParser pdfParser = new ApachePdfBoxDocumentParser();
@@ -106,6 +124,9 @@ public class DocumentProcessingService {
         return Map.copyOf(parsers);
     }
 
+    /**
+     * 根据扩展名选择解析器。
+     */
     private DocumentParser getParser(String extension) {
         if (extension == null || extension.isBlank()) {
             log.warn("文件扩展名为空，无法获取 LangChain4j 解析器");
@@ -119,6 +140,9 @@ public class DocumentProcessingService {
         return parser;
     }
 
+    /**
+     * 调用 LangChain4j 解析文档并保留元数据。
+     */
     private DocumentParseResult parseWithLangchain4j(DocumentParser parser, InputStream inputStream,
                                                      String fileName, String extension, long fileSizeInBytes) {
         try {

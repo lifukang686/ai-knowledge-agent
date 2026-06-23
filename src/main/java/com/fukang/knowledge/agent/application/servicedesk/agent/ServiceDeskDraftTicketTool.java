@@ -20,11 +20,17 @@ public class ServiceDeskDraftTicketTool implements LocalMethodTool {
 
     private final TicketAppService ticketAppService;
 
+    /**
+     * 返回工具名称。
+     */
     @Override
     public String name() {
         return ServiceDeskToolNames.DRAFT_TICKET;
     }
 
+    /**
+     * 创建工单草稿。
+     */
     @Override
     public Object execute(Map<String, Object> arguments) {
         ServiceDeskAgentContext context = ServiceDeskAgentContextHolder.getRequired();
@@ -44,6 +50,9 @@ public class ServiceDeskDraftTicketTool implements LocalMethodTool {
         return toDraftPayload(ticket);
     }
 
+    /**
+     * 转换草稿工单载荷。
+     */
     static Map<String, Object> toDraftPayload(ServiceTicketResult ticket) {
         // 返回给 Runtime 的结构化结果，决定最终话术和前端确认态。
         return Map.of(
@@ -59,11 +68,17 @@ public class ServiceDeskDraftTicketTool implements LocalMethodTool {
         );
     }
 
+    /**
+     * 读取文本参数。
+     */
     private String text(Map<String, Object> args, String key, String fallback) {
         Object value = args != null ? args.get(key) : null;
         return value != null && !String.valueOf(value).isBlank() ? String.valueOf(value) : fallback;
     }
 
+    /**
+     * 从问题生成工单标题。
+     */
     private String titleFromQuestion(String question) {
         String text = question != null ? question.trim().replaceAll("\\s+", " ") : "服务台请求";
         if (text.isBlank()) {

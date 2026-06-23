@@ -23,7 +23,13 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ConversationAppService {
 
+    /**
+     * 生效会话状态。
+     */
     private static final String STATUS_ACTIVE = "active";
+    /**
+     * 默认会话查询数量。
+     */
     private static final int DEFAULT_LIMIT = 50;
 
     private final ConversationMemoryRepository conversationMemoryRepository;
@@ -87,6 +93,9 @@ public class ConversationAppService {
         return conversation;
     }
 
+    /**
+     * 转换会话列表项。
+     */
     private ConversationListItemResult toListItem(ConversationDO conversation) {
         long messageCount = conversationMemoryRepository.countMessages(conversation.getId());
         return new ConversationListItemResult(
@@ -101,6 +110,9 @@ public class ConversationAppService {
         );
     }
 
+    /**
+     * 转换会话消息。
+     */
     private ConversationMessageResult toMessage(ConversationMessageDO message) {
         return new ConversationMessageResult(
                 message.getId(),
@@ -114,6 +126,9 @@ public class ConversationAppService {
         );
     }
 
+    /**
+     * 获取当前用户 ID，兼容未登录的本地调试场景。
+     */
     private Long currentUserId() {
         Long userId = UserContextHolder.getUserId();
         return userId != null ? userId : 1L;

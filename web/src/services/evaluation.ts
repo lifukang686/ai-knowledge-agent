@@ -11,9 +11,12 @@ import {
   EvaluationRun,
 } from '@/types/evaluation';
 
+/** 将后端 Long/number ID 统一转成前端字符串 ID。 */
 const toId = (value: unknown): string => (value != null ? String(value) : '');
+/** 可空 ID 转换，空值保持 undefined。 */
 const toOptionalId = (value: unknown): string | undefined => (value != null ? String(value) : undefined);
 
+/** 评测集响应归一化。 */
 const mapDataset = (api: any): EvaluationDataset => ({
   id: toId(api?.id),
   name: api?.name ?? '',
@@ -28,6 +31,7 @@ const mapDataset = (api: any): EvaluationDataset => ({
   updateTime: api?.updateTime,
 });
 
+/** 评测用例响应归一化。 */
 const mapCase = (api: any): EvaluationCase => ({
   id: toId(api?.id),
   datasetId: toId(api?.datasetId),
@@ -42,6 +46,7 @@ const mapCase = (api: any): EvaluationCase => ({
   updateTime: api?.updateTime,
 });
 
+/** 评测运行响应归一化。 */
 const mapRun = (api: any): EvaluationRun => ({
   id: toId(api?.id),
   datasetId: toId(api?.datasetId),
@@ -60,6 +65,7 @@ const mapRun = (api: any): EvaluationRun => ({
   updateTime: api?.updateTime,
 });
 
+/** 单条评测结果响应归一化。 */
 const mapCaseResult = (api: any): EvaluationCaseResult => ({
   id: toId(api?.id),
   runId: toId(api?.runId),
@@ -85,6 +91,7 @@ const mapCaseResult = (api: any): EvaluationCaseResult => ({
   createTime: api?.createTime,
 });
 
+/** 召回片段响应归一化。 */
 const mapChunk = (api: any) => ({
   chunkId: toId(api?.chunkId),
   chunkText: api?.chunkText ?? '',
@@ -96,12 +103,14 @@ const mapChunk = (api: any) => ({
   rerankScore: api?.rerankScore ?? undefined,
 });
 
+/** 创建/更新评测集请求归一化。 */
 const normalizeDatasetReq = (data: EvaluationDatasetReq) => ({
   name: data.name,
   description: data.description || undefined,
   knowledgeBaseId: data.knowledgeBaseId ? Number(data.knowledgeBaseId) : undefined,
 });
 
+/** 创建/更新用例请求归一化。 */
 const normalizeCaseReq = (data: EvaluationCaseReq) => ({
   question: data.question,
   expectedAnswer: data.expectedAnswer || undefined,
@@ -112,7 +121,9 @@ const normalizeCaseReq = (data: EvaluationCaseReq) => ({
   enabled: data.enabled !== false,
 });
 
+/** RAG 评测中心接口封装。 */
 export const evaluationService = {
+  /** 分页查询评测集。 */
   async listDatasets(params: {
     page?: number;
     pageSize?: number;
@@ -135,23 +146,28 @@ export const evaluationService = {
     };
   },
 
+  /** 创建评测集。 */
   async createDataset(data: EvaluationDatasetReq): Promise<string> {
     const id = await request.post('/evaluations/datasets', normalizeDatasetReq(data));
     return toId(id);
   },
 
+  /** 查询评测集详情。 */
   async getDataset(id: string): Promise<EvaluationDataset> {
     return mapDataset(await request.get(`/evaluations/datasets/${id}`));
   },
 
+  /** 更新评测集。 */
   async updateDataset(id: string, data: EvaluationDatasetReq): Promise<void> {
     await request.put(`/evaluations/datasets/${id}`, normalizeDatasetReq(data));
   },
 
+  /** 删除评测集。 */
   async deleteDataset(id: string): Promise<void> {
     await request.delete(`/evaluations/datasets/${id}`);
   },
 
+  /** 分页查询评测用例。 */
   async listCases(datasetId: string, params: { page?: number; pageSize?: number }): Promise<EvaluationCaseListResponse> {
     const response = await request.get<any>(`/evaluations/datasets/${datasetId}/cases`, {
       params: { page: params.page || 1, pageSize: params.pageSize || 20 },
@@ -164,28 +180,34 @@ export const evaluationService = {
     };
   },
 
+  /** 创建评测用例。 */
   async createCase(datasetId: string, data: EvaluationCaseReq): Promise<string> {
     const id = await request.post(`/evaluations/datasets/${datasetId}/cases`, normalizeCaseReq(data));
     return toId(id);
   },
 
+  /** 更新评测用例。 */
   async updateCase(id: string, data: EvaluationCaseReq): Promise<void> {
     await request.put(`/evaluations/cases/${id}`, normalizeCaseReq(data));
   },
 
+  /** 删除评测用例。 */
   async deleteCase(id: string): Promise<void> {
     await request.delete(`/evaluations/cases/${id}`);
   },
 
+  /** 手动运行评测集。 */
   async runDataset(datasetId: string): Promise<string> {
     const response = await request.post<any>(`/evaluations/datasets/${datasetId}/runs`);
     return toId(response?.runId);
   },
 
+  /** 查询运行汇总。 */
   async getRun(runId: string): Promise<EvaluationRun> {
     return mapRun(await request.get(`/evaluations/runs/${runId}`));
   },
 
+  /** 分页查询运行明细。 */
   async listRunResults(runId: string, params: { page?: number; pageSize?: number }): Promise<EvaluationCaseResultListResponse> {
     const response = await request.get<any>(`/evaluations/runs/${runId}/results`, {
       params: { page: params.page || 1, pageSize: params.pageSize || 20 },

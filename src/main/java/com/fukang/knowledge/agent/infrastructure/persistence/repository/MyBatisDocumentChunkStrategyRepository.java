@@ -21,16 +21,25 @@ public class MyBatisDocumentChunkStrategyRepository implements DocumentChunkStra
 
     private final DocumentChunkStrategyMapper chunkStrategyMapper;
 
+    /**
+     * 新增分块策略。
+     */
     @Override
     public void insert(DocumentChunkStrategyDO strategy) {
         chunkStrategyMapper.insert(strategy);
     }
 
+    /**
+     * 按 ID 查询分块策略。
+     */
     @Override
     public DocumentChunkStrategyDO findById(Long id) {
         return chunkStrategyMapper.selectById(id);
     }
 
+    /**
+     * 查询默认分块策略。
+     */
     @Override
     public DocumentChunkStrategyDO findDefault() {
         List<DocumentChunkStrategyDO> strategies = chunkStrategyMapper.selectList(
@@ -40,6 +49,9 @@ public class MyBatisDocumentChunkStrategyRepository implements DocumentChunkStra
         return strategies.isEmpty() ? null : strategies.get(0);
     }
 
+    /**
+     * 分页查询分块策略。
+     */
     @Override
     public IPage<DocumentChunkStrategyDO> page(long page, long pageSize, String keyword) {
         LambdaQueryWrapper<DocumentChunkStrategyDO> wrapper = new LambdaQueryWrapper<>();
@@ -54,16 +66,25 @@ public class MyBatisDocumentChunkStrategyRepository implements DocumentChunkStra
         return chunkStrategyMapper.selectPage(new Page<>(page, pageSize), wrapper);
     }
 
+    /**
+     * 更新分块策略。
+     */
     @Override
     public void updateById(DocumentChunkStrategyDO strategy) {
         chunkStrategyMapper.updateById(strategy);
     }
 
+    /**
+     * 删除分块策略。
+     */
     @Override
     public void deleteById(Long id) {
         chunkStrategyMapper.deleteById(id);
     }
 
+    /**
+     * 清除全部默认标记。
+     */
     @Override
     public void clearDefault() {
         DocumentChunkStrategyDO update = new DocumentChunkStrategyDO();

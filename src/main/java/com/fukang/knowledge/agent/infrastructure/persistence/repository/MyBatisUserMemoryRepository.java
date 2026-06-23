@@ -16,10 +16,16 @@ import java.util.List;
 @RequiredArgsConstructor
 public class MyBatisUserMemoryRepository implements UserMemoryRepository {
 
+    /**
+     * 生效状态。
+     */
     private static final String STATUS_ACTIVE = "active";
 
     private final UserMemoryMapper userMemoryMapper;
 
+    /**
+     * 查询用户生效记忆。
+     */
     @Override
     public List<UserMemoryDO> findActiveByUser(Long userId, int limit) {
         LambdaQueryWrapper<UserMemoryDO> wrapper = new LambdaQueryWrapper<>();
@@ -30,6 +36,9 @@ public class MyBatisUserMemoryRepository implements UserMemoryRepository {
         return userMemoryMapper.selectList(wrapper);
     }
 
+    /**
+     * 按内容查询已存在的生效记忆。
+     */
     @Override
     public UserMemoryDO findActiveByContent(Long userId, String memoryType, String content) {
         LambdaQueryWrapper<UserMemoryDO> wrapper = new LambdaQueryWrapper<>();
@@ -41,11 +50,17 @@ public class MyBatisUserMemoryRepository implements UserMemoryRepository {
         return userMemoryMapper.selectOne(wrapper);
     }
 
+    /**
+     * 新增用户记忆。
+     */
     @Override
     public void insert(UserMemoryDO memory) {
         userMemoryMapper.insert(memory);
     }
 
+    /**
+     * 更新用户记忆。
+     */
     @Override
     public void update(UserMemoryDO memory) {
         userMemoryMapper.updateById(memory);

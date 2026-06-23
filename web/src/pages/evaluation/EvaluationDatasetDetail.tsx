@@ -7,6 +7,7 @@ import { evaluationService } from '@/services/evaluation';
 import { EvaluationCase, EvaluationCaseReq, EvaluationDataset } from '@/types/evaluation';
 import { formatDateTime } from '@/utils/format';
 
+/** 新建用例表单默认值。 */
 const INITIAL_CASE: EvaluationCaseReq = {
   question: '',
   expectedAnswer: '',
@@ -17,9 +18,11 @@ const INITIAL_CASE: EvaluationCaseReq = {
   enabled: true,
 };
 
+/** 将多行或逗号分隔文本拆成数组。 */
 const splitText = (value: string): string[] =>
   value.split(/[\n,，]/).map((item) => item.trim()).filter(Boolean);
 
+/** 评测集详情和用例管理页。 */
 const EvaluationDatasetDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -39,6 +42,7 @@ const EvaluationDatasetDetail: React.FC = () => {
   const [deleting, setDeleting] = useState(false);
   const [running, setRunning] = useState(false);
 
+  /** 加载评测集摘要。 */
   const loadDataset = useCallback(async () => {
     if (!id) return;
     try {
@@ -49,6 +53,7 @@ const EvaluationDatasetDetail: React.FC = () => {
     }
   }, [id, navigate]);
 
+  /** 加载用例分页数据。 */
   const loadCases = useCallback(async (nextPage = page, size = pageSize) => {
     if (!id) return;
     setLoading(true);
@@ -69,6 +74,7 @@ const EvaluationDatasetDetail: React.FC = () => {
     loadCases(1, pageSize);
   }, [id]);
 
+  /** 打开新建用例弹窗。 */
   const openCreateCase = () => {
     setEditingCase(null);
     setCaseForm(INITIAL_CASE);
@@ -77,6 +83,7 @@ const EvaluationDatasetDetail: React.FC = () => {
     setCaseModalOpen(true);
   };
 
+  /** 打开编辑用例弹窗。 */
   const openEditCase = (item: EvaluationCase) => {
     setEditingCase(item);
     setCaseForm({
@@ -93,6 +100,7 @@ const EvaluationDatasetDetail: React.FC = () => {
     setCaseModalOpen(true);
   };
 
+  /** 保存用例表单。 */
   const handleCaseSubmit = async () => {
     if (!id) return;
     if (!caseForm.question?.trim()) {
@@ -124,6 +132,7 @@ const EvaluationDatasetDetail: React.FC = () => {
     }
   };
 
+  /** 删除当前选中的用例。 */
   const handleDeleteCase = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
@@ -140,6 +149,7 @@ const EvaluationDatasetDetail: React.FC = () => {
     }
   };
 
+  /** 手动运行当前评测集。 */
   const handleRun = async () => {
     if (!id) return;
     setRunning(true);

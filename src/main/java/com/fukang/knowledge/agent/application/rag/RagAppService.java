@@ -33,6 +33,9 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class RagAppService {
 
+    /**
+     * 小范围闲聊/工具类问题识别规则。
+     */
     private static final Pattern CHITCHAT_PATTERN = Pattern.compile(
             "(你好|您好|哈喽|hello|hi|早上好|下午好|晚上好|晚安|再见|拜拜|谢谢|感谢|辛苦了"
                     + "|(你是谁|你是|你叫什么|你能|你可以|你会|功能|能力)"
@@ -43,8 +46,17 @@ public class RagAppService {
             Pattern.CASE_INSENSITIVE
     );
 
+    /**
+     * RAG 正常回答状态。
+     */
     private static final String STATUS_SUCCESS = "success";
+    /**
+     * RAG 无召回结果状态。
+     */
     private static final String STATUS_NO_RESULTS = "no_results";
+    /**
+     * 无召回结果兜底回答。
+     */
     private static final String NO_RESULT_ANSWER = "抱歉，未找到与您问题相关的文档内容。";
 
     private final QueryRewritePort queryRewritePort;
@@ -96,10 +108,12 @@ public class RagAppService {
     public RagEvalResult evaluate(String question, Long knowledgeBaseId) {
         validateKnowledgeBase(knowledgeBaseId);
         long start = System.currentTimeMillis();
+        // 评测链路只使用当前问题，不拼接会话历史和长期记忆。
         String rewrittenQuery = queryRewritePort.rewrite(question);
         List<SearchResult> retrieved = ragRetrievalService.retrieveWithFallback(rewrittenQuery, question, knowledgeBaseId);
         List<SearchResult> reranked = reranker.rerank(retrieved, question);
         String status = reranked.isEmpty() ? STATUS_NO_RESULTS : STATUS_SUCCESS;
+        // 传空记忆上下文，避免评测答案受真实用户历史影响。
         String answer = answerGenerator.generateAnswer(reranked, rewrittenQuery, "");
         return new RagEvalResult(answer, rewrittenQuery, status, retrieved, reranked,
                 System.currentTimeMillis() - start);
@@ -251,10 +265,16 @@ public class RagAppService {
         ), context.question, context.rewrittenQuery, STATUS_SUCCESS, context.memory.conversationId(), handler);
     }
 
+    /**
+     * 判断是否跳过知识库检索。
+     */
     private boolean shouldBypassRetrieval(String question, QaIntent intent) {
         return intent.bypassRetrieval() || isChitchat(question);
     }
 
+    /**
+     * 校验知识库是否存在。
+     */
     private void validateKnowledgeBase(Long knowledgeBaseId) {
         if (knowledgeBaseId != null && knowledgeBaseRepository.findById(knowledgeBaseId) == null) {
             log.warn("Knowledge base does not exist: id={}", knowledgeBaseId);
@@ -262,6 +282,9 @@ public class RagAppService {
         }
     }
 
+    /**
+     * 判断短文本是否属于闲聊或工具类问题。
+     */
     private boolean isChitchat(String text) {
         if (text == null || text.isBlank()) {
             return false;

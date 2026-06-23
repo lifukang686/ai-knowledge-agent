@@ -24,17 +24,29 @@ import java.util.List;
 @RequiredArgsConstructor
 public class LlmAnswerGenerator implements AnswerGenerator {
 
+    /**
+     * RAG 回答系统提示词。
+     */
     private static final String ANSWER_SYSTEM_TEMPLATE = "rag/answer-system.v1";
+    /**
+     * 无可用片段时的兜底回答。
+     */
     private static final String NOT_FOUND_MESSAGE = "抱歉，未找到与您问题相关的文档内容。";
 
     private final DynamicModelManager dynamicModelManager;
     private final PromptTemplateManager promptTemplateManager;
 
+    /**
+     * 基于召回片段生成回答。
+     */
     @Override
     public String generateAnswer(List<SearchResult> results, String query) {
         return generateAnswer(results, query, "");
     }
 
+    /**
+     * 基于召回片段和会话记忆生成回答。
+     */
     @Override
     public String generateAnswer(List<SearchResult> results, String query, String conversationMemory) {
         if (results.isEmpty()) {
@@ -61,6 +73,9 @@ public class LlmAnswerGenerator implements AnswerGenerator {
         }
     }
 
+    /**
+     * 测试用用户提示词构造入口。
+     */
     String buildUserPrompt(List<SearchResult> results, String query) {
         return buildRagUserPrompt(results, query);
     }
@@ -89,6 +104,9 @@ public class LlmAnswerGenerator implements AnswerGenerator {
                 memoryBlock, context, query);
     }
 
+    /**
+     * LLM 不可用时直接拼接片段内容。
+     */
     private String formatFallbackAnswer(List<SearchResult> results) {
         StringBuilder sb = new StringBuilder();
         sb.append("为您找到以下相关内容：\n\n");

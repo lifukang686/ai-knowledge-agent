@@ -16,7 +16,13 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class RagConversationService {
 
+    /**
+     * 成功回答状态。
+     */
     private static final String STATUS_SUCCESS = "success";
+    /**
+     * 失败回答状态。
+     */
     private static final String STATUS_FAILED = "failed";
 
     private final ConversationMemoryService conversationMemoryService;
@@ -59,14 +65,23 @@ public class RagConversationService {
         }
     }
 
+    /**
+     * 保存用户失败消息。
+     */
     public void saveUserFailure(Long conversationId, String question, String rewrittenQuery) {
         conversationMemoryService.saveUserMessage(conversationId, question, rewrittenQuery, STATUS_FAILED);
     }
 
+    /**
+     * 构造不带用户记忆的直接对话提示词。
+     */
     public String buildDirectChatPrompt(String question, ConversationMemoryContext memory) {
         return buildDirectChatPrompt(question, memory, null);
     }
 
+    /**
+     * 构造直接对话提示词。
+     */
     public String buildDirectChatPrompt(String question, ConversationMemoryContext memory, UserMemoryContext userMemory) {
         String answerMemory = buildAnswerMemory(memory, userMemory);
         if (answerMemory.isBlank()) {

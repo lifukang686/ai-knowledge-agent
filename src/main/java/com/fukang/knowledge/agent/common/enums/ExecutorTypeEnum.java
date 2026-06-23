@@ -11,8 +11,14 @@ import lombok.Getter;
 @AllArgsConstructor
 public enum ExecutorTypeEnum {
 
+    /**
+     * HTTP 接口调用。
+     */
     HTTP("HTTP", "HTTP 接口调用"),
 
+    /**
+     * SQL 查询执行。
+     */
     SQL("SQL", "SQL 数据库查询"),
 
     /**
@@ -25,6 +31,9 @@ public enum ExecutorTypeEnum {
 
     private final String description;
 
+    /**
+     * 按编码解析执行器类型。
+     */
     public static ExecutorTypeEnum fromCode(String code) {
         for (ExecutorTypeEnum type : values()) {
             if (type.code.equalsIgnoreCase(code)) {

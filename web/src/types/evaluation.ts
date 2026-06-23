@@ -1,5 +1,6 @@
 import { ListResponse } from './common';
 
+/** RAG 评测集。 */
 export interface EvaluationDataset {
   id: string;
   name: string;
@@ -14,6 +15,7 @@ export interface EvaluationDataset {
   updateTime?: string;
 }
 
+/** RAG 评测用例。 */
 export interface EvaluationCase {
   id: string;
   datasetId: string;
@@ -28,6 +30,7 @@ export interface EvaluationCase {
   updateTime?: string;
 }
 
+/** RAG 评测运行汇总。 */
 export interface EvaluationRun {
   id: string;
   datasetId: string;
@@ -46,6 +49,7 @@ export interface EvaluationRun {
   updateTime?: string;
 }
 
+/** 评测结果中的召回片段。 */
 export interface EvaluationChunk {
   chunkId: string;
   chunkText: string;
@@ -57,6 +61,7 @@ export interface EvaluationChunk {
   rerankScore?: number;
 }
 
+/** 单条用例运行结果。 */
 export interface EvaluationCaseResult {
   id: string;
   runId: string;
@@ -82,12 +87,14 @@ export interface EvaluationCaseResult {
   createTime?: string;
 }
 
+/** 创建/更新评测集请求。 */
 export interface EvaluationDatasetReq {
   name: string;
   description?: string;
   knowledgeBaseId?: string;
 }
 
+/** 创建/更新评测用例请求。 */
 export interface EvaluationCaseReq {
   question: string;
   expectedAnswer?: string;
@@ -98,6 +105,9 @@ export interface EvaluationCaseReq {
   enabled?: boolean;
 }
 
+/** 评测集分页响应。 */
 export type EvaluationDatasetListResponse = ListResponse<EvaluationDataset>;
+/** 评测用例分页响应。 */
 export type EvaluationCaseListResponse = ListResponse<EvaluationCase>;
+/** 单条评测结果分页响应。 */
 export type EvaluationCaseResultListResponse = ListResponse<EvaluationCaseResult>;

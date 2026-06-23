@@ -18,32 +18,56 @@ import lombok.EqualsAndHashCode;
 @TableName("evaluation_case")
 public class EvaluationCaseDO extends BaseEntity {
 
+    /**
+     * 所属评测集 ID。
+     */
     @Column(name = "dataset_id", nullable = false)
     private Long datasetId;
 
+    /**
+     * 评测问题。
+     */
     @Lob
     @Column(name = "question", nullable = false, columnDefinition = "TEXT")
     private String question;
 
+    /**
+     * 参考答案。
+     */
     @Lob
     @Column(name = "expected_answer", columnDefinition = "TEXT")
     private String expectedAnswer;
 
+    /**
+     * 期望关键词 JSON。
+     */
     @Lob
     @Column(name = "expected_keywords", columnDefinition = "TEXT")
     private String expectedKeywords;
 
+    /**
+     * 期望命中 Chunk ID JSON。
+     */
     @Lob
     @Column(name = "expected_chunk_ids", columnDefinition = "TEXT")
     private String expectedChunkIds;
 
+    /**
+     * 期望回答状态。
+     */
     @Column(name = "expected_status", length = 40)
     private String expectedStatus;
 
+    /**
+     * 扩展元数据。
+     */
     @Lob
     @Column(name = "metadata", columnDefinition = "TEXT")
     private String metadata;
 
+    /**
+     * 是否启用该用例。
+     */
     @Column(name = "enabled", nullable = false)
     private Boolean enabled;
 }
