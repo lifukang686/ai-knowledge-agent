@@ -71,6 +71,7 @@ public class ServiceDeskAppService {
         if (userId == null) {
             throw new BaseException(ErrorCodeEnum.UNAUTHORIZED);
         }
+        // 把用户 ID 放进线程上下文，后续 Agent/工具链都能直接取到。
         UserContextHolder.setUserId(userId);
         if (!StringUtils.hasText(command.question())) {
             throw new BaseException(ErrorCodeEnum.BAD_REQUEST.getCode(), "问题不能为空");
@@ -79,13 +80,16 @@ public class ServiceDeskAppService {
         ServiceDeskRunDO run = null;
         RecordingStreamHandler recordingHandler = new RecordingStreamHandler(handler);
         try {
+            // 先做意图归类，再按最终服务类型创建运行记录。
             ServiceDeskAskCommand resolvedCommand = resolveCommand(command);
             run = createRun(userId, resolvedCommand);
             stage(recordingHandler, "agent_start", "服务台 Agent 正在规划处理步骤");
             ServiceDeskAnswerResult result = serviceDeskAgentRuntime.run(
                     resolvedCommand, userId, run.getId(), recordingHandler);
+            // 运行结束后统一落库事件和结果，保证 SSE 与数据库一致。
             List<AgentRunEvent> events = completeRun(run, result, result.events());
             if (!hasStreamedTokens(result.events())) {
+                // 没有流式输出时，补发最终答案。
                 token(recordingHandler, result.answer());
             }
             recordingHandler.onDone(result.withEvents(List.copyOf(events)));
@@ -101,6 +105,7 @@ public class ServiceDeskAppService {
     }
 
     private ServiceDeskAskCommand resolveCommand(ServiceDeskAskCommand command) {
+        // 规则和 LLM 一起决定最终意图，避免前端传错 serviceType 影响路由。
         ServiceDeskDecision decision = serviceDeskIntentClassifier.classify(
                 command.question(), ServiceType.from(command.serviceType()));
         return command.withServiceType(decision.serviceType());
@@ -161,6 +166,7 @@ public class ServiceDeskAppService {
      */
     private ServiceDeskRunDO createRun(Long userId, ServiceDeskAskCommand command) {
         ServiceDeskRunDO run = new ServiceDeskRunDO();
+        // 先插运行记录，后续 Agent 过程和异常都能回写同一条轨迹。
         run.setUserId(userId);
         run.setQuestion(command.question());
         run.setServiceType(ServiceType.from(command.serviceType()).name());
@@ -180,6 +186,7 @@ public class ServiceDeskAppService {
                                             List<AgentRunEvent> events) {
         // Runtime 返回的事件可能是不可变列表，落库前统一复制，避免追加收尾事件时抛异常。
         List<AgentRunEvent> mutableEvents = new ArrayList<>(events != null ? events : List.of());
+        // 追加最终答案事件，方便前端和审计侧统一查看收口结果。
         mutableEvents.add(event(AgentRunEvent.EventType.FINAL_ANSWER, "服务台处理完成", Map.of(
                 "answer", result.answer(),
                 "status", result.status(),
@@ -207,6 +214,7 @@ public class ServiceDeskAppService {
         log.error("服务台 Agent 运行失败: runId={}", run.getId(), e);
         // 异常处理也可能收到 List.of()，这里同样做防御性复制，确保错误能被正常记录。
         List<AgentRunEvent> mutableEvents = new ArrayList<>(events != null ? events : List.of());
+        // 失败事件写回运行记录，方便排查和后续反馈。
         mutableEvents.add(event(AgentRunEvent.EventType.ERROR, "服务台处理失败", Map.of(
                 "exception", e.getClass().getSimpleName(),
                 "message", e.getMessage() != null ? e.getMessage() : ""
@@ -310,6 +318,7 @@ public class ServiceDeskAppService {
      */
     private void stage(ServiceDeskStreamHandler handler, String stage, String message) {
         if (handler != null) {
+            // 阶段消息用于前端展示当前处理进度。
             handler.onStage(stage, message);
         }
     }
@@ -319,6 +328,7 @@ public class ServiceDeskAppService {
      */
     private void token(ServiceDeskStreamHandler handler, String text) {
         if (handler != null && text != null) {
+            // 最终答案也按 token 事件补一遍，兼容非流式工具结果。
             handler.onToken(text);
         }
     }

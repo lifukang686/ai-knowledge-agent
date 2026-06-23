@@ -28,6 +28,7 @@ public class ServiceDeskDraftTicketTool implements LocalMethodTool {
     @Override
     public Object execute(Map<String, Object> arguments) {
         ServiceDeskAgentContext context = ServiceDeskAgentContextHolder.getRequired();
+        // 写操作统一创建草稿，必须由用户确认后才转为正式工单。
         ServiceTicketResult ticket = ticketAppService.createTicket(new CreateTicketCommand(
                 context.serviceType(),
                 text(arguments, "category", "综合"),
@@ -44,6 +45,7 @@ public class ServiceDeskDraftTicketTool implements LocalMethodTool {
     }
 
     static Map<String, Object> toDraftPayload(ServiceTicketResult ticket) {
+        // 返回给 Runtime 的结构化结果，决定最终话术和前端确认态。
         return Map.of(
                 "approvalRequired", true,
                 "ticketId", ticket.id(),

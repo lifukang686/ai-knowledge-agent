@@ -36,8 +36,10 @@ public class ServiceDeskKnowledgeQaTool implements LocalMethodTool {
         ServiceDeskAgentContext context = ServiceDeskAgentContextHolder.getRequired();
         String question = text(arguments, "question", context.question());
         if (context.streamHandler() != null) {
+            // SSE 场景复用 RAG 流式链路，把增量 token 直接透传给服务台前端。
             return executeStream(question, context);
         }
+        // 非流式调用直接取完整 RAG 结果。
         QaResult result = ragAppService.answer(question, context.knowledgeBaseId(), context.conversationId());
         return toPayload(result, withNoResultHint(result), false);
     }
@@ -51,6 +53,7 @@ public class ServiceDeskKnowledgeQaTool implements LocalMethodTool {
         ragAppService.answerStream(question, context.knowledgeBaseId(), context.conversationId(), new QaStreamHandler() {
             @Override
             public void onStage(String stage, String message) {
+                // 给 RAG 阶段加前缀，避免和服务台 Agent 阶段混淆。
                 serviceDeskHandler.onStage("rag_" + stage, message);
             }
 
@@ -85,6 +88,7 @@ public class ServiceDeskKnowledgeQaTool implements LocalMethodTool {
 
     private void awaitStream(CountDownLatch done) {
         try {
+            // Agent 工具需要等待 RAG 完成，才能把完整结果作为 observation 返回。
             if (!done.await(STREAM_WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
                 throw new IllegalStateException("服务台知识问答流式生成超时");
             }

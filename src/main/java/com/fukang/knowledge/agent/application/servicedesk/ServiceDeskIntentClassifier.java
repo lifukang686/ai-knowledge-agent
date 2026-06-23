@@ -44,6 +44,7 @@ public class ServiceDeskIntentClassifier {
     public ServiceDeskDecision classify(String question, ServiceType preferredType) {
         ServiceDeskDecision ruleDecision = classifyByRule(question, preferredType);
         if (ruleDecision.intent() != ServiceDeskIntent.KNOWLEDGE_QA) {
+            // 高确定性规则直接返回，减少不必要的 LLM 调用。
             return ruleDecision;
         }
         try {
@@ -66,10 +67,12 @@ public class ServiceDeskIntentClassifier {
         String text = question != null ? question.trim() : "";
         ServiceType serviceType = normalizeServiceType(preferredType, text);
         if (TICKET_NO_PATTERN.matcher(text).find() || QUERY_TICKET_PATTERN.matcher(text).find()) {
+            // 工单号或进度类表达优先走查询工具。
             return decision(ServiceDeskIntent.QUERY_TICKET, serviceType, "工单查询", TicketPriority.MEDIUM,
                     titleFromQuestion(text), text, "命中工单查询规则");
         }
         if (HANDOFF_PATTERN.matcher(text).find()) {
+            // 敏感或高风险场景不自动处理，转人工介入草稿。
             return decision(ServiceDeskIntent.HANDOFF_HUMAN, serviceType, "人工介入", TicketPriority.HIGH,
                     titleFromQuestion(text), text, "命中敏感或高风险规则");
         }

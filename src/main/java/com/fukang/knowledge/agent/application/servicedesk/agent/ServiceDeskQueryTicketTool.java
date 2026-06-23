@@ -28,11 +28,13 @@ public class ServiceDeskQueryTicketTool implements LocalMethodTool {
         ServiceDeskAgentContext context = ServiceDeskAgentContextHolder.getRequired();
         String ticketNo = text(arguments, "ticketNo", "");
         if (!ticketNo.isBlank()) {
+            // 按当前用户过滤工单号，避免查询到他人数据。
             ServiceTicketResult ticket = ticketAppService.getTicketByNo(ticketNo, context.userId());
             return ticket != null
                     ? Map.of("found", true, "ticket", toTicketPayload(ticket))
                     : Map.of("found", false, "message", "没有找到工单 " + ticketNo);
         }
+        // 未指定工单号时，仅返回当前用户最近工单。
         List<Map<String, Object>> tickets = ticketAppService.listRecentTickets(context.userId(), 5)
                 .stream()
                 .map(this::toTicketPayload)

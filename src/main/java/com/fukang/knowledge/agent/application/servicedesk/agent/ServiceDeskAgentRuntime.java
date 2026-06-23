@@ -65,9 +65,11 @@ public class ServiceDeskAgentRuntime {
     public ServiceDeskAnswerResult run(ServiceDeskAskCommand command, Long userId, Long runId,
                                        ServiceDeskStreamHandler handler) {
         ServiceType serviceType = ServiceType.from(command.serviceType());
+        // 将本次服务台请求放入上下文，LocalMethodTool 执行时按线程读取。
         ServiceDeskAgentContext context = new ServiceDeskAgentContext(
                 userId, runId, command.knowledgeBaseId(), command.conversationId(),
                 serviceType, command.question(), handler);
+        // 只暴露服务台内置工具，限制 Agent 的可调用范围。
         ScopedToolRegistry toolScope = toolFactory.createScope();
         String planningPrompt = promptTemplateManager.renderText(PLANNING_PROMPT, Map.of(
                 "serviceType", serviceType.name(),
@@ -79,6 +81,7 @@ public class ServiceDeskAgentRuntime {
             ServiceDeskAgentContextHolder.set(context);
             AgentRuntimeOptions options = AgentRuntimeOptions.of(MAX_STEPS, planningPrompt, toolScope)
                     .withEventListener(handler != null ? handler::onAgentEvent : null);
+            // 交给通用 Plan-Execute Runtime 规划并执行工具链。
             PlanExecuteAgentRuntime.RuntimeResult result = planExecuteAgentRuntime.runTask(command.question(), options);
             return toAnswerResult(result, runId, serviceType.name());
         } finally {
@@ -91,6 +94,7 @@ public class ServiceDeskAgentRuntime {
      */
     private ServiceDeskAnswerResult toAnswerResult(PlanExecuteAgentRuntime.RuntimeResult result,
                                                    Long runId, String serviceType) {
+        // 从执行步骤中提取业务结果，覆盖模型可能不准确的最终话术。
         ToolOutcome outcome = extractOutcome(result.steps());
         String answer = result.answer();
         if (outcome.approvalRequired()) {
@@ -125,6 +129,7 @@ public class ServiceDeskAgentRuntime {
     private ToolOutcome extractOutcome(List<AgentStep> steps) {
         ToolOutcome outcome = ToolOutcome.empty();
         for (AgentStep step : steps) {
+            // observation 是工具 JSON 输出，解析后再按工具名转成服务台结果。
             Map<String, Object> output = parseObservation(step.observation());
             // 多个工具结果按执行顺序合并，后续写操作结果优先覆盖普通问答结果。
             outcome = outcome.merge(toolOutcome(step.toolName(), output));
@@ -162,6 +167,7 @@ public class ServiceDeskAgentRuntime {
     private ToolOutcome ticketOutcome(String intent, Map<String, Object> output) {
         Long ticketId = longValue(output.get("ticketId"));
         String ticketNo = text(output, "ticketNo");
+        // 工单写操作返回待确认草稿，前端据此展示确认入口。
         ServiceTicketResult pendingTicket = new ServiceTicketResult(
                 ticketId,
                 ticketNo,
@@ -194,6 +200,7 @@ public class ServiceDeskAgentRuntime {
     private ToolOutcome queryOutcome(Map<String, Object> output) {
         Object ticket = output.get("ticket");
         if (ticket instanceof Map<?, ?> map) {
+            // 命中单个工单时，压缩成用户可读的状态摘要。
             Long ticketId = longValue(map.get("ticketId"));
             String ticketNo = Objects.toString(map.get("ticketNo"), "");
             String status = Objects.toString(map.get("status"), "");

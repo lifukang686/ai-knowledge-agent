@@ -29,6 +29,7 @@ public class ServiceDeskHumanHandoffTool implements LocalMethodTool {
     public Object execute(Map<String, Object> arguments) {
         ServiceDeskAgentContext context = ServiceDeskAgentContextHolder.getRequired();
         String reason = text(arguments, "reason", "Agent 判断需要人工介入");
+        // 人工介入也只生成高优先级草稿，避免 Agent 直接提交。
         ServiceTicketResult ticket = ticketAppService.createTicket(new CreateTicketCommand(
                 context.serviceType(),
                 text(arguments, "category", "人工介入"),
@@ -41,6 +42,7 @@ public class ServiceDeskHumanHandoffTool implements LocalMethodTool {
                 context.conversationId(),
                 TicketStatus.DRAFT
         ));
+        // 记录人工介入事件，便于工单轨迹追踪。
         ticketAppService.recordHandoffRequested(ticket.id(), context.userId(), reason);
         return ServiceDeskDraftTicketTool.toDraftPayload(ticket);
     }

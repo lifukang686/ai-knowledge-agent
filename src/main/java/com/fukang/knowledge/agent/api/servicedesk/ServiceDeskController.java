@@ -60,6 +60,7 @@ public class ServiceDeskController {
         validateQuestion(req);
         Long userId = currentUserId();
 
+        // 先建立 SSE 连接，再异步跑 Agent，避免阻塞请求线程。
         SseEmitter emitter = new SseEmitter(STREAM_TIMEOUT_MS);
         ServiceDeskSseHandler handler = new ServiceDeskSseHandler(emitter);
         emitter.onTimeout(() -> handler.completeWithError("服务台处理超时，请稍后重试"));
@@ -142,6 +143,7 @@ public class ServiceDeskController {
      * 转换问答命令。
      */
     private ServiceDeskAskCommand toCommand(ServiceDeskAskReq req) {
+        // Controller 只做参数搬运，业务语义交给应用层处理。
         return new ServiceDeskAskCommand(req.question(), req.serviceType(), req.knowledgeBaseId(), req.conversationId());
     }
 
