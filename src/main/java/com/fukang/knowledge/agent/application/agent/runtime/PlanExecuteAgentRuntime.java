@@ -51,6 +51,9 @@ public class PlanExecuteAgentRuntime {
         }
     }
 
+    /**
+     * 生成执行计划并记录规划事件。
+     */
     private void plan(String task, AgentRuntimeOptions options, AgentContext context, List<AgentRunEvent> events) {
         context.setStatus(AgentContext.AgentContextStatus.PLANNING);
         // Planner 基于任务、工具范围和额外提示词生成可执行步骤。
@@ -62,6 +65,9 @@ public class PlanExecuteAgentRuntime {
         context.setStatus(AgentContext.AgentContextStatus.EXECUTING);
     }
 
+    /**
+     * 按计划循环执行工具，并根据推理结果决定收敛、重试或失败。
+     */
     private RuntimeResult executeLoop(AgentContext context, AgentRuntimeOptions options,
                                       List<AgentRunEvent> events, long startTime) {
         int stepCount = 0;
@@ -96,6 +102,9 @@ public class PlanExecuteAgentRuntime {
                 startTime, "超过最大执行步数");
     }
 
+    /**
+     * 处理可立即结束运行的推理决策。
+     */
     private RuntimeResult tryTerminalDecision(AgentContext context, AgentRuntimeOptions options,
                                               List<AgentRunEvent> events, ReasoningResult reasoning,
                                               long startTime) {
@@ -110,6 +119,9 @@ public class PlanExecuteAgentRuntime {
         return null;
     }
 
+    /**
+     * 重试最近一次工具调用。
+     */
     private int retryLastStep(AgentContext context, AgentRuntimeOptions options, List<AgentRunEvent> events) {
         AgentStep lastStep = context.getLastStep();
         if (lastStep == null) {
@@ -122,6 +134,9 @@ public class PlanExecuteAgentRuntime {
         return 1;
     }
 
+    /**
+     * 计划执行完后再尝试生成最终答案。
+     */
     private RuntimeResult tryFinalReasoning(AgentContext context, AgentRuntimeOptions options,
                                             List<AgentRunEvent> events, long startTime) {
         ReasoningResult finalReason = agentReasoner.reason(context);
@@ -132,6 +147,9 @@ public class PlanExecuteAgentRuntime {
         return null;
     }
 
+    /**
+     * 执行单个计划步骤并记录工具调用、观察结果。
+     */
     private void executeAndRecord(AgentContext context, PlanStep step, AgentRuntimeOptions options,
                                   List<AgentRunEvent> events) {
         ToolScope toolScope = options.toolScope();
@@ -154,6 +172,9 @@ public class PlanExecuteAgentRuntime {
                 observation.result(), observation.durationMs(), observation.success(), observation.errorMessage()));
     }
 
+    /**
+     * 标记运行成功并返回最终结果。
+     */
     private RuntimeResult complete(AgentContext context, AgentRuntimeOptions options, List<AgentRunEvent> events,
                                    String answer, long startTime) {
         context.setStatus(AgentContext.AgentContextStatus.COMPLETED);
@@ -164,6 +185,9 @@ public class PlanExecuteAgentRuntime {
                 List.copyOf(events), System.currentTimeMillis() - startTime);
     }
 
+    /**
+     * 标记运行失败并返回失败结果。
+     */
     private RuntimeResult fail(AgentContext context, AgentRuntimeOptions options, List<AgentRunEvent> events,
                                String message, long startTime, String reason) {
         context.setStatus(AgentContext.AgentContextStatus.FAILED);
@@ -174,6 +198,9 @@ public class PlanExecuteAgentRuntime {
                 List.copyOf(events), System.currentTimeMillis() - startTime);
     }
 
+    /**
+     * 记录一次推理决策事件。
+     */
     private void recordReasoning(List<AgentRunEvent> events, AgentRuntimeOptions options,
                                  ReasoningResult reasoning, String message) {
         recordEvent(events, options, event(AgentRunEvent.EventType.REASONING, null, null,
@@ -181,6 +208,9 @@ public class PlanExecuteAgentRuntime {
                 true, null, message));
     }
 
+    /**
+     * 记录运行事件并通知监听器。
+     */
     private void recordEvent(List<AgentRunEvent> events, AgentRuntimeOptions options, AgentRunEvent event) {
         events.add(event);
         if (options.eventListener() != null) {
@@ -189,6 +219,9 @@ public class PlanExecuteAgentRuntime {
         }
     }
 
+    /**
+     * 构造统一的 Agent 运行事件。
+     */
     private AgentRunEvent event(AgentRunEvent.EventType type, Integer stepOrder, String toolName,
                                 Map<String, Object> payload, Boolean success, Long durationMs, String message) {
         return AgentRunEvent.of(type, stepOrder, toolName, payload, success, durationMs, message);

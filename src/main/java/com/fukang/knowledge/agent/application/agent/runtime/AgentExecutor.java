@@ -29,16 +29,6 @@ public class AgentExecutor {
     private final ToolExecutorFactory executorFactory;
 
     /**
-     * 执行单个计划步骤
-     *
-     * @param step 计划步骤（含工具名和参数）
-     * @return 观察结果（封装执行成功/失败、输出和耗时）
-     */
-    public Observation executeStep(PlanStep step) {
-        return executeStep(step, toolRegistry);
-    }
-
-    /**
      * 在指定工具作用域内执行计划步骤，防止业务 Agent 调用未授权工具。
      */
     public Observation executeStep(PlanStep step, ToolScope toolScope) {
