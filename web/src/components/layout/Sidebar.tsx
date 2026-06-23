@@ -1,27 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
+  BarChart3,
   Bot,
   Brain,
   ChevronDown,
   ChevronRight,
-  Clock,
   Database,
   MessageSquare,
   SlidersHorizontal,
-  Workflow,
-  Wrench,
 } from 'lucide-react';
 
 const menuItems = [
   { path: '/knowledge-bases', icon: Database, label: '知识库管理' },
   { path: '/model-providers', icon: Brain, label: '模型提供商' },
-  { path: '/tools', icon: Wrench, label: '工具管理' },
-  { path: '/agents', icon: Bot, label: 'Agent管理' },
-  { path: '/workflows', icon: Workflow, label: '工作流管理' },
-  { path: '/scheduler/jobs', icon: Clock, label: '定时任务' },
   { path: '/qa', icon: MessageSquare, label: 'RAG问答' },
   { path: '/service-desk', icon: Bot, label: '服务台Agent' },
+  { path: '/evaluations', icon: BarChart3, label: '评测中心' },
 ];
 
 export const Sidebar: React.FC = () => {

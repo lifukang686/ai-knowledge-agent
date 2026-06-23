@@ -51,4 +51,9 @@ export const API_ENDPOINTS = {
   QA_ASK: '/qa/ask',
   CONVERSATIONS: '/conversations',
   CONVERSATION_DETAIL: (id: string) => `/conversations/${id}`,
+
+  // 评测相关
+  EVALUATIONS: '/evaluations',
+  EVALUATION_DATASET_DETAIL: (id: string) => `/evaluations/datasets/${id}`,
+  EVALUATION_RUN_DETAIL: (runId: string) => `/evaluations/runs/${runId}`,
 } as const;

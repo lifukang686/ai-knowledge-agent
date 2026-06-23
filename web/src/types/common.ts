@@ -23,6 +23,8 @@ export interface ListResponse<T> {
   pageSize: number;
 }
 
+export type PaginatedResponse<T> = ListResponse<T>;
+
 export type StatusType = 'pending' | 'processing' | 'completed' | 'failed' | 'unknown';
 
 export interface SearchParams {

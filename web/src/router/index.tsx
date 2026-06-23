@@ -15,18 +15,6 @@ import KnowledgeBaseDetail from '@/pages/knowledge-base/KnowledgeBaseDetail';
 import ModelProviderList from '@/pages/model-provider/ModelProviderList';
 import ModelList from '@/pages/model-provider/ModelList';
 
-// 工具管理
-import ToolList from '@/pages/tools/ToolList';
-
-// Agent管理
-import AgentList from '@/pages/agents/AgentList';
-import AgentRuns from '@/pages/agents/AgentRuns';
-import AgentRunDetail from '@/pages/agents/AgentRunDetail';
-
-// 工作流管理
-import WorkflowList from '@/pages/workflows/WorkflowList';
-import WorkflowDetail from '@/pages/workflows/WorkflowDetail';
-
 // 文档管理
 import DocumentDetail from '@/pages/knowledge-base/DocumentDetail';
 
@@ -36,9 +24,11 @@ import QAPage from '@/pages/qa/QAPage';
 // 企业服务台
 import ServiceDeskPage from '@/pages/service-desk/ServiceDeskPage';
 
-// 定时任务
-import JobList from '@/pages/jobs/JobList';
-import JobDetail from '@/pages/jobs/JobDetail';
+// RAG评测
+import EvaluationDatasetList from '@/pages/evaluation/EvaluationDatasetList';
+import EvaluationDatasetDetail from '@/pages/evaluation/EvaluationDatasetDetail';
+import EvaluationRunDetail from '@/pages/evaluation/EvaluationRunDetail';
+
 import ChunkStrategyList from '@/pages/chunk-strategy/ChunkStrategyList';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -93,27 +83,17 @@ export const AppRouter: React.FC = () => {
         <Route path="model-providers" element={<ModelProviderList />} />
         <Route path="model-providers/:id/models" element={<ModelList />} />
         
-        {/* 工具管理 */}
-        <Route path="tools" element={<ToolList />} />
-        
-        {/* Agent管理 */}
-        <Route path="agents" element={<AgentList />} />
-        <Route path="agents/:id/runs" element={<AgentRuns />} />
-        <Route path="agents/runs/:runId" element={<AgentRunDetail />} />
-        
-        {/* 工作流管理 */}
-        <Route path="workflows" element={<WorkflowList />} />
-        <Route path="workflows/:id" element={<WorkflowDetail />} />
-        
         {/* RAG问答 */}
         <Route path="qa" element={<QAPage />} />
 
         {/* 企业服务台 */}
         <Route path="service-desk" element={<ServiceDeskPage />} />
+
+        {/* RAG评测 */}
+        <Route path="evaluations" element={<EvaluationDatasetList />} />
+        <Route path="evaluations/datasets/:id" element={<EvaluationDatasetDetail />} />
+        <Route path="evaluations/runs/:runId" element={<EvaluationRunDetail />} />
         
-        {/* 定时任务 */}
-        <Route path="scheduler/jobs" element={<JobList />} />
-        <Route path="scheduler/jobs/:id" element={<JobDetail />} />
         <Route path="chunk-strategies" element={<ChunkStrategyList />} />
         
         {/* 默认重定向到知识库管理 */}

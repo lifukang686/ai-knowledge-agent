@@ -58,7 +58,7 @@ const ModelProviderList: React.FC = () => {
       // 根据搜索名称过滤（因为后端还不支持分页搜索）
       let filteredItems = result.items;
       if (keyword) {
-        filteredItems = filteredItems.filter(p => 
+        filteredItems = filteredItems.filter((p: ModelProvider) => 
           p.name.toLowerCase().includes(keyword.toLowerCase())
         );
       }

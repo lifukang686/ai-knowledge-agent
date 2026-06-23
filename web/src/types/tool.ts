@@ -1,3 +1,5 @@
+import { BaseEntity } from './common';
+
 export interface Tool extends BaseEntity {
   name: string;
   description?: string;

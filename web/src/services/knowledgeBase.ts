@@ -10,7 +10,7 @@ import {
   DocumentDetailApiResp,
   KnowledgeBaseListResponse,
 } from '@/types/knowledgeBase';
-import { ListResponse } from '@/types/common';
+import { ListResponse, StatusType } from '@/types/common';
 import { API_ENDPOINTS } from '@/utils/constants';
 
 function mapKnowledgeBaseFromApi(api: KnowledgeBaseApiResp): KnowledgeBase {
@@ -19,7 +19,7 @@ function mapKnowledgeBaseFromApi(api: KnowledgeBaseApiResp): KnowledgeBase {
     name: api?.name ?? '',
     description: api?.description ?? undefined,
     document_count: api?.documentCount ?? 0,
-    status: api?.status ?? 'unknown',
+    status: (api?.status as StatusType) ?? 'unknown',
     created_at: api?.createTime ?? '',
     updated_at: api?.updateTime ?? '',
   };
@@ -31,7 +31,7 @@ function mapDocumentFromApi(api: DocumentApiResp): Document {
     name: api?.name ?? '',
     file_path: api?.filePath ?? '',
     knowledge_base_id: api?.knowledgeBaseId != null ? String(api.knowledgeBaseId) : '',
-    status: (api?.status as Document['status']) ?? 'unknown',
+    status: (api?.status as StatusType) ?? 'unknown',
     uploaded_by: api?.uploadedBy ?? undefined,
     chunk_count: api?.chunkCount ?? 0,
     file_size: api?.fileSize ?? 0,
@@ -47,7 +47,7 @@ function mapDocumentDetailFromApi(api: DocumentDetailApiResp): DocumentDetail {
     content: api?.content ?? '',
     file_path: api?.filePath ?? '',
     knowledge_base_id: api?.knowledgeBaseId != null ? String(api.knowledgeBaseId) : '',
-    status: (api?.status as DocumentDetail['status']) ?? 'unknown',
+    status: (api?.status as StatusType) ?? 'unknown',
     uploaded_by: api?.uploadedBy ?? undefined,
     chunk_count: api?.chunkCount ?? 0,
     file_size: api?.fileSize ?? 0,

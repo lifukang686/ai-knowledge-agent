@@ -30,7 +30,7 @@ export const modelProviderService = {
     // 目前后端没有详情接口，暂时用列表中的数据
     const providers = await this.getModelProviders({});
     console.log('所有提供商:', providers.items);
-    const provider = providers.items.find(p => {
+    const provider = providers.items.find((p: ModelProvider) => {
       console.log('比较 - 列表id:', p.id, '类型:', typeof p.id, '=== 传入id:', id, '结果:', p.id === id);
       return String(p.id) === String(id);
     });

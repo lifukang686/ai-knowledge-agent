@@ -7,6 +7,7 @@ import com.fukang.knowledge.agent.application.knowledge.port.KnowledgeBaseReposi
 import com.fukang.knowledge.agent.application.rag.intent.QaIntent;
 import com.fukang.knowledge.agent.application.rag.intent.QaIntentClassifier;
 import com.fukang.knowledge.agent.application.rag.result.QaResult;
+import com.fukang.knowledge.agent.application.rag.result.RagEvalResult;
 import com.fukang.knowledge.agent.application.rag.stream.QaStreamHandler;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
@@ -87,6 +88,21 @@ public class RagAppService {
                 ragConversationService.buildAnswerMemory(memory, userMemory));
         ragConversationService.saveTurn(memory.conversationId(), question, rewrittenQuery, answer, status);
         return new QaResult(answer, rewrittenQuery, status, memory.conversationId());
+    }
+
+    /**
+     * RAG 评测执行链路，不读取或写入会话记忆，保证评测结果不污染真实问答历史。
+     */
+    public RagEvalResult evaluate(String question, Long knowledgeBaseId) {
+        validateKnowledgeBase(knowledgeBaseId);
+        long start = System.currentTimeMillis();
+        String rewrittenQuery = queryRewritePort.rewrite(question);
+        List<SearchResult> retrieved = ragRetrievalService.retrieveWithFallback(rewrittenQuery, question, knowledgeBaseId);
+        List<SearchResult> reranked = reranker.rerank(retrieved, question);
+        String status = reranked.isEmpty() ? STATUS_NO_RESULTS : STATUS_SUCCESS;
+        String answer = answerGenerator.generateAnswer(reranked, rewrittenQuery, "");
+        return new RagEvalResult(answer, rewrittenQuery, status, retrieved, reranked,
+                System.currentTimeMillis() - start);
     }
 
     /**
