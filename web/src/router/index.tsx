@@ -93,9 +93,9 @@ export const AppRouter: React.FC = () => {
         <Route path="evaluations" element={<EvaluationDatasetList />} />
         <Route path="evaluations/datasets/:id" element={<EvaluationDatasetDetail />} />
         <Route path="evaluations/runs/:runId" element={<EvaluationRunDetail />} />
-        
+
         <Route path="chunk-strategies" element={<ChunkStrategyList />} />
-        
+
         {/* 默认重定向到知识库管理 */}
         <Route index element={<KnowledgeBaseList />} />
       </Route>

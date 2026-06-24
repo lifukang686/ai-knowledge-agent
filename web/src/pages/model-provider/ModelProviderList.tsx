@@ -325,7 +325,7 @@ const ModelProviderList: React.FC = () => {
           initialValues={editingProvider ? {
             name: editingProvider.name,
             apiBaseUrl: editingProvider.apiBaseUrl || '',
-            apiKey: editingProvider.apiKey || '',
+            apiKey: '',
             description: editingProvider.description || ''
           } : undefined}
           isEdit={!!editingProvider}

@@ -23,10 +23,11 @@ import org.springframework.util.StringUtils;
 public class AuthAppService {
 
     private final UserRepository userRepository;
+    private final AuthSessionService authSessionService;
 
     /**
      * 用户登录
-     * <p>根据用户名查询用户，校验密码后颁发 Mock Token。
+     * <p>根据用户名查询用户，校验密码后颁发服务端会话 Token。
      * 当前为 MVP 阶段，密码采用明文比对。</p>
      *
      * @param command 登录命令，包含用户名和密码
@@ -38,11 +39,6 @@ public class AuthAppService {
         UserDO user = userRepository.findByUsername(command.username());
 
         if (user == null) {
-            // MVP 阶段：当数据库无数据时，允许 admin/admin123 作为后门登录
-            if ("admin".equals(command.username()) && "admin123".equals(command.password())) {
-                log.info("Mock admin login success.");
-                return new LoginResult(buildMockToken(1L), 1L, "admin");
-            }
             throw new BaseException(ErrorCodeEnum.USER_NOT_EXIST);
         }
 
@@ -51,8 +47,8 @@ public class AuthAppService {
             throw new BaseException(ErrorCodeEnum.PASSWORD_ERROR);
         }
 
-        // 颁发携带用户ID的 Mock Token，后续替换为 JWT。
-        String token = buildMockToken(user.getId());
+        // 颁发随机会话 Token，后续请求只信任服务端会话映射。
+        String token = authSessionService.createSession(user.getId());
         log.info("User {} logged in successfully.", user.getUsername());
         return new LoginResult(token, user.getId(), user.getUsername());
     }
@@ -80,14 +76,11 @@ public class AuthAppService {
         userRepository.insert(user);
 
         log.info("User {} registered successfully.", username);
-        return new LoginResult(buildMockToken(user.getId()), user.getId(), user.getUsername());
+        return new LoginResult(authSessionService.createSession(user.getId()), user.getId(), user.getUsername());
     }
 
     private String normalizeUsername(String username) {
         return StringUtils.hasText(username) ? username.trim() : "";
     }
 
-    private String buildMockToken(Long userId) {
-        return "mock-token-" + userId;
-    }
 }

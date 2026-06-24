@@ -3,6 +3,7 @@ package com.fukang.knowledge.agent.api.model;
 import com.fukang.knowledge.agent.api.model.dto.ModelConfigReq;
 import com.fukang.knowledge.agent.api.model.dto.ModelConfigUpdateReq;
 import com.fukang.knowledge.agent.api.model.dto.ProviderReq;
+import com.fukang.knowledge.agent.api.model.dto.ProviderResp;
 import com.fukang.knowledge.agent.api.model.dto.ProviderUpdateReq;
 import com.fukang.knowledge.agent.application.model.command.ModelConfigCommand;
 import com.fukang.knowledge.agent.application.model.command.ModelConfigUpdateCommand;
@@ -48,8 +49,8 @@ public class ModelController {
      * @return 提供商列表
      */
     @GetMapping("/providers")
-    public Result<List<ModelProviderDO>> listProviders() {
-        return Result.success(modelAppService.listProviders());
+    public Result<List<ProviderResp>> listProviders() {
+        return Result.success(modelAppService.listProviders().stream().map(this::toProviderResp).toList());
     }
 
     /**
@@ -152,5 +153,27 @@ public class ModelController {
     public Result<Void> cancelDefaultProvider(@PathVariable("id") Long id) {
         modelAppService.cancelDefaultProvider(id);
         return Result.success();
+    }
+
+    /**
+     * 转换提供商响应，避免明文 API Key 返回前端。
+     */
+    private ProviderResp toProviderResp(ModelProviderDO provider) {
+        return new ProviderResp(provider.getId(), provider.getName(), provider.getApiBaseUrl(),
+                maskApiKey(provider.getApiKey()), provider.getDescription(), provider.getIsDefault(),
+                provider.getCreateTime(), provider.getUpdateTime());
+    }
+
+    /**
+     * 脱敏 API Key。
+     */
+    private String maskApiKey(String apiKey) {
+        if (apiKey == null || apiKey.isBlank()) {
+            return "";
+        }
+        if (apiKey.length() <= 8) {
+            return "****";
+        }
+        return apiKey.substring(0, 4) + "****" + apiKey.substring(apiKey.length() - 4);
     }
 }

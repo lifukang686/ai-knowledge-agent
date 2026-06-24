@@ -23,28 +23,16 @@
   },
   "include": ["src"],
   "exclude": [
-    "src/pages/agents",
     "src/pages/conversations",
-    "src/pages/jobs",
-    "src/pages/tools",
-    "src/pages/workflows",
     "src/pages/model-provider/ModelManagement.tsx",
     "src/pages/qa/ConversationDetail.tsx",
     "src/pages/TestPage.tsx",
-    "src/services/agent.ts",
     "src/services/conversation.ts",
     "src/services/document.ts",
-    "src/services/job.ts",
     "src/services/mockData.ts",
-    "src/services/tool.ts",
-    "src/services/workflow.ts",
-    "src/types/agent.ts",
     "src/types/conversation.ts",
     "src/types/document.ts",
-    "src/types/index.ts",
-    "src/types/job.ts",
-    "src/types/tool.ts",
-    "src/types/workflow.ts"
+    "src/types/index.ts"
   ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

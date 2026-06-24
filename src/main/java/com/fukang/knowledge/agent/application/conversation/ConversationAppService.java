@@ -127,10 +127,13 @@ public class ConversationAppService {
     }
 
     /**
-     * 获取当前用户 ID，兼容未登录的本地调试场景。
+     * 获取当前用户 ID，未登录时拒绝访问。
      */
     private Long currentUserId() {
         Long userId = UserContextHolder.getUserId();
-        return userId != null ? userId : 1L;
+        if (userId == null) {
+            throw new BaseException(ErrorCodeEnum.UNAUTHORIZED);
+        }
+        return userId;
     }
 }

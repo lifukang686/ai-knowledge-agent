@@ -159,6 +159,22 @@ public class EvaluationAppService {
     }
 
     /**
+     * 删除知识库关联的评测集及历史结果。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteDatasetsByKnowledgeBase(Long knowledgeBaseId) {
+        List<Long> datasetIds = datasetMapper.selectList(new LambdaQueryWrapper<EvaluationDatasetDO>()
+                        .select(EvaluationDatasetDO::getId)
+                        .eq(EvaluationDatasetDO::getKnowledgeBaseId, knowledgeBaseId))
+                .stream()
+                .map(EvaluationDatasetDO::getId)
+                .toList();
+        for (Long datasetId : datasetIds) {
+            deleteDataset(datasetId);
+        }
+    }
+
+    /**
      * 分页查询评测用例。
      */
     public PageResponse<EvaluationCaseResult> listCases(Long datasetId, long page, long pageSize) {

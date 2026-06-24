@@ -3,8 +3,10 @@ package com.fukang.knowledge.agent.infrastructure.config;
 import com.fukang.knowledge.agent.common.context.UserContextHolder;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
+import com.fukang.knowledge.agent.application.auth.AuthSessionService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -14,16 +16,18 @@ import org.springframework.web.servlet.HandlerInterceptor;
  * 认证拦截器
  * <p>拦截所有 /api/** 请求（登录接口除外），校验请求头中的 Bearer Token 是否有效，
  * 认证通过后将用户ID存入 {@link UserContextHolder}，请求结束后自动清除</p>
- * <p>当前为 MVP 阶段，Token 校验为 Mock 实现，后续替换为 JWT 解析。</p>
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class AuthInterceptor implements HandlerInterceptor {
 
     /** Authorization 请求头名称 */
     private static final String TOKEN_HEADER = "Authorization";
     /** Bearer Token 前缀 */
     private static final String BEARER_PREFIX = "Bearer ";
+
+    private final AuthSessionService authSessionService;
 
     /**
      * 请求预处理：校验 Token 有效性
@@ -45,36 +49,16 @@ public class AuthInterceptor implements HandlerInterceptor {
             throw new BaseException(ErrorCodeEnum.UNAUTHORIZED);
         }
 
-        // 提取并校验实际 Token 值（Mock 校验，后续替换为 JWT 解析）
+        // 提取并校验服务端会话 Token。
         String actualToken = token.substring(BEARER_PREFIX.length());
-        Long userId = parseMockUserId(actualToken);
+        Long userId = authSessionService.resolveUserId(actualToken);
         if (userId == null) {
             throw new BaseException(ErrorCodeEnum.TOKEN_INVALID);
         }
 
-        // Mock：从 token 中解析用户ID。
+        // 会话有效时写入当前线程用户上下文。
         UserContextHolder.setUserId(userId);
         return true;
-    }
-
-    /**
-     * 解析 MVP 阶段 Mock Token。
-     *
-     * @param token token文本
-     * @return 用户ID
-     */
-    private Long parseMockUserId(String token) {
-        if ("mock-token-123456".equals(token)) {
-            return 1L;
-        }
-        if (!token.startsWith("mock-token-")) {
-            return null;
-        }
-        try {
-            return Long.parseLong(token.substring("mock-token-".length()));
-        } catch (NumberFormatException e) {
-            return null;
-        }
     }
 
     /**

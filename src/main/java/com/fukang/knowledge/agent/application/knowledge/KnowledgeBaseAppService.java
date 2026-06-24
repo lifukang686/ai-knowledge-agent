@@ -6,9 +6,11 @@ import com.fukang.knowledge.agent.application.knowledge.command.UpdateKnowledgeB
 import com.fukang.knowledge.agent.application.knowledge.port.DocumentRepository;
 import com.fukang.knowledge.agent.application.knowledge.port.KnowledgeBaseRepository;
 import com.fukang.knowledge.agent.application.knowledge.result.KnowledgeBaseResult;
+import com.fukang.knowledge.agent.application.evaluation.EvaluationAppService;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.common.result.PageResponse;
+import com.fukang.knowledge.agent.infrastructure.persistence.entity.DocumentDO;
 import com.fukang.knowledge.agent.infrastructure.persistence.entity.KnowledgeBaseDO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +33,8 @@ public class KnowledgeBaseAppService {
 
     private final DocumentRepository documentRepository;
     private final KnowledgeBaseRepository knowledgeBaseRepository;
+    private final DocumentAppService documentAppService;
+    private final EvaluationAppService evaluationAppService;
 
     /**
      * 创建知识库。
@@ -88,13 +92,21 @@ public class KnowledgeBaseAppService {
 
     /**
      * 删除知识库。
-     * <p>保持现有行为：仅删除知识库主表记录，不做文档级联清理。</p>
+     * <p>先清理文档、向量、文件和评测数据，再删除知识库主记录。</p>
      */
     @Transactional(rollbackFor = Exception.class)
     public void deleteKnowledgeBase(Long id) {
         KnowledgeBaseDO kb = findKnowledgeBaseById(id);
+        // 复用文档删除链路，确保 chunk、向量索引和 MinIO 文件同步清理。
+        List<Long> documentIds = documentRepository.findByKnowledgeBase(id).stream()
+                .map(DocumentDO::getId)
+                .toList();
+        for (Long documentId : documentIds) {
+            documentAppService.deleteDocument(documentId);
+        }
+        evaluationAppService.deleteDatasetsByKnowledgeBase(id);
         knowledgeBaseRepository.deleteById(id);
-        log.info("知识库已删除: id={}, name={}", id, kb.getName());
+        log.info("知识库已删除: id={}, name={}, documentCount={}", id, kb.getName(), documentIds.size());
     }
 
     /**
