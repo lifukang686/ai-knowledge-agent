@@ -15,7 +15,7 @@ import java.util.List;
  */
 @Repository
 @RequiredArgsConstructor
-public class MyBatisModelConfigRepository implements ModelConfigRepository {
+public class ModelConfigRepositoryImpl implements ModelConfigRepository {
 
     private final ModelConfigMapper modelConfigMapper;
 

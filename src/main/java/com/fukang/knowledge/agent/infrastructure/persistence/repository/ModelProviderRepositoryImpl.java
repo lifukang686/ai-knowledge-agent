@@ -15,7 +15,7 @@ import java.util.List;
  */
 @Repository
 @RequiredArgsConstructor
-public class MyBatisModelProviderRepository implements ModelProviderRepository {
+public class ModelProviderRepositoryImpl implements ModelProviderRepository {
 
     private final ModelProviderMapper providerMapper;
 

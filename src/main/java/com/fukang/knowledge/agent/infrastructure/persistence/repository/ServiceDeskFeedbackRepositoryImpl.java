@@ -12,7 +12,7 @@ import org.springframework.stereotype.Repository;
  */
 @Repository
 @RequiredArgsConstructor
-public class MyBatisServiceDeskFeedbackRepository implements ServiceDeskFeedbackRepository {
+public class ServiceDeskFeedbackRepositoryImpl implements ServiceDeskFeedbackRepository {
 
     private final ServiceDeskFeedbackMapper serviceDeskFeedbackMapper;
 

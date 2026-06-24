@@ -18,7 +18,7 @@ import java.util.List;
  */
 @Repository
 @RequiredArgsConstructor
-public class MyBatisServiceTicketRepository implements ServiceTicketRepository {
+public class ServiceTicketRepositoryImpl implements ServiceTicketRepository {
 
     private final ServiceTicketMapper serviceTicketMapper;
 

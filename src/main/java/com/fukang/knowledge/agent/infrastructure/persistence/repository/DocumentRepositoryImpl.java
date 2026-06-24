@@ -18,7 +18,7 @@ import java.util.stream.Collectors;
  */
 @Repository
 @RequiredArgsConstructor
-public class MyBatisDocumentRepository implements DocumentRepository {
+public class DocumentRepositoryImpl implements DocumentRepository {
 
     private final DocumentMapper documentMapper;
 

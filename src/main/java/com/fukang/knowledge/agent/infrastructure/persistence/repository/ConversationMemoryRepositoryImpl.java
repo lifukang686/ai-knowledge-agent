@@ -19,7 +19,7 @@ import java.util.List;
  */
 @Repository
 @RequiredArgsConstructor
-public class MyBatisConversationMemoryRepository implements ConversationMemoryRepository {
+public class ConversationMemoryRepositoryImpl implements ConversationMemoryRepository {
 
     private final ConversationMapper conversationMapper;
     private final ConversationMessageMapper conversationMessageMapper;

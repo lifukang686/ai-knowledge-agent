@@ -14,7 +14,7 @@ import java.util.List;
  */
 @Repository
 @RequiredArgsConstructor
-public class MyBatisUserMemoryRepository implements UserMemoryRepository {
+public class UserMemoryRepositoryImpl implements UserMemoryRepository {
 
     /**
      * 生效状态。

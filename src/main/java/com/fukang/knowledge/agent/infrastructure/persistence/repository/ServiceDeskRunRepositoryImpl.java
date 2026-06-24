@@ -11,7 +11,7 @@ import org.springframework.stereotype.Repository;
  */
 @Repository
 @RequiredArgsConstructor
-public class MyBatisServiceDeskRunRepository implements ServiceDeskRunRepository {
+public class ServiceDeskRunRepositoryImpl implements ServiceDeskRunRepository {
 
     private final ServiceDeskRunMapper serviceDeskRunMapper;
 

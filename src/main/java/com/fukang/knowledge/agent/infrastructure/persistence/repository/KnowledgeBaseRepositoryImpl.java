@@ -15,7 +15,7 @@ import org.springframework.util.StringUtils;
  */
 @Repository
 @RequiredArgsConstructor
-public class MyBatisKnowledgeBaseRepository implements KnowledgeBaseRepository {
+public class KnowledgeBaseRepositoryImpl implements KnowledgeBaseRepository {
 
     private final KnowledgeBaseMapper knowledgeBaseMapper;
 

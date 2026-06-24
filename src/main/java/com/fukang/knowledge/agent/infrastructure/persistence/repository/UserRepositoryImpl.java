@@ -12,7 +12,7 @@ import org.springframework.stereotype.Repository;
  */
 @Repository
 @RequiredArgsConstructor
-public class MyBatisUserRepository implements UserRepository {
+public class UserRepositoryImpl implements UserRepository {
 
     private final UserMapper userMapper;
 

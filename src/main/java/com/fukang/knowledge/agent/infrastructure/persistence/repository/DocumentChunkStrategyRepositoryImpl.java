@@ -17,7 +17,7 @@ import java.util.List;
  */
 @Repository
 @RequiredArgsConstructor
-public class MyBatisDocumentChunkStrategyRepository implements DocumentChunkStrategyRepository {
+public class DocumentChunkStrategyRepositoryImpl implements DocumentChunkStrategyRepository {
 
     private final DocumentChunkStrategyMapper chunkStrategyMapper;
 
