@@ -1,6 +1,5 @@
 package com.fukang.knowledge.agent.application.agent.runtime;
 
-import com.fukang.knowledge.agent.application.agent.tool.ToolRegistry;
 import com.fukang.knowledge.agent.application.agent.tool.ToolScope;
 import com.fukang.knowledge.agent.domain.agent.model.ToolDefinition;
 import com.fukang.knowledge.agent.domain.agent.model.Observation;
@@ -17,7 +16,7 @@ import java.util.Optional;
 /**
  * Agent 执行引擎
  * <p>负责按计划调用工具，将 PlanStep 转换为实际的工具调用。
- * 从 ToolRegistry 获取工具定义，通过 ToolExecutorFactory 选择执行器，
+ * 从本次运行的工具作用域获取工具定义，通过 ToolExecutorFactory 选择执行器，
  * 将执行结果封装为 Observation 供推理引擎使用</p>
  */
 @Slf4j
@@ -25,7 +24,6 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class AgentExecutor {
 
-    private final ToolRegistry toolRegistry;
     private final ToolExecutorFactory executorFactory;
 
     /**
@@ -38,8 +36,9 @@ public class AgentExecutor {
             log.info("执行步骤: step={}/{}, tool={}, params={}",
                     step.stepOrder(), step.toolName(), step.parameters());
 
-            ToolScope scope = toolScope != null ? toolScope : toolRegistry;
-            Optional<ToolDefinition> toolOpt = scope.getTool(step.toolName());
+            Optional<ToolDefinition> toolOpt = toolScope != null
+                    ? toolScope.getTool(step.toolName())
+                    : Optional.empty();
             if (toolOpt.isEmpty()) {
                 long duration = System.currentTimeMillis() - start;
                 log.warn("工具不存在: {}", step.toolName());

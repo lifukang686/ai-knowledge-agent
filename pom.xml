@@ -77,12 +77,6 @@
             <artifactId>caffeine</artifactId>
         </dependency>
 
-        <!-- Quartz -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-quartz</artifactId>
-        </dependency>
-
         <!-- MinIO -->
         <dependency>
             <groupId>io.minio</groupId>
@@ -129,6 +123,12 @@
             <groupId>org.apache.pdfbox</groupId>
             <artifactId>pdfbox</artifactId>
             <version>3.0.4</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <!-- Apache POI for Word/Excel/PPT parsing -->

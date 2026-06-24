@@ -4,7 +4,6 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fukang.knowledge.agent.application.agent.port.AgentChatClient;
-import com.fukang.knowledge.agent.application.agent.tool.ToolRegistry;
 import com.fukang.knowledge.agent.application.agent.tool.ToolScope;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
@@ -31,15 +30,12 @@ import java.util.Map;
 public class AgentPlanner {
 
     private final AgentChatClient agentChatClient;
-    private final ToolRegistry toolRegistry;
     private final PromptTemplateManager promptTemplateManager;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public AgentPlanner(AgentChatClient agentChatClient,
-                        ToolRegistry toolRegistry,
                         PromptTemplateManager promptTemplateManager) {
         this.agentChatClient = agentChatClient;
-        this.toolRegistry = toolRegistry;
         this.promptTemplateManager = promptTemplateManager;
     }
 
@@ -51,7 +47,7 @@ public class AgentPlanner {
      * @throws BaseException 规划生成失败或解析失败时抛出
      */
     public List<PlanStep> plan(String task) {
-        return plan(task, toolRegistry, null);
+        return plan(task, null, null);
     }
 
     /**
@@ -62,8 +58,7 @@ public class AgentPlanner {
      * @param systemPrompt 业务 Agent 的额外规划约束，可为空
      */
     public List<PlanStep> plan(String task, ToolScope toolScope, String systemPrompt) {
-        ToolScope scope = toolScope != null ? toolScope : toolRegistry;
-        List<ToolInfo> tools = scope.listAvailableTools();
+        List<ToolInfo> tools = toolScope != null ? toolScope.listAvailableTools() : List.of();
         log.info("开始规划: 任务长度={}, 可用工具数={}", task.length(), tools.size());
 
         String toolsDesc = formatToolsForPrompt(tools);
