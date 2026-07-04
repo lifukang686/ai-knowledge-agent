@@ -16,7 +16,15 @@ import java.time.LocalDateTime;
  * <p>配置分页插件、Mapper 扫描路径以及公共字段的自动填充策略（创建时间、更新时间）</p>
  */
 @Configuration
-@MapperScan("com.fukang.knowledge.agent.infrastructure.persistence.mapper")
+@MapperScan({
+        "com.fukang.knowledge.agent.module.auth.infrastructure.persistence.mapper",
+        "com.fukang.knowledge.agent.module.conversation.infrastructure.persistence.mapper",
+        "com.fukang.knowledge.agent.module.evaluation.infrastructure.persistence.mapper",
+        "com.fukang.knowledge.agent.module.knowledge.infrastructure.persistence.mapper",
+        "com.fukang.knowledge.agent.module.memory.infrastructure.persistence.mapper",
+        "com.fukang.knowledge.agent.module.model.infrastructure.persistence.mapper",
+        "com.fukang.knowledge.agent.module.servicedesk.infrastructure.persistence.mapper"
+})
 public class MyBatisPlusConfig implements MetaObjectHandler {
 
     /**
