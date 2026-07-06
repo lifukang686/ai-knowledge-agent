@@ -16,19 +16,10 @@ public enum ModelTypeEnum {
      */
     CHAT("CHAT", "对话模型"),
 
-    /**
-     * 向量模型。
-     */
     EMBEDDING("EMBEDDING", "嵌入模型"),
 
-    /**
-     * 重排序模型。
-     */
     RERANK("RERANK", "重排序模型"),
 
-    /**
-     * 语音转文字模型。
-     */
     STT("STT", "语音转文字模型");
 
     private final String code;

@@ -1,184 +1,124 @@
 # AI Knowledge Agent
 
-企业知识库 AI Agent 平台，提供知识库管理、文档解析入库、RAG 问答、模型提供商配置、分块策略管理、RAG 评测和企业服务台 Agent 等能力。
-
-项目采用前后端分离结构：
-
-- 后端：Spring Boot 3.2、Java 21、MyBatis-Plus、Flyway、PostgreSQL/pgvector、Redis、MinIO、LangChain4j。
-- 前端：React 18、TypeScript、Vite、Tailwind CSS、Zustand、Axios。
-
-## 功能特性
-
-- 用户注册、登录和基于 Bearer Token 的接口鉴权。
-- 知识库创建、查询、更新和删除。
-- 文档上传、MinIO 存储、异步解析、分块、向量化和处理状态查询。
-- 支持 PDF、Word、Excel、PPT 等常见办公文档解析。
-- OpenAI 兼容协议的模型提供商管理，支持 Chat 和 Embedding 模型配置。
-- RAG 问答，支持会话历史、问题改写、混合检索、流式 SSE 输出。
-- 分块策略管理，支持段落、句子、固定长度等策略配置。
-- RAG 评测数据集、测试用例、评测运行和结果查看。
-- 企业 IT/HR 服务台 Agent，支持流式处理、工单生成、确认和反馈。
+企业知识库 AI Agent 平台，提供用户认证、知识库管理、文档解析入库、RAG 问答、模型提供商配置、RAG 评测和企业服务台 Agent 能力。
 
 ## 技术栈
 
-### 后端
+- 后端：Java 21、Spring Boot 3.2、MyBatis-Plus、Flyway、PostgreSQL/pgvector、Redis、MinIO、LangChain4j、Apache PDFBox、Apache POI
+- 前端：React 18、TypeScript、Vite、Tailwind CSS、Zustand、Axios
 
-- Java 21
-- Spring Boot 3.2.0
-- MyBatis-Plus 3.5.7
-- Flyway 10.17.0
-- PostgreSQL + pgvector
-- Redis
-- MinIO
-- LangChain4j 0.36.2
-- Apache PDFBox / Apache POI
-- Caffeine
-- Lombok
+## 后端目录结构
 
-### 前端
-
-- React 18
-- TypeScript
-- Vite 4
-- React Router
-- Zustand
-- Axios
-- Tailwind CSS
-- lucide-react
-- Vitest
-
-## 目录结构
+后端按业务模块优先组织代码。查找功能时先定位 `module/<业务>`，再看固定职责目录：
 
 ```text
-.
-├── pom.xml
-├── README.md
-├── src
-│   ├── main
-│   │   ├── java/com/fukang/knowledge/agent
-│   │   │   ├── api              # REST/SSE 接口层
-│   │   │   ├── application      # 应用服务与用例编排
-│   │   │   ├── common           # 通用结果、异常、上下文、枚举
-│   │   │   ├── domain           # 领域模型与领域服务
-│   │   │   └── infrastructure   # 配置、持久化、AI、RAG、存储、工具实现
-│   │   └── resources
-│   │       ├── application*.yml
-│   │       ├── db/migration     # Flyway 数据库迁移脚本
-│   │       └── prompts          # RAG、Agent、服务台提示词
-│   └── test
-└── web
-    ├── package.json
-    ├── vite.config.ts
-    └── src
-        ├── components
-        ├── pages
-        ├── router
-        ├── services
-        ├── stores
-        └── types
+src/main/java/com/fukang/knowledge/agent
+├── common                 # 通用结果、异常、枚举、上下文
+├── infrastructure          # 全局配置、拦截器、公共持久化支持
+├── model                   # 跨模块基础模型，例如 BaseEntity
+└── module
+    ├── auth                # 登录、注册、会话
+    ├── conversation        # RAG 会话和会话记忆
+    ├── evaluation          # RAG 评测数据集、用例、运行结果
+    ├── knowledge           # 知识库、文档、分块、解析、向量化入库
+    ├── memory              # 用户长期记忆
+    ├── model               # 模型提供商和模型配置管理
+    ├── modelruntime        # 模型运行时客户端、动态模型创建、提示词模板
+    ├── rag                 # RAG 问答、检索、重排、生成、流式输出
+    └── servicedesk         # 企业服务台 Agent、工单、反馈
 ```
 
-## 环境要求
+模块内目录约定：
+
+```text
+module/<业务>
+├── controller   # Controller；只放 HTTP/SSE 入口类
+├── service      # 业务编排、核心流程、接口/抽象
+│   └── impl     # service 接口或策略抽象的实现类
+├── model        # 模块内数据对象总入口，不再改名
+│   ├── entity   # 继承 BaseEntity 的持久化实体
+│   ├── dto      # 请求 DTO、业务命令对象
+│   ├── resp     # Controller 对外响应对象
+│   ├── vo       # 业务结果、只读值对象
+│   ├── bo       # 有业务状态或业务行为的对象
+│   ├── enums    # 模块内枚举
+│   └── event    # 模块内业务事件
+├── mapper       # MyBatis Mapper
+└── integration  # 外部系统集成，例如 MinIO
+```
+
+命名约定：
+
+- Java 类名不使用框架名前缀，例如不以 `LangChain4j`、`MyBatis` 开头。
+- Controller 只放在 `controller` 包，`controller` 下不再放 DTO、Resp 或业务辅助类。
+- Service 使用业务语义命名，例如 `DocumentService`、`RagService`、`ServiceDeskService`。
+- Service 接口、策略抽象留在 `service`；对应实现放在 `service/impl` 或子领域 `service/<领域>/impl`。
+- 不为了形式化分层给普通业务服务新增接口；只有确实有策略、多实现或外部客户端抽象时才拆接口和实现。
+- `model` 保留为模块内数据对象的总目录；通过 `entity/dto/resp/vo/bo/event` 子包表达职责，不再额外改名。
+- 继承 `BaseEntity` 的持久化模型统一使用 `Entity` 后缀，例如 `DocumentEntity`、`ServiceTicketEntity`，不再使用 `*DO` 后缀。
+- Mapper 保留 `XxxMapper`，单表 CRUD 和简单查询都放在 Mapper，Service 直接依赖 Mapper。
+- 不默认创建 Repository；需要跨 Mapper、外部存储或复杂持久化流程时，使用语义更明确的 `service/storage` 或 `integration`。
+- 关键业务链路保留短注释，优先解释“为什么这样处理”和“流程阶段边界”。
+
+## 核心功能入口
+
+- 认证：`module/auth`
+- 模型配置：`module/model`
+- 模型运行时：`module/modelruntime`
+- 知识库与文档入库：`module/knowledge`
+- RAG 问答：`module/rag`
+- RAG 评测：`module/evaluation`
+- 服务台 Agent：`module/servicedesk`
+
+## 本地环境
+
+需要准备：
 
 - JDK 21
 - Maven 3.9+
-- Node.js 18+ 和 npm
-- PostgreSQL 14+，并安装 pgvector 扩展
+- PostgreSQL 14+，并安装 pgvector
 - Redis
 - MinIO
 - 可访问的 OpenAI 兼容模型服务
 
-## 本地开发准备
-
-### 1. 创建数据库 Schema
-
-默认 `dev` 配置连接：
-
-```text
-jdbc:postgresql://127.0.0.1:5432/postgres?currentSchema=knowledge_agent
-```
-
-需要先创建 schema，并确保数据库支持 pgvector：
+默认开发数据库：
 
 ```sql
 CREATE SCHEMA IF NOT EXISTS knowledge_agent;
 CREATE EXTENSION IF NOT EXISTS vector;
 ```
 
-项目启动时 Flyway 会自动执行 `src/main/resources/db/migration` 下的迁移脚本。
-
-### 2. 启动 Redis 和 MinIO
-
-默认配置：
+默认连接：
 
 ```text
+jdbc:postgresql://127.0.0.1:5432/postgres?currentSchema=knowledge_agent
+```
+
+## 后端启动
+
+```bash
+mvn spring-boot:run
+```
+
+常用环境变量：
+
+```text
+SPRING_PROFILES_ACTIVE=dev
+DB_URL=jdbc:postgresql://127.0.0.1:5432/postgres?currentSchema=knowledge_agent
+DB_USERNAME=postgres
+DB_PASSWORD=root
 REDIS_HOST=127.0.0.1
 REDIS_PORT=6379
 MINIO_ENDPOINT=http://localhost:9000
 MINIO_ACCESS_KEY=minioadmin
 MINIO_SECRET_KEY=minioadmin
 MINIO_BUCKET=knowledge-agent
+VECTOR_STORE_DIMENSION=1024
+RAG_TOP_K=8
+RAG_SIMILARITY_THRESHOLD=0.6
 ```
-
-请确保 MinIO 中存在 `knowledge-agent` bucket，或按实际环境修改 `MINIO_BUCKET`。
-
-### 3. 配置模型提供商
-
-模型提供商和模型配置通过系统接口/页面维护：
-
-- 提供商接口：`/api/models/providers`
-- 模型配置接口：`/api/models/configs`
-
-模型服务需兼容 OpenAI API 协议。`apiBaseUrl` 未配置时默认使用：
-
-```text
-https://api.openai.com/v1/
-```
-
-Embedding 模型维度需要和 `VECTOR_STORE_DIMENSION` 保持一致，默认是 `1024`。如模型支持自定义维度，可在模型配置 `defaultParams` 中写入：
-
-```json
-{"dimensions":1024}
-```
-
-## 后端启动
-
-在项目根目录执行：
-
-```bash
-mvn spring-boot:run
-```
-
-默认启用 `dev` profile。也可以显式指定：
-
-```bash
-mvn spring-boot:run -Dspring-boot.run.profiles=dev
-```
-
-常用环境变量：
-
-| 变量 | 默认值 | 说明 |
-| --- | --- | --- |
-| `SPRING_PROFILES_ACTIVE` | `dev` | Spring Profile |
-| `DB_URL` | `jdbc:postgresql://127.0.0.1:5432/postgres?currentSchema=knowledge_agent` | PostgreSQL 连接地址 |
-| `DB_USERNAME` | `postgres` | 数据库用户名 |
-| `DB_PASSWORD` | `root` | 数据库密码 |
-| `REDIS_HOST` | `127.0.0.1` | Redis 主机 |
-| `REDIS_PORT` | `6379` | Redis 端口 |
-| `MINIO_ENDPOINT` | `http://localhost:9000` | MinIO 地址 |
-| `MINIO_ACCESS_KEY` | `minioadmin` | MinIO Access Key |
-| `MINIO_SECRET_KEY` | `minioadmin` | MinIO Secret Key |
-| `MINIO_BUCKET` | `knowledge-agent` | 文档存储桶 |
-| `VECTOR_STORE_TABLE` | `vector_embedding` | 向量表名 |
-| `VECTOR_STORE_DIMENSION` | `1024` | 向量维度 |
-| `RAG_TOP_K` | `8` | 检索返回数量 |
-| `RAG_SIMILARITY_THRESHOLD` | `0.6` | 语义相似度阈值 |
-| `RAG_HYBRID_ENABLED` | `true` | 是否启用混合检索 |
-| `CHUNK_STRATEGY` | `paragraph` | 默认文档分块策略 |
 
 ## 前端启动
-
-进入前端目录：
 
 ```bash
 cd web
@@ -186,52 +126,31 @@ npm install
 npm run dev
 ```
 
-前端开发服务默认运行在：
+前端默认运行在：
 
 ```text
 http://localhost:3000
 ```
 
-Vite 已配置代理：
-
-```text
-/api -> http://localhost:8080
-```
-
-## 常用命令
-
-### 后端
+## 常用验证命令
 
 ```bash
-# 运行测试
+# 后端编译
+mvn -DskipTests compile
+
+# 后端测试
 mvn test
 
-# 打包
-mvn clean package
-
-# 运行 jar
-java -jar target/knowledge-agent-0.0.1-SNAPSHOT.jar
-```
-
-### 前端
-
-```bash
+# 前端检查
 cd web
-
-# 类型检查
 npm run check
-
-# 单元测试
 npm run test
-
-# 构建
 npm run build
-
-# 预览构建产物
-npm run preview
 ```
 
-## 核心接口
+当前完整后端测试需要本地 PostgreSQL 可连接，否则 Spring Boot 上下文测试会在 Flyway 初始化阶段失败。
+
+## 主要 API
 
 所有 `/api/**` 接口默认需要 `Authorization: Bearer <token>`，以下接口除外：
 
@@ -240,71 +159,11 @@ npm run preview
 
 主要接口分组：
 
-| 分组 | 路径 | 说明 |
-| --- | --- | --- |
-| 认证 | `/api/auth` | 登录、注册 |
-| 知识库 | `/api/knowledge-bases` | 知识库 CRUD |
-| 文档 | `/api/documents` | 文档上传、列表、详情、状态、删除 |
-| 模型 | `/api/models` | 模型提供商和模型配置 |
-| 问答 | `/api/qa` | RAG 问答、会话、流式问答 |
-| 分块策略 | `/api/chunk-strategies` | 分块策略配置和默认策略 |
-| RAG 评测 | `/api/evaluations` | 数据集、用例、运行、结果 |
-| 服务台 | `/api/service-desk` | 服务台 Agent、工单、反馈 |
-
-## 数据库迁移
-
-数据库结构由 Flyway 管理，迁移脚本位于：
-
-```text
-src/main/resources/db/migration
-```
-
-当前迁移覆盖：
-
-- 基础知识库、用户、文档、分块、模型、Agent、工具、AI 调用日志表。
-- 文档全文检索字段和索引。
-- 知识库向量模型治理字段。
-- 文档分块 Embedding 文本、结构化元数据。
-- 会话记忆、用户记忆。
-- 企业服务台和治理表。
-- 分块策略配置。
-- RAG 评测数据集、用例、运行和结果。
-
-## 配置说明
-
-配置文件位于：
-
-```text
-src/main/resources/application.yml
-src/main/resources/application-dev.yml
-src/main/resources/application-test.yml
-src/main/resources/application-prod.yml
-```
-
-- `dev`：本地开发默认配置，包含本地 PostgreSQL、Redis、MinIO 默认值。
-- `test`：测试环境配置，默认使用 `knowledge_agent_test` schema。
-- `prod`：生产环境配置，关键连接参数必须通过环境变量提供。
-
-## 前端页面
-
-前端受保护路由需要登录后访问：
-
-- `/knowledge-bases`：知识库列表
-- `/knowledge-bases/:id`：知识库详情和文档管理
-- `/documents/:id`：文档详情
-- `/model-providers`：模型提供商管理
-- `/model-providers/:id/models`：模型配置管理
-- `/qa`：RAG 问答
-- `/service-desk`：企业服务台
-- `/evaluations`：RAG 评测数据集
-- `/evaluations/datasets/:id`：评测数据集详情
-- `/evaluations/runs/:runId`：评测运行详情
-- `/chunk-strategies`：分块策略管理
-
-## 注意事项
-
-- 当前登录会话 Token 存储在服务端内存中，服务重启后需要重新登录。
-- `VECTOR_STORE_DIMENSION` 必须与实际 Embedding 模型输出维度一致。
-- 文档上传依赖 MinIO，文档解析和向量化依赖模型配置完整可用。
-- RAG 流式问答和服务台流式处理使用 SSE，前端和代理层需要支持长连接。
-- 生产环境请使用 `prod` profile，并通过环境变量显式配置数据库、Redis、MinIO 和日志级别。
+- `/api/auth`：登录、注册
+- `/api/knowledge-bases`：知识库 CRUD
+- `/api/documents`：文档上传、列表、详情、状态、删除
+- `/api/models`：模型提供商和模型配置
+- `/api/qa`：RAG 问答、会话、流式问答
+- `/api/chunk-strategies`：分块策略配置
+- `/api/evaluations`：RAG 评测
+- `/api/service-desk`：服务台 Agent、工单、反馈

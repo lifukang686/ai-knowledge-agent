@@ -1,0 +1,28 @@
+package com.fukang.knowledge.agent.module.model.model.dto;
+
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+/**
+ * 模型配置更新请求 DTO
+ *
+ * @param providerId    所属提供商ID，可选
+ * @param modelName     模型名称（如 gpt-3.5-turbo），可选
+ * @param modelType     模型类型（CHAT/EMBEDDING/RERANK/STT），可选
+ * @param defaultParams 默认调用参数，JSON 格式字符串，可选
+ */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class ModelConfigUpdateReq {
+    private Long providerId;
+
+    private String modelName;
+
+    private String modelType;
+
+    private String defaultParams;
+
+}

@@ -1,0 +1,448 @@
+package com.fukang.knowledge.agent.module.modelruntime.service.impl;
+
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fukang.knowledge.agent.module.model.model.entity.ModelConfigEntity;
+import com.fukang.knowledge.agent.module.model.model.entity.ModelProviderEntity;
+import dev.langchain4j.data.segment.TextSegment;
+import dev.langchain4j.model.output.Response;
+import dev.langchain4j.model.scoring.ScoringModel;
+
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * 基于 HTTP 协议的 LangChain4j ScoringModel 实现。
+ * <p>用于接入 OpenAI 兼容或常见 /rerank 风格的重排序服务。</p>
+ */
+public class HttpScoringModel implements ScoringModel {
+
+    /**
+     * 重排序请求默认超时时间。
+     */
+    private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(60);
+
+    private final ModelProviderEntity provider;
+    private final ModelConfigEntity modelConfig;
+    private final RerankHttpOptions options;
+    private final ObjectMapper objectMapper;
+    private final HttpClient httpClient;
+
+    /**
+     * 创建 HTTP 重排序模型。
+     */
+    public HttpScoringModel(ModelProviderEntity provider, ModelConfigEntity modelConfig, ObjectMapper objectMapper) {
+        this(provider, modelConfig, objectMapper, null);
+    }
+
+    /**
+     * 创建 HTTP 重排序模型，测试可注入 HttpClient。
+     */
+    HttpScoringModel(ModelProviderEntity provider,
+                     ModelConfigEntity modelConfig,
+                     ObjectMapper objectMapper,
+                     HttpClient httpClient) {
+        this.provider = provider;
+        this.modelConfig = modelConfig;
+        this.objectMapper = objectMapper;
+        this.options = RerankHttpOptions.from(modelConfig, objectMapper);
+        this.httpClient = httpClient != null
+                ? httpClient
+                : HttpClient.newBuilder()
+                        .connectTimeout(options.getTimeout())
+                        .build();
+    }
+
+    /**
+     * 对单个文本评分。
+     */
+    @Override
+    public Response<Double> score(String text, String query) {
+        return score(TextSegment.from(text), query);
+    }
+
+    /**
+     * 对单个文本片段评分。
+     */
+    @Override
+    public Response<Double> score(TextSegment segment, String query) {
+        List<Double> scores = scoreAll(List.of(segment), query).content();
+        return Response.from(scores.isEmpty() ? 0.0 : scores.getFirst());
+    }
+
+    /**
+     * 批量计算文本片段重排分。
+     */
+    @Override
+    public Response<List<Double>> scoreAll(List<TextSegment> segments, String query) {
+        try {
+            HttpRequest request = buildRequest(query, segments);
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw new IllegalStateException("Rerank HTTP status=" + response.statusCode()
+                        + ", uri=" + request.uri()
+                        + ", body=" + response.body());
+            }
+            return Response.from(parseScores(response.body(), segments.size()));
+        } catch (Exception e) {
+            throw new IllegalStateException("Rerank scoring request failed", e);
+        }
+    }
+
+    /**
+     * 构建通用 rerank HTTP 请求。
+     */
+    HttpRequest buildRequest(String query, List<TextSegment> segments) throws Exception {
+        if (options.isDashScopeFormat() || isDashScopeProvider(provider.getApiBaseUrl())) {
+            return buildDashScopeRequest(query, segments);
+        }
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put(options.getModelField(), modelConfig.getModelName());
+        body.put(options.getQueryField(), query);
+        body.put(options.getDocumentsField(), segments.stream()
+                .map(TextSegment::text)
+                .map(text -> text != null ? text : "")
+                .toList());
+        body.put("top_n", segments.size());
+        body.putAll(options.getRequestParams());
+
+        HttpRequest.Builder builder = HttpRequest.newBuilder()
+                .uri(URI.create(resolveEndpoint(provider.getApiBaseUrl(), options.getPath())))
+                .timeout(options.getTimeout())
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body)));
+
+        if (provider.getApiKey() != null && !provider.getApiKey().isBlank()) {
+            builder.header("Authorization", "Bearer " + provider.getApiKey());
+        }
+        return builder.build();
+    }
+
+    /**
+     * DashScope rerank 使用独立接口，不走 OpenAI compatible-mode/v1。
+     */
+    private HttpRequest buildDashScopeRequest(String query, List<TextSegment> segments) throws Exception {
+        Map<String, Object> input = new LinkedHashMap<>();
+        input.put("query", dashScopeTextInput(query));
+        input.put("documents", segments.stream()
+                .map(TextSegment::text)
+                .map(text -> text != null ? text : "")
+                .map(this::dashScopeDocumentInput)
+                .toList());
+
+        Map<String, Object> parameters = new LinkedHashMap<>(options.getRequestParams());
+        parameters.remove("dashscopeInputFormat");
+        parameters.remove("dashscopeModelName");
+        parameters.putIfAbsent("return_documents", true);
+        parameters.put("top_n", segments.size());
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("model", resolveDashScopeModelName());
+        body.put("input", input);
+        body.put("parameters", parameters);
+
+        HttpRequest.Builder builder = HttpRequest.newBuilder()
+                .uri(URI.create(resolveDashScopeEndpoint(provider.getApiBaseUrl(), options.getPath())))
+                .timeout(options.getTimeout())
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body)));
+
+        if (provider.getApiKey() != null && !provider.getApiKey().isBlank()) {
+            builder.header("Authorization", "Bearer " + provider.getApiKey());
+        }
+        return builder.build();
+    }
+
+    /**
+     * 构造 DashScope 文本输入。
+     */
+    private Object dashScopeTextInput(String text) {
+        if (!usesDashScopeObjectInput()) {
+            return text;
+        }
+        return Map.of("text", text != null ? text : "");
+    }
+
+    /**
+     * 构造 DashScope 文档输入。
+     */
+    private Object dashScopeDocumentInput(String text) {
+        if (!usesDashScopeObjectInput()) {
+            return text;
+        }
+        return Map.of("text", text != null ? text : "");
+    }
+
+    /**
+     * 文本检索默认按 DashScope 文档使用字符串；多模态场景可显式切换为对象格式。
+     */
+    private boolean usesDashScopeObjectInput() {
+        Object inputFormat = options.getRequestParams().get("dashscopeInputFormat");
+        return inputFormat != null && "object".equalsIgnoreCase(String.valueOf(inputFormat));
+    }
+
+    /**
+     * 纯文本重排优先使用 DashScope 文本 rerank 模型，避免 VL 模型在部分账号/区域不可用。
+     */
+    private String resolveDashScopeModelName() {
+        Object configured = options.getRequestParams().get("dashscopeModelName");
+        if (configured != null && !String.valueOf(configured).isBlank()) {
+            return String.valueOf(configured);
+        }
+        String modelName = modelConfig.getModelName();
+        if (!usesDashScopeObjectInput()
+                && modelName != null
+                && "qwen3-vl-rerank".equalsIgnoreCase(modelName)) {
+            return "qwen3-rerank";
+        }
+        return modelName;
+    }
+
+    /**
+     * 解析重排序分数。
+     */
+    private List<Double> parseScores(String responseBody, int segmentCount) throws Exception {
+        JsonNode root = objectMapper.readTree(responseBody);
+        JsonNode scoresNode = root.get("scores");
+        if (scoresNode != null && scoresNode.isArray()) {
+            return parseScoreArray(scoresNode, segmentCount);
+        }
+
+        JsonNode resultsNode = root.get(options.getResultsField());
+        if (resultsNode == null && !"results".equals(options.getResultsField())) {
+            resultsNode = root.get("results");
+        }
+        if (resultsNode == null) {
+            resultsNode = root.path("output").get("results");
+        }
+        if (resultsNode == null) {
+            resultsNode = root.get("data");
+        }
+        if (resultsNode == null || !resultsNode.isArray()) {
+            return List.of();
+        }
+
+        List<Double> scores = initScores(segmentCount);
+        for (JsonNode item : resultsNode) {
+            int index = item.path(options.getIndexField()).asInt(-1);
+            if (index < 0) {
+                index = item.path("index").asInt(-1);
+            }
+            JsonNode scoreNode = item.get(options.getScoreField());
+            if (scoreNode == null && !"score".equals(options.getScoreField())) {
+                scoreNode = item.get("score");
+            }
+            if (scoreNode == null) {
+                scoreNode = item.get("relevance_score");
+            }
+            if (index >= 0 && index < segmentCount && scoreNode != null && scoreNode.isNumber()) {
+                scores.set(index, scoreNode.asDouble());
+            }
+        }
+        return scores;
+    }
+
+    /**
+     * 解析 scores 数组格式。
+     */
+    private List<Double> parseScoreArray(JsonNode scoresNode, int segmentCount) {
+        List<Double> scores = initScores(segmentCount);
+        int count = Math.min(scoresNode.size(), segmentCount);
+        for (int i = 0; i < count; i++) {
+            JsonNode scoreNode = scoresNode.get(i);
+            if (scoreNode != null && scoreNode.isNumber()) {
+                scores.set(i, scoreNode.asDouble());
+            }
+        }
+        return scores;
+    }
+
+    /**
+     * 初始化默认分数列表。
+     */
+    private List<Double> initScores(int segmentCount) {
+        List<Double> scores = new ArrayList<>(segmentCount);
+        for (int i = 0; i < segmentCount; i++) {
+            scores.add(0.0);
+        }
+        return scores;
+    }
+
+    /**
+     * 拼接通用 rerank 接口地址。
+     */
+    private String resolveEndpoint(String baseUrl, String path) {
+        String normalizedBase = baseUrl != null ? baseUrl.trim() : "";
+        if (normalizedBase.isBlank()) {
+            normalizedBase = "https://api.openai.com/v1/";
+        }
+        String normalizedPath = path != null && !path.isBlank() ? path.trim() : "/rerank";
+        if (normalizedPath.startsWith("http://") || normalizedPath.startsWith("https://")) {
+            return normalizedPath;
+        }
+        if (normalizedBase.endsWith("/") && normalizedPath.startsWith("/")) {
+            return normalizedBase + normalizedPath.substring(1);
+        }
+        if (!normalizedBase.endsWith("/") && !normalizedPath.startsWith("/")) {
+            return normalizedBase + "/" + normalizedPath;
+        }
+        return normalizedBase + normalizedPath;
+    }
+
+    /**
+     * 判断是否为 DashScope 服务地址。
+     */
+    private boolean isDashScopeProvider(String baseUrl) {
+        return baseUrl != null && baseUrl.toLowerCase().contains("dashscope.aliyuncs.com");
+    }
+
+    /**
+     * 拼接 DashScope rerank 接口地址。
+     */
+    private String resolveDashScopeEndpoint(String baseUrl, String path) {
+        String normalizedPath = path != null && !path.isBlank() ? path.trim() : "";
+        if (normalizedPath.startsWith("http://") || normalizedPath.startsWith("https://")) {
+            return normalizedPath;
+        }
+        if (normalizedPath.isBlank() || "/rerank".equals(normalizedPath) || "rerank".equals(normalizedPath)) {
+            normalizedPath = "/api/v1/services/rerank/text-rerank/text-rerank";
+        }
+
+        String normalizedBase = baseUrl != null ? baseUrl.trim() : "";
+        if (normalizedBase.isBlank()) {
+            normalizedBase = "https://dashscope.aliyuncs.com";
+        }
+
+        URI baseUri = URI.create(normalizedBase);
+        String origin = baseUri.getScheme() + "://" + baseUri.getAuthority();
+        if (origin.endsWith("/") && normalizedPath.startsWith("/")) {
+            return origin + normalizedPath.substring(1);
+        }
+        if (!origin.endsWith("/") && !normalizedPath.startsWith("/")) {
+            return origin + "/" + normalizedPath;
+        }
+        return origin + normalizedPath;
+    }
+
+    /**
+     * Rerank HTTP 调用选项。
+     */
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    private static class RerankHttpOptions {
+        private String path;
+
+        private String requestFormat;
+
+        private String modelField;
+
+        private String queryField;
+
+        private String documentsField;
+
+        private String resultsField;
+
+        private String scoreField;
+
+        private String indexField;
+
+        private Duration timeout;
+
+        private Map<String, Object> requestParams;
+
+        /**
+         * 是否使用 DashScope 请求格式。
+         */
+        boolean isDashScopeFormat() {
+            return "dashscope".equalsIgnoreCase(requestFormat);
+        }
+
+        /**
+         * 从模型默认参数解析调用选项。
+         */
+        static RerankHttpOptions from(ModelConfigEntity modelConfig, ObjectMapper objectMapper) {
+            Map<String, Object> params = parseParams(modelConfig, objectMapper);
+            return new RerankHttpOptions(
+                    stringParam(params, "path", "/rerank"),
+                    stringParam(params, "requestFormat", ""),
+                    stringParam(params, "modelField", "model"),
+                    stringParam(params, "queryField", "query"),
+                    stringParam(params, "documentsField", "documents"),
+                    stringParam(params, "resultsField", "results"),
+                    stringParam(params, "scoreField", "relevance_score"),
+                    stringParam(params, "indexField", "index"),
+                    Duration.ofSeconds(longParam(params, "timeoutSeconds", DEFAULT_TIMEOUT.toSeconds())),
+                    mapParam(params, "requestParams")
+            );
+        }
+
+        /**
+         * 解析模型默认参数 JSON。
+         */
+        private static Map<String, Object> parseParams(ModelConfigEntity modelConfig, ObjectMapper objectMapper) {
+            String raw = modelConfig.getDefaultParams();
+            if (raw == null || raw.isBlank()) {
+                return Map.of();
+            }
+            try {
+                return objectMapper.readValue(raw, new TypeReference<Map<String, Object>>() {});
+            } catch (Exception e) {
+                return Map.of();
+            }
+        }
+
+        /**
+         * 读取字符串参数。
+         */
+        private static String stringParam(Map<String, Object> params, String key, String defaultValue) {
+            Object value = params.get(key);
+            return value != null && !String.valueOf(value).isBlank() ? String.valueOf(value) : defaultValue;
+        }
+
+        /**
+         * 读取 long 参数。
+         */
+        private static long longParam(Map<String, Object> params, String key, long defaultValue) {
+            Object value = params.get(key);
+            if (value instanceof Number number) {
+                return number.longValue();
+            }
+            if (value != null) {
+                try {
+                    return Long.parseLong(String.valueOf(value));
+                } catch (NumberFormatException ignored) {
+                    return defaultValue;
+                }
+            }
+            return defaultValue;
+        }
+
+        /**
+         * 读取 map 参数。
+         */
+        @SuppressWarnings("unchecked")
+        private static Map<String, Object> mapParam(Map<String, Object> params, String key) {
+            Object value = params.get(key);
+            if (value instanceof Map<?, ?> map) {
+                return (Map<String, Object>) map;
+            }
+            return Map.of();
+        }
+    
+
+    }
+}

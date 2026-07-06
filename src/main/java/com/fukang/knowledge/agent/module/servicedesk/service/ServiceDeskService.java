@@ -1,0 +1,395 @@
+package com.fukang.knowledge.agent.module.servicedesk.service;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fukang.knowledge.agent.module.servicedesk.service.agent.ServiceDeskAgentRuntime;
+import com.fukang.knowledge.agent.module.servicedesk.model.dto.ConfirmTicketCommand;
+import com.fukang.knowledge.agent.module.servicedesk.model.dto.ServiceDeskAskCommand;
+import com.fukang.knowledge.agent.module.servicedesk.model.dto.SubmitFeedbackCommand;
+import com.fukang.knowledge.agent.module.servicedesk.mapper.ServiceDeskFeedbackMapper;
+import com.fukang.knowledge.agent.module.servicedesk.mapper.ServiceDeskRunMapper;
+import com.fukang.knowledge.agent.module.servicedesk.model.vo.ServiceDeskAnswerResult;
+import com.fukang.knowledge.agent.module.servicedesk.model.vo.ServiceDeskFeedbackResult;
+import com.fukang.knowledge.agent.module.servicedesk.model.vo.ServiceTicketResult;
+import com.fukang.knowledge.agent.common.context.UserContextHolder;
+import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
+import com.fukang.knowledge.agent.common.exception.BaseException;
+import com.fukang.knowledge.agent.module.agent.model.vo.AgentRunEvent;
+import com.fukang.knowledge.agent.common.enums.ServiceTypeEnum;
+import com.fukang.knowledge.agent.module.servicedesk.model.entity.ServiceDeskFeedbackEntity;
+import com.fukang.knowledge.agent.module.servicedesk.model.entity.ServiceDeskRunEntity;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
+
+/**
+ * 企业服务台 Agent 应用服务。
+ * <p>业务入口保持稳定，内部通过受控 Plan-Execute Runtime 让 Agent 规划并调用服务台工具。</p>
+ */
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class ServiceDeskService {
+
+    /**
+     * 工单应用服务。
+     */
+    private final TicketService ticketService;
+    private final ServiceDeskIntentClassifier serviceDeskIntentClassifier;
+
+    /**
+     * 服务台 Agent 运行时。
+     */
+    private final ServiceDeskAgentRuntime serviceDeskAgentRuntime;
+
+    /**
+     * 服务台运行记录仓储。
+     */
+    private final ServiceDeskRunMapper serviceDeskRunMapper;
+
+    /**
+     * 服务台反馈仓储。
+     */
+    private final ServiceDeskFeedbackMapper serviceDeskFeedbackMapper;
+
+    /**
+     * JSON 序列化工具。
+     */
+    private final ObjectMapper objectMapper;
+
+    /**
+     * 指定用户上下文执行流式服务台 Agent，供 Controller 的异步线程复用。
+     */
+    public void askStreamAsUser(ServiceDeskAskCommand command, Long userId, ServiceDeskStreamHandler handler) {
+        if (userId == null) {
+            throw new BaseException(ErrorCodeEnum.UNAUTHORIZED);
+        }
+        // 把用户 ID 放进线程上下文，后续 Agent/工具链都能直接取到。
+        UserContextHolder.setUserId(userId);
+        if (!StringUtils.hasText(command.getQuestion())) {
+            throw new BaseException(ErrorCodeEnum.BAD_REQUEST.getCode(), "问题不能为空");
+        }
+
+        ServiceDeskRunEntity run = null;
+        RecordingStreamHandler recordingHandler = new RecordingStreamHandler(handler);
+        try {
+            // 先做意图归类，再按最终服务类型创建运行记录。
+            ServiceDeskAskCommand resolvedCommand = resolveCommand(command);
+            run = createRun(userId, resolvedCommand);
+            stage(recordingHandler, "agent_start", "服务台 Agent 正在规划处理步骤");
+            ServiceDeskAnswerResult result = serviceDeskAgentRuntime.run(
+                    resolvedCommand, userId, run.getId(), recordingHandler);
+            // 运行结束后统一落库事件和结果，保证 SSE 与数据库一致。
+            List<AgentRunEvent> events = completeRun(run, result, result.getEvents());
+            if (!hasStreamedTokens(result.getEvents())) {
+                // 没有流式输出时，补发最终答案。
+                token(recordingHandler, result.getAnswer());
+            }
+            recordingHandler.onDone(result.withEvents(List.copyOf(events)));
+        } catch (Exception e) {
+            log.error("服务台流式处理失败", e);
+            if (run != null) {
+                failRun(run, recordingHandler.events(), e);
+            }
+            recordingHandler.onError("服务台处理失败，请稍后重试", e);
+        } finally {
+            UserContextHolder.clear();
+        }
+    }
+
+    private ServiceDeskAskCommand resolveCommand(ServiceDeskAskCommand command) {
+        // 规则和 LLM 一起决定最终意图，避免前端传错 serviceType 影响路由。
+        ServiceDeskDecision decision = serviceDeskIntentClassifier.classify(
+                command.getQuestion(), ServiceTypeEnum.from(command.getServiceType()));
+        return command.withServiceType(decision.getServiceType());
+    }
+
+    /**
+     * 确认服务台工单。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public ServiceTicketResult confirmTicket(Long ticketId) {
+        Long userId = currentUserId();
+        ServiceTicketResult ticket = ticketService.confirmTicket(new ConfirmTicketCommand(ticketId, userId));
+        // Agent 只创建草稿；用户确认后，运行记录才绑定正式打开的工单。
+        if (ticket.getSourceRunId() != null) {
+            ServiceDeskRunEntity run = serviceDeskRunMapper.selectById(ticket.getSourceRunId());
+            if (run != null && userId.equals(run.getUserId())) {
+                run.setApprovalRequired(false);
+                run.setPendingTicketId(null);
+                run.setTicketId(ticket.getId());
+                serviceDeskRunMapper.updateById(run);
+            }
+        }
+        return ticket;
+    }
+
+    /**
+     * 提交服务台处理反馈，同一次运行同一用户只能提交一次。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public ServiceDeskFeedbackResult submitFeedback(SubmitFeedbackCommand command) {
+        if (command.getResolved() == null) {
+            throw new BaseException(ErrorCodeEnum.BAD_REQUEST.getCode(), "反馈结果不能为空");
+        }
+        ServiceDeskRunEntity run = serviceDeskRunMapper.selectById(command.getRunId());
+        if (run == null || !command.getUserId().equals(run.getUserId())) {
+            throw new BaseException(ErrorCodeEnum.NOT_FOUND.getCode(), "服务台运行记录不存在");
+        }
+        ServiceDeskFeedbackEntity existing = findFeedback(command.getRunId(), command.getUserId());
+        if (existing != null) {
+            throw new BaseException(ErrorCodeEnum.BAD_REQUEST.getCode(), "该次服务台处理已提交过反馈");
+        }
+
+        ServiceDeskFeedbackEntity feedback = new ServiceDeskFeedbackEntity();
+        feedback.setRunId(command.getRunId());
+        feedback.setTicketId(run.getTicketId());
+        feedback.setResolved(command.getResolved());
+        feedback.setComment(trimComment(command.getComment()));
+        feedback.setUserId(command.getUserId());
+        serviceDeskFeedbackMapper.insert(feedback);
+
+        run.setFeedbackId(feedback.getId());
+        serviceDeskRunMapper.updateById(run);
+        return toFeedbackResult(feedback);
+    }
+
+    /**
+     * 创建服务台运行记录。
+     */
+    private ServiceDeskRunEntity createRun(Long userId, ServiceDeskAskCommand command) {
+        ServiceDeskRunEntity run = new ServiceDeskRunEntity();
+        // 先插运行记录，后续 Agent 过程和异常都能回写同一条轨迹。
+        run.setUserId(userId);
+        run.setQuestion(command.getQuestion());
+        run.setServiceType(ServiceTypeEnum.from(command.getServiceType()).name());
+        run.setKnowledgeBaseId(command.getKnowledgeBaseId());
+        run.setConversationId(command.getConversationId());
+        run.setStatus("RUNNING");
+        run.setApprovalRequired(false);
+        run.setStartTime(LocalDateTime.now());
+        serviceDeskRunMapper.insert(run);
+        return run;
+    }
+
+    /**
+     * 完成运行并保存结果。
+     */
+    private List<AgentRunEvent> completeRun(ServiceDeskRunEntity run, ServiceDeskAnswerResult result,
+                                            List<AgentRunEvent> events) {
+        // Runtime 返回的事件可能是不可变列表，落库前统一复制，避免追加收尾事件时抛异常。
+        List<AgentRunEvent> mutableEvents = new ArrayList<>(events != null ? events : List.of());
+        // 追加最终答案事件，方便前端和审计侧统一查看收口结果。
+        mutableEvents.add(event(AgentRunEvent.EventType.FINAL_ANSWER, "服务台处理完成", Map.of(
+                "answer", result.getAnswer(),
+                "status", result.getStatus(),
+                "ticketNo", result.getTicketNo() != null ? result.getTicketNo() : "",
+                "approvalRequired", Boolean.TRUE.equals(result.getApprovalRequired())
+        )));
+        run.setAnswer(result.getAnswer());
+        run.setStatus(isFailed(result) ? "FAILED" : "COMPLETED");
+        run.setIntent(result.getIntent());
+        run.setServiceType(result.getServiceType());
+        run.setTicketId(result.getTicketId());
+        run.setConversationId(result.getConversationId());
+        run.setApprovalRequired(Boolean.TRUE.equals(result.getApprovalRequired()));
+        run.setPendingTicketId(result.getPendingTicket() != null ? result.getPendingTicket().getId() : null);
+        run.setEventLog(serializeEvents(mutableEvents));
+        run.setEndTime(LocalDateTime.now());
+        serviceDeskRunMapper.updateById(run);
+        return mutableEvents;
+    }
+
+    /**
+     * 标记运行失败。
+     */
+    private void failRun(ServiceDeskRunEntity run, List<AgentRunEvent> events, Exception e) {
+        log.error("服务台 Agent 运行失败: runId={}", run.getId(), e);
+        // 异常处理也可能收到 List.of()，这里同样做防御性复制，确保错误能被正常记录。
+        List<AgentRunEvent> mutableEvents = new ArrayList<>(events != null ? events : List.of());
+        // 失败事件写回运行记录，方便排查和后续反馈。
+        mutableEvents.add(event(AgentRunEvent.EventType.ERROR, "服务台处理失败", Map.of(
+                "exception", e.getClass().getSimpleName(),
+                "message", e.getMessage() != null ? e.getMessage() : ""
+        )));
+        run.setStatus("FAILED");
+        run.setAnswer(e.getMessage());
+        run.setEventLog(serializeEvents(mutableEvents));
+        run.setEndTime(LocalDateTime.now());
+        serviceDeskRunMapper.updateById(run);
+    }
+
+    /**
+     * 创建运行事件。
+     */
+    private AgentRunEvent event(AgentRunEvent.EventType type, String message, Map<String, Object> payload) {
+        return AgentRunEvent.of(type, null, null, payload, true, null, message);
+    }
+
+    private boolean isFailed(ServiceDeskAnswerResult result) {
+        return result.getStatus() != null && "failed".equalsIgnoreCase(result.getStatus());
+    }
+
+    private boolean hasStreamedTokens(List<AgentRunEvent> events) {
+        if (events == null) {
+            return false;
+        }
+        return events.stream().anyMatch(this::hasStreamedTokens);
+    }
+
+    private boolean hasStreamedTokens(AgentRunEvent event) {
+        if (event.getPayload() == null) {
+            return false;
+        }
+        Object directFlag = event.getPayload().get("streamedTokens");
+        if (Boolean.TRUE.equals(directFlag)) {
+            return true;
+        }
+        Object result = event.getPayload().get("result");
+        if (!(result instanceof String text) || !StringUtils.hasText(text)) {
+            return false;
+        }
+        try {
+            Map<String, Object> payload = objectMapper.readValue(text, new com.fasterxml.jackson.core.type.TypeReference<>() {});
+            return Boolean.TRUE.equals(payload.get("streamedTokens"));
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * 序列化运行事件。
+     */
+    private String serializeEvents(List<AgentRunEvent> events) {
+        try {
+            return objectMapper.writeValueAsString(events);
+        } catch (Exception e) {
+            log.error("服务台事件序列化失败", e);
+            return "[]";
+        }
+    }
+
+    /**
+     * 查询用户反馈。
+     */
+    private ServiceDeskFeedbackEntity findFeedback(Long runId, Long userId) {
+        return serviceDeskFeedbackMapper.findByRunIdAndUserId(runId, userId);
+    }
+
+    /**
+     * 转换反馈结果。
+     */
+    private ServiceDeskFeedbackResult toFeedbackResult(ServiceDeskFeedbackEntity feedback) {
+        return new ServiceDeskFeedbackResult(feedback.getId(), feedback.getRunId(), feedback.getTicketId(),
+                feedback.getResolved(), feedback.getComment(), feedback.getUserId(), feedback.getCreateTime());
+    }
+
+    /**
+     * 裁剪反馈备注。
+     */
+    private String trimComment(String comment) {
+        if (!StringUtils.hasText(comment)) {
+            return null;
+        }
+        String trimmed = comment.trim();
+        return trimmed.length() > 1000 ? trimmed.substring(0, 1000) : trimmed;
+    }
+
+    /**
+     * 获取当前用户 ID。
+     */
+    private Long currentUserId() {
+        Long userId = UserContextHolder.getUserId();
+        if (userId == null) {
+            throw new BaseException(ErrorCodeEnum.UNAUTHORIZED);
+        }
+        return userId;
+    }
+
+    /**
+     * 发送阶段消息。
+     */
+    private void stage(ServiceDeskStreamHandler handler, String stage, String message) {
+        if (handler != null) {
+            // 阶段消息用于前端展示当前处理进度。
+            handler.onStage(stage, message);
+        }
+    }
+
+    /**
+     * 发送文本片段。
+     */
+    private void token(ServiceDeskStreamHandler handler, String text) {
+        if (handler != null && text != null) {
+            // 最终答案也按 token 事件补一遍，兼容非流式工具结果。
+            handler.onToken(text);
+        }
+    }
+
+    /**
+     * 记录 Agent 事件并转发给真实 SSE 处理器。
+     */
+    private static class RecordingStreamHandler implements ServiceDeskStreamHandler {
+
+        private final ServiceDeskStreamHandler delegate;
+        private final List<AgentRunEvent> events = new CopyOnWriteArrayList<>();
+
+        /**
+         * 创建记录型流处理器。
+         */
+        private RecordingStreamHandler(ServiceDeskStreamHandler delegate) {
+            this.delegate = delegate;
+        }
+
+        /**
+         * 返回已记录事件。
+         */
+        private List<AgentRunEvent> events() {
+            return List.copyOf(events);
+        }
+
+        @Override
+        public void onStage(String stage, String message) {
+            if (delegate != null) {
+                delegate.onStage(stage, message);
+            }
+        }
+
+        @Override
+        public void onToken(String token) {
+            if (delegate != null) {
+                delegate.onToken(token);
+            }
+        }
+
+        @Override
+        public void onAgentEvent(AgentRunEvent event) {
+            events.add(event);
+            if (delegate != null) {
+                delegate.onAgentEvent(event);
+            }
+        }
+
+        @Override
+        public void onDone(ServiceDeskAnswerResult result) {
+            if (delegate != null) {
+                delegate.onDone(result);
+            }
+        }
+
+        @Override
+        public void onError(String message, Throwable error) {
+            if (delegate != null) {
+                delegate.onError(message, error);
+            }
+        }
+    }
+
+}

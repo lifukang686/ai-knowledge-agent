@@ -1,0 +1,215 @@
+package com.fukang.knowledge.agent.module.knowledge.service.chunk;
+
+import com.fukang.knowledge.agent.module.knowledge.model.dto.CreateChunkStrategyCommand;
+import com.fukang.knowledge.agent.module.knowledge.model.dto.UpdateChunkStrategyCommand;
+import com.fukang.knowledge.agent.module.knowledge.mapper.DocumentChunkStrategyMapper;
+import com.fukang.knowledge.agent.common.enums.ChunkTypeEnum;
+import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
+import com.fukang.knowledge.agent.common.exception.BaseException;
+import com.fukang.knowledge.agent.common.result.PageResponse;
+import com.fukang.knowledge.agent.module.knowledge.service.chunk.ChunkStrategy;
+import com.fukang.knowledge.agent.module.knowledge.service.chunk.impl.CharacterChunkStrategy;
+import com.fukang.knowledge.agent.module.knowledge.service.chunk.impl.ContentOwnershipChunkStrategy;
+import com.fukang.knowledge.agent.module.knowledge.service.chunk.impl.ParagraphChunkStrategy;
+import com.fukang.knowledge.agent.module.knowledge.service.chunk.impl.SentenceChunkStrategy;
+import com.fukang.knowledge.agent.infrastructure.config.ChunkingProperties;
+import com.fukang.knowledge.agent.module.knowledge.model.entity.DocumentChunkStrategyEntity;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+
+/**
+ * 文档分块策略应用服务。
+ */
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class DocumentChunkStrategyService {
+
+    private final DocumentChunkStrategyMapper chunkStrategyMapper;
+    private final ChunkingProperties chunkingProperties;
+
+    /**
+     * 创建分块策略。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public Long createStrategy(CreateChunkStrategyCommand command) {
+        validateChunkType(command.getChunkType());
+        validateSegmentSize(command.getMaxSegmentSize(), command.getOverlapSize());
+
+        DocumentChunkStrategyEntity strategy = new DocumentChunkStrategyEntity();
+        strategy.setStrategyName(command.getStrategyName());
+        strategy.setChunkType(command.getChunkType());
+        strategy.setMaxSegmentSize(command.getMaxSegmentSize());
+        strategy.setOverlapSize(command.getOverlapSize());
+        strategy.setIsDefault(false);
+        chunkStrategyMapper.insert(strategy);
+        log.info("分块策略创建成功: id={}, name={}, type={}",
+                strategy.getId(), strategy.getStrategyName(), strategy.getChunkType());
+        return strategy.getId();
+    }
+
+    /**
+     * 分页查询分块策略。
+     */
+    public PageResponse<DocumentChunkStrategyEntity> listStrategies(long page, long pageSize, String keyword) {
+        return chunkStrategyMapper.page(page, pageSize, keyword);
+    }
+
+    /**
+     * 更新分块策略。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void updateStrategy(Long id, UpdateChunkStrategyCommand command) {
+        DocumentChunkStrategyEntity strategy = findStrategyById(id);
+        validateChunkType(strategy.getChunkType());
+        if (StringUtils.hasText(command.getStrategyName())) {
+            strategy.setStrategyName(command.getStrategyName());
+        }
+        if (StringUtils.hasText(command.getChunkType())) {
+            validateChunkType(command.getChunkType());
+            strategy.setChunkType(command.getChunkType());
+        }
+        if (command.getMaxSegmentSize() != null) {
+            strategy.setMaxSegmentSize(command.getMaxSegmentSize());
+        }
+        if (command.getOverlapSize() != null) {
+            strategy.setOverlapSize(command.getOverlapSize());
+        }
+        validateSegmentSize(strategy.getMaxSegmentSize(), strategy.getOverlapSize());
+        chunkStrategyMapper.updateById(strategy);
+        log.info("分块策略已更新: id={}, name={}", id, strategy.getStrategyName());
+    }
+
+    /**
+     * 删除分块策略。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteStrategy(Long id) {
+        DocumentChunkStrategyEntity strategy = findStrategyById(id);
+        chunkStrategyMapper.deleteById(id);
+        log.info("分块策略已删除: id={}, name={}", id, strategy.getStrategyName());
+    }
+
+    /**
+     * 设置默认分块策略。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void setDefaultStrategy(Long id) {
+        DocumentChunkStrategyEntity strategy = findStrategyById(id);
+        validateChunkType(strategy.getChunkType());
+
+        chunkStrategyMapper.clearDefault();
+        strategy.setIsDefault(true);
+        chunkStrategyMapper.updateById(strategy);
+        log.info("分块策略已设为默认: id={}, name={}, type={}",
+                id, strategy.getStrategyName(), strategy.getChunkType());
+    }
+
+    /**
+     * 解析默认分块策略。
+     */
+    public ChunkStrategy resolveDefaultChunkStrategy() {
+        DocumentChunkStrategyEntity strategy = chunkStrategyMapper.findDefault();
+        if (strategy == null) {
+            return buildFallbackStrategy();
+        }
+        return buildChunkStrategy(
+                strategy.getStrategyName(),
+                strategy.getChunkType(),
+                strategy.getMaxSegmentSize(),
+                strategy.getOverlapSize());
+    }
+
+    /**
+     * 解析指定分块策略。
+     */
+    public ChunkStrategy resolveChunkStrategy(Long chunkStrategyId) {
+        DocumentChunkStrategyEntity strategy = findStrategyById(chunkStrategyId);
+        return buildChunkStrategy(
+                strategy.getStrategyName(),
+                strategy.getChunkType(),
+                strategy.getMaxSegmentSize(),
+                strategy.getOverlapSize());
+    }
+
+    /**
+     * 构建配置兜底策略。
+     */
+    private ChunkStrategy buildFallbackStrategy() {
+        String strategy = chunkingProperties.getStrategy();
+        ChunkingProperties.SplitterProperties active = chunkingProperties.active();
+        return switch (strategy) {
+            case "sentence" -> new SentenceChunkStrategy(
+                    "sentence", active.getMaxSegmentSize(), active.getOverlapSize());
+            case "fixed" -> new CharacterChunkStrategy(
+                    "fixed", active.getMaxSegmentSize(), active.getOverlapSize());
+            case "paragraph" -> new ParagraphChunkStrategy(
+                    "paragraph", active.getMaxSegmentSize(), active.getOverlapSize());
+            default -> new ParagraphChunkStrategy(
+                    "paragraph",
+                    chunkingProperties.getParagraph().getMaxSegmentSize(),
+                    chunkingProperties.getParagraph().getOverlapSize());
+        };
+    }
+
+    /**
+     * 构建分块策略实例。
+     */
+    private ChunkStrategy buildChunkStrategy(String strategyName, String chunkType,
+                                             int maxSegmentSize, int overlapSize) {
+        ChunkTypeEnum type = validateChunkType(chunkType);
+        return switch (type) {
+            case PARAGRAPH -> new ParagraphChunkStrategy(strategyName, maxSegmentSize, overlapSize);
+            case SENTENCE -> new SentenceChunkStrategy(strategyName, maxSegmentSize, overlapSize);
+            case CHARACTER -> new CharacterChunkStrategy(strategyName, maxSegmentSize, overlapSize);
+            case CONTENT_OWNERSHIP -> new ContentOwnershipChunkStrategy(strategyName, maxSegmentSize, overlapSize);
+        };
+    }
+
+    /**
+     * 查询分块策略。
+     */
+    private DocumentChunkStrategyEntity findStrategyById(Long id) {
+        DocumentChunkStrategyEntity strategy = id != null ? chunkStrategyMapper.selectById(id) : null;
+        if (strategy == null) {
+            throw badRequest("分块策略不存在");
+        }
+        return strategy;
+    }
+
+    /**
+     * 校验分块类型。
+     */
+    private ChunkTypeEnum validateChunkType(String chunkType) {
+        try {
+            return ChunkTypeEnum.fromCode(chunkType);
+        } catch (IllegalArgumentException e) {
+            throw badRequest("无效的分块类型: " + chunkType);
+        }
+    }
+
+    /**
+     * 校验分块长度配置。
+     */
+    private void validateSegmentSize(Integer maxSegmentSize, Integer overlapSize) {
+        if (maxSegmentSize == null || maxSegmentSize < 1) {
+            throw badRequest("最大字符数必须大于 0");
+        }
+        if (overlapSize == null || overlapSize < 0) {
+            throw badRequest("重叠字符数不能小于 0");
+        }
+        if (overlapSize >= maxSegmentSize) {
+            throw badRequest("重叠字符数必须小于最大字符数");
+        }
+    }
+
+    /**
+     * 构建请求异常。
+     */
+    private BaseException badRequest(String message) {
+        return new BaseException(ErrorCodeEnum.BAD_REQUEST.getCode(), message);
+    }
+}

@@ -3,7 +3,7 @@ package com.fukang.knowledge.agent.infrastructure.config;
 import com.fukang.knowledge.agent.common.context.UserContextHolder;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
-import com.fukang.knowledge.agent.module.auth.application.AuthSessionService;
+import com.fukang.knowledge.agent.module.auth.service.AuthSessionService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
