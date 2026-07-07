@@ -115,31 +115,4 @@ public class EmbeddingResult {
         );
     }
 
-    /**
-     * 创建部分失败的向量化结果
-     *
-     * @param embeddings   已成功嵌入的向量列表
-     * @param totalChunks  待嵌入的块总数
-     * @param modelName    嵌入模型名称
-     * @param totalTokens  Token 消耗数
-     * @param metadata     元数据
-     * @return 部分失败的向量化结果
-     */
-    public static EmbeddingResult partialSuccess(
-            List<EmbeddingVector> embeddings,
-            int totalChunks,
-            String modelName,
-            int totalTokens,
-            Map<String, Object> metadata) {
-        return new EmbeddingResult(
-                totalChunks,
-                embeddings != null ? List.copyOf(embeddings) : List.of(),
-                modelName,
-                totalTokens,
-                metadata != null ? Map.copyOf(metadata) : Map.of(),
-                LocalDateTime.now(),
-                embeddings != null && embeddings.size() == totalChunks
-        );
-    }
-
 }

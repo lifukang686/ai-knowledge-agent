@@ -11,8 +11,6 @@ import jakarta.persistence.Table;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
-import com.fukang.knowledge.agent.common.enums.ModelTypeEnum;
-
 /**
  * 模型配置实体类
  * <p>对应数据库表 model_config，存储具体 AI 模型的配置信息，
@@ -42,11 +40,4 @@ public class ModelConfigEntity extends BaseEntity {
     @TableField(typeHandler = JsonTypeHandler.class)
     private String defaultParams;
 
-    public ModelTypeEnum getModelTypeEnum() {
-        return modelType != null ? ModelTypeEnum.fromCode(modelType) : null;
-    }
-
-    public void setModelTypeEnum(ModelTypeEnum type) {
-        this.modelType = type != null ? type.getCode() : null;
-    }
 }

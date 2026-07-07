@@ -1,7 +1,7 @@
 package com.fukang.knowledge.agent.module.rag.service;
 
-import com.fukang.knowledge.agent.module.modelruntime.service.ChatCompletionClient;
-import com.fukang.knowledge.agent.module.modelruntime.service.StreamingChatCompletionClient;
+import com.fukang.knowledge.agent.module.modelruntime.service.client.ChatCompletionClient;
+import com.fukang.knowledge.agent.module.modelruntime.service.client.StreamingChatCompletionClient;
 import com.fukang.knowledge.agent.module.rag.model.vo.QaResult;
 import com.fukang.knowledge.agent.module.rag.service.stream.QaStreamHandler;
 import com.fukang.knowledge.agent.common.context.UserContextHolder;

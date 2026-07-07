@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, RefreshCw, Eye, Edit, Trash2, Upload } from 'lucide-react';
+import { Plus, Search, RefreshCw, Eye, Edit, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from 'axios';
 

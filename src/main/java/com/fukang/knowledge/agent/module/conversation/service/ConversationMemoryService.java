@@ -1,12 +1,12 @@
 package com.fukang.knowledge.agent.module.conversation.service;
 
-import com.fukang.knowledge.agent.module.modelruntime.service.impl.ChatModelClient;
+import com.fukang.knowledge.agent.module.modelruntime.service.client.impl.ChatModelClient;
 import com.fukang.knowledge.agent.module.conversation.mapper.ConversationMapper;
 import com.fukang.knowledge.agent.module.conversation.mapper.ConversationMessageMapper;
 import com.fukang.knowledge.agent.module.conversation.mapper.ConversationSummaryMapper;
 import com.fukang.knowledge.agent.common.context.UserContextHolder;
 import com.fukang.knowledge.agent.common.exception.BaseException;
-import com.fukang.knowledge.agent.module.modelruntime.service.PromptTemplateManager;
+import com.fukang.knowledge.agent.module.modelruntime.service.manager.PromptTemplateManager;
 import com.fukang.knowledge.agent.module.conversation.model.entity.ConversationEntity;
 import com.fukang.knowledge.agent.module.conversation.model.entity.ConversationMessageEntity;
 import com.fukang.knowledge.agent.module.conversation.model.entity.ConversationSummaryEntity;
@@ -69,7 +69,6 @@ public class ConversationMemoryService {
         return new ConversationMemoryContext(
                 conversation.getId(),
                 summary != null ? summary.getSummary() : "",
-                recentMessages,
                 formatHistory(recentMessages, REWRITE_HISTORY_LIMIT, false),
                 formatHistory(recentMessages, ANSWER_HISTORY_LIMIT, true)
         );
@@ -234,15 +233,20 @@ public class ConversationMemoryService {
         }
 
         ConversationSummaryEntity existing = latestSummary(conversationId);
-        Long lastMessageId = messagesToSummarize.get(messagesToSummarize.size() - 1).getId();
-        if (existing != null && existing.getMessageUntilId() != null
-                && existing.getMessageUntilId() >= lastMessageId) {
+        Long alreadySummarizedId = existing != null ? existing.getMessageUntilId() : null;
+        List<ConversationMessageEntity> unsummarizedMessages = messagesToSummarize.stream()
+                .filter(message -> alreadySummarizedId == null
+                        || message.getId() == null
+                        || message.getId() > alreadySummarizedId)
+                .toList();
+        if (unsummarizedMessages.isEmpty()) {
             return;
         }
 
-        String history = formatHistory(messagesToSummarize, messagesToSummarize.size(), true);
+        Long lastMessageId = unsummarizedMessages.get(unsummarizedMessages.size() - 1).getId();
+        String history = formatHistory(unsummarizedMessages, unsummarizedMessages.size(), true);
         String oldSummary = existing != null ? existing.getSummary() : "";
-        // 调用模型生成新的会话摘要
+        // 只把未压缩过的历史交给模型，避免旧摘要和旧消息重复进入新摘要。
         String summary = generateSummary(oldSummary, history);
         if (!StringUtils.hasText(summary)) {
             return;
@@ -286,8 +290,8 @@ public class ConversationMemoryService {
                     ChatModelClient.Message.user(userPrompt)
             ));
         } catch (Exception e) {
-            log.warn("会话摘要生成失败，将继续使用短期记忆: {}", e.getMessage());
-            return oldSummary;
+            log.warn("会话摘要生成失败，保留旧摘要且不推进摘要覆盖位置: {}", e.getMessage());
+            return "";
         }
     }
 
@@ -319,11 +323,10 @@ public class ConversationMemoryService {
     }
 
     /**
-     * 获取当前用户，未登录时使用默认用户。
+     * 获取当前用户；RAG 问答链路允许匿名会话，因此可能返回 null。
      */
     private Long currentUserId() {
-        Long userId = UserContextHolder.getUserId();
-        return userId;
+        return UserContextHolder.getUserId();
     }
 
     /**

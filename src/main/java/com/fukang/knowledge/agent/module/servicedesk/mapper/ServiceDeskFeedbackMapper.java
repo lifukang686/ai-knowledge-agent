@@ -9,6 +9,9 @@ import com.fukang.knowledge.agent.module.servicedesk.model.entity.ServiceDeskFee
  */
 public interface ServiceDeskFeedbackMapper extends BaseMapper<ServiceDeskFeedbackEntity> {
 
+    /**
+     * 查询某次服务台运行下指定用户的反馈记录。
+     */
     default ServiceDeskFeedbackEntity findByRunIdAndUserId(Long runId, Long userId) {
         return selectOne(new LambdaQueryWrapper<ServiceDeskFeedbackEntity>()
                 .eq(ServiceDeskFeedbackEntity::getRunId, runId)

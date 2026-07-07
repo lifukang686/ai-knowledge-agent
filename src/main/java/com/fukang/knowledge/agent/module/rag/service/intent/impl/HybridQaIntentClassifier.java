@@ -8,8 +8,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
- * Two-stage QA intent classifier.
- * <p>Rules run first; LLM fallback runs only when rules return UNKNOWN.</p>
+ * 两阶段 QA 意图分类器。
+ * <p>先执行高置信度规则，规则无法判断时再调用 LLM 兜底。</p>
  */
 @Slf4j
 @Component

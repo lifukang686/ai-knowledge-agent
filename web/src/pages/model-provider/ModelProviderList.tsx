@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Eye, Edit, Trash2, Star } from 'lucide-react';
+import { Plus, Eye, Edit, Trash2, Star } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { ModelProvider, ModelProviderQuery } from '@/types/modelProvider';

@@ -2,7 +2,7 @@ package com.fukang.knowledge.agent.module.knowledge.service.embedding;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fukang.knowledge.agent.module.modelruntime.service.EmbeddingClient;
+import com.fukang.knowledge.agent.module.modelruntime.service.client.EmbeddingClient;
 import com.fukang.knowledge.agent.module.model.service.ModelService;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.enums.ModelTypeEnum;
@@ -105,7 +105,12 @@ public class EmbeddingService {
             Map<String, Object> map = objectMapper.readValue(params, new TypeReference<Map<String, Object>>() {});
             Object maxBatchSize = map.get("maxBatchSize");
             if (maxBatchSize instanceof Number num) {
-                return num.intValue();
+                int batchSize = num.intValue();
+                if (batchSize > 0) {
+                    return batchSize;
+                }
+                log.debug("模型 [{}] 的 maxBatchSize 非法: {}，使用默认值 {}",
+                        config.getModelName(), batchSize, DEFAULT_MAX_BATCH_SIZE);
             }
         } catch (Exception e) {
             log.debug("解析模型 [{}] 的 defaultParams 中 maxBatchSize 失败，使用默认值 {}",

@@ -4,6 +4,7 @@ import com.fukang.knowledge.agent.module.agent.service.tool.ToolScope;
 import com.fukang.knowledge.agent.module.agent.model.vo.ToolDefinition;
 import com.fukang.knowledge.agent.module.agent.model.vo.Observation;
 import com.fukang.knowledge.agent.module.agent.model.vo.PlanStep;
+import com.fukang.knowledge.agent.module.agent.model.vo.ToolExecutionResult;
 import com.fukang.knowledge.agent.module.agent.service.ToolExecutor;
 import com.fukang.knowledge.agent.module.agent.service.tool.ToolExecutorFactory;
 import lombok.RequiredArgsConstructor;
@@ -33,7 +34,7 @@ public class AgentExecutor {
         long start = System.currentTimeMillis();
 
         try {
-            log.info("执行步骤: step={}/{}, tool={}, params={}",
+            log.info("执行步骤: step={}, tool={}, params={}",
                     step.getStepOrder(), step.getToolName(), step.getParameters());
 
             Optional<ToolDefinition> toolOpt = toolScope != null
@@ -52,7 +53,7 @@ public class AgentExecutor {
 
             Map<String, Object> params = step.getParameters() != null ? step.getParameters() : Map.of();
             // 执行器由工具类型决定，HTTP/SQL/LOCAL_METHOD 共用同一个领域结果模型。
-            com.fukang.knowledge.agent.module.agent.model.vo.ToolExecutionResult result = executor.execute(tool, params);
+            ToolExecutionResult result = executor.execute(tool, params);
 
             long duration = System.currentTimeMillis() - start;
 

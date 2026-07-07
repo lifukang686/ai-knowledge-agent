@@ -1,8 +1,8 @@
 package com.fukang.knowledge.agent.module.knowledge.service;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.fukang.knowledge.agent.module.knowledge.model.dto.CreateKnowledgeBaseCommand;
-import com.fukang.knowledge.agent.module.knowledge.model.dto.UpdateKnowledgeBaseCommand;
+import com.fukang.knowledge.agent.module.knowledge.model.dto.CreateKnowledgeBaseReq;
+import com.fukang.knowledge.agent.module.knowledge.model.dto.UpdateKnowledgeBaseReq;
 import com.fukang.knowledge.agent.module.knowledge.mapper.DocumentMapper;
 import com.fukang.knowledge.agent.module.knowledge.mapper.KnowledgeBaseMapper;
 import com.fukang.knowledge.agent.module.knowledge.model.vo.KnowledgeBaseResult;
@@ -40,12 +40,12 @@ public class KnowledgeBaseService {
      * 创建知识库。
      */
     @Transactional(rollbackFor = Exception.class)
-    public Long createKnowledgeBase(CreateKnowledgeBaseCommand command) {
+    public Long createKnowledgeBase(CreateKnowledgeBaseReq req) {
         KnowledgeBaseEntity kb = new KnowledgeBaseEntity();
-        kb.setName(command.getName());
-        kb.setDescription(command.getDescription());
+        kb.setName(req.getName());
+        kb.setDescription(req.getDescription());
         knowledgeBaseMapper.insert(kb);
-        log.info("知识库创建成功: id={}, name={}", kb.getId(), command.getName());
+        log.info("知识库创建成功: id={}, name={}", kb.getId(), req.getName());
         return kb.getId();
     }
 
@@ -78,13 +78,13 @@ public class KnowledgeBaseService {
      * 更新知识库基础信息。
      */
     @Transactional(rollbackFor = Exception.class)
-    public void updateKnowledgeBase(Long id, UpdateKnowledgeBaseCommand command) {
+    public void updateKnowledgeBase(Long id, UpdateKnowledgeBaseReq req) {
         KnowledgeBaseEntity kb = findKnowledgeBaseById(id);
-        if (StringUtils.hasText(command.getName())) {
-            kb.setName(command.getName());
+        if (StringUtils.hasText(req.getName())) {
+            kb.setName(req.getName());
         }
-        if (command.getDescription() != null) {
-            kb.setDescription(command.getDescription());
+        if (req.getDescription() != null) {
+            kb.setDescription(req.getDescription());
         }
         knowledgeBaseMapper.updateById(kb);
         log.info("知识库已更新: id={}, name={}", id, kb.getName());

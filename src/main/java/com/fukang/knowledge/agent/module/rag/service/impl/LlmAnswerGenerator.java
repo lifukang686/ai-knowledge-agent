@@ -2,8 +2,8 @@ package com.fukang.knowledge.agent.module.rag.service.impl;
 
 import com.fukang.knowledge.agent.module.rag.model.vo.SearchResult;
 import com.fukang.knowledge.agent.module.rag.service.AnswerGenerator;
-import com.fukang.knowledge.agent.module.modelruntime.service.DynamicModelManager;
-import com.fukang.knowledge.agent.module.modelruntime.service.PromptTemplateManager;
+import com.fukang.knowledge.agent.module.modelruntime.service.manager.DynamicModelManager;
+import com.fukang.knowledge.agent.module.modelruntime.service.manager.PromptTemplateManager;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.UserMessage;
@@ -37,14 +37,6 @@ public class LlmAnswerGenerator implements AnswerGenerator {
     private final PromptTemplateManager promptTemplateManager;
 
     /**
-     * 基于召回片段生成回答。
-     */
-    @Override
-    public String generateAnswer(List<SearchResult> results, String query) {
-        return generateAnswer(results, query, "");
-    }
-
-    /**
      * 基于召回片段和会话记忆生成回答。
      */
     @Override
@@ -71,20 +63,6 @@ public class LlmAnswerGenerator implements AnswerGenerator {
             log.error("LLM 生成回答失败，降级为文本拼接", e);
             return formatFallbackAnswer(results);
         }
-    }
-
-    /**
-     * 测试用用户提示词构造入口。
-     */
-    String buildUserPrompt(List<SearchResult> results, String query) {
-        return buildRagUserPrompt(results, query);
-    }
-
-    /**
-     * 构造不带会话记忆的 RAG 用户消息，供旧调用路径复用。
-     */
-    public String buildRagUserPrompt(List<SearchResult> results, String query) {
-        return buildRagUserPrompt(results, query, "");
     }
 
     /**

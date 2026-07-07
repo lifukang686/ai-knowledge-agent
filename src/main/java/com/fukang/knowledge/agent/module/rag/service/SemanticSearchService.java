@@ -3,7 +3,7 @@ package com.fukang.knowledge.agent.module.rag.service;
 import com.fukang.knowledge.agent.module.knowledge.service.embedding.EmbeddingService;
 import com.fukang.knowledge.agent.module.knowledge.model.vo.EmbeddingResult;
 import com.fukang.knowledge.agent.module.rag.model.vo.SearchResult;
-import com.fukang.knowledge.agent.module.modelruntime.service.EmbeddingStoreFactory;
+import com.fukang.knowledge.agent.module.modelruntime.service.factory.EmbeddingStoreFactory;
 import com.fukang.knowledge.agent.infrastructure.config.RetrievalProperties;
 import dev.langchain4j.data.document.Metadata;
 import dev.langchain4j.data.embedding.Embedding;

@@ -30,10 +30,6 @@ public class HybridSearchService implements RetrievalStrategy {
     private final RetrievalProperties retrievalProperties;
     private final ResultFusionStrategy resultFusionStrategy;
 
-    public List<SearchResult> search(String queryText, Long knowledgeBaseId, int topK, double vectorThreshold) {
-        return retrieve(queryText, knowledgeBaseId, topK, vectorThreshold);
-    }
-
     @Override
     public List<SearchResult> retrieve(String queryText, Long knowledgeBaseId, int topK, double vectorThreshold) {
         if (!retrievalProperties.isHybridEnabled()) {

@@ -1,9 +1,9 @@
 package com.fukang.knowledge.agent.module.model.service;
 
-import com.fukang.knowledge.agent.module.model.model.dto.ModelConfigCommand;
-import com.fukang.knowledge.agent.module.model.model.dto.ModelConfigUpdateCommand;
-import com.fukang.knowledge.agent.module.model.model.dto.ProviderCommand;
-import com.fukang.knowledge.agent.module.model.model.dto.ProviderUpdateCommand;
+import com.fukang.knowledge.agent.module.model.model.dto.ModelConfigReq;
+import com.fukang.knowledge.agent.module.model.model.dto.ModelConfigUpdateReq;
+import com.fukang.knowledge.agent.module.model.model.dto.ProviderReq;
+import com.fukang.knowledge.agent.module.model.model.dto.ProviderUpdateReq;
 import com.fukang.knowledge.agent.module.model.mapper.ModelConfigMapper;
 import com.fukang.knowledge.agent.module.model.mapper.ModelProviderMapper;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
@@ -37,7 +37,7 @@ public class ModelService {
      * @return 新创建的提供商ID
      */
     @Transactional(rollbackFor = Exception.class)
-    public Long createProvider(ProviderCommand req) {
+    public Long createProvider(ProviderReq req) {
         ModelProviderEntity provider = new ModelProviderEntity();
         provider.setName(req.getName());
         provider.setApiBaseUrl(req.getApiBaseUrl());
@@ -66,12 +66,8 @@ public class ModelService {
      * @throws BaseException 模型类型无效时抛出 MODEL_TYPE_INVALID
      */
     @Transactional(rollbackFor = Exception.class)
-    public Long createModelConfig(ModelConfigCommand req) {
-        ModelProviderEntity provider = providerMapper.selectById(req.getProviderId());
-        if (provider == null) {
-            throw new BaseException(ErrorCodeEnum.PROVIDER_NOT_EXIST);
-        }
-
+    public Long createModelConfig(ModelConfigReq req) {
+        ensureProviderExists(req.getProviderId());
         validateModelType(req.getModelType());
 
         ModelConfigEntity config = new ModelConfigEntity();
@@ -93,13 +89,6 @@ public class ModelService {
      */
     public List<ModelConfigEntity> listModelConfigs(Long providerId) {
         return modelConfigMapper.findByProviderId(providerId);
-    }
-
-    /**
-     * 根据 ID 查询模型配置。
-     */
-    public ModelConfigEntity findModelById(Long id) {
-        return id != null ? modelConfigMapper.selectById(id) : null;
     }
 
     /**
@@ -158,12 +147,13 @@ public class ModelService {
      * @throws BaseException 模型类型无效时抛出 MODEL_TYPE_INVALID
      */
     @Transactional(rollbackFor = Exception.class)
-    public void updateModelConfig(Long id, ModelConfigUpdateCommand req) {
+    public void updateModelConfig(Long id, ModelConfigUpdateReq req) {
         ModelConfigEntity config = modelConfigMapper.selectById(id);
         if (config == null) {
             throw new BaseException(ErrorCodeEnum.MODEL_NOT_EXIST);
         }
         if (req.getProviderId() != null) {
+            ensureProviderExists(req.getProviderId());
             config.setProviderId(req.getProviderId());
         }
         if (req.getModelName() != null && !req.getModelName().isBlank()) {
@@ -206,7 +196,7 @@ public class ModelService {
      * @throws BaseException 模型提供商不存在时抛出 PROVIDER_NOT_EXIST
      */
     @Transactional(rollbackFor = Exception.class)
-    public void updateProvider(Long id, ProviderUpdateCommand req) {
+    public void updateProvider(Long id, ProviderUpdateReq req) {
         ModelProviderEntity provider = providerMapper.selectById(id);
         if (provider == null) {
             throw new BaseException(ErrorCodeEnum.PROVIDER_NOT_EXIST);
@@ -279,6 +269,15 @@ public class ModelService {
             ModelTypeEnum.fromCode(modelType);
         } catch (IllegalArgumentException e) {
             throw new BaseException(ErrorCodeEnum.MODEL_TYPE_INVALID);
+        }
+    }
+
+    /**
+     * 创建或迁移模型配置时先校验提供商存在，避免产生悬挂的 providerId。
+     */
+    private void ensureProviderExists(Long providerId) {
+        if (providerMapper.selectById(providerId) == null) {
+            throw new BaseException(ErrorCodeEnum.PROVIDER_NOT_EXIST);
         }
     }
 }

@@ -2,8 +2,8 @@ package com.fukang.knowledge.agent.module.rag.service.intent.impl;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fukang.knowledge.agent.module.modelruntime.service.ChatCompletionClient;
-import com.fukang.knowledge.agent.module.modelruntime.service.PromptTemplateManager;
+import com.fukang.knowledge.agent.module.modelruntime.service.client.ChatCompletionClient;
+import com.fukang.knowledge.agent.module.modelruntime.service.manager.PromptTemplateManager;
 import com.fukang.knowledge.agent.module.rag.service.intent.QaIntent;
 import com.fukang.knowledge.agent.module.rag.service.intent.QaIntentResult;
 import lombok.RequiredArgsConstructor;
@@ -15,8 +15,8 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * LLM fallback intent classifier.
- * <p>Used only when rules cannot confidently classify the question.</p>
+ * LLM 兜底意图分类器。
+ * <p>仅在规则分类无法确认意图时调用，避免每次问答都额外消耗模型请求。</p>
  */
 @Slf4j
 @Component

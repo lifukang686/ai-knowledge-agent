@@ -5,7 +5,7 @@ import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.module.knowledge.model.vo.ChunkStorageResult;
 import com.fukang.knowledge.agent.module.knowledge.model.vo.EmbeddingResult;
-import com.fukang.knowledge.agent.module.modelruntime.service.EmbeddingIndexStorageService;
+import com.fukang.knowledge.agent.module.modelruntime.service.storage.EmbeddingIndexStorageService;
 import com.fukang.knowledge.agent.module.knowledge.service.storage.DocumentChunkStorageService;
 import com.fukang.knowledge.agent.module.knowledge.model.entity.DocumentChunkEntity;
 import com.fukang.knowledge.agent.module.knowledge.model.entity.DocumentEntity;
@@ -43,10 +43,9 @@ public class DocumentEmbeddingService {
     }
 
     /**
-     * 对已加载的 chunk 执行向量化，适用于管道复用和测试场景。
+     * 对已加载的 chunk 执行向量化。
      */
-    @Transactional(rollbackFor = Exception.class)
-    public ChunkStorageResult embedAndStoreWithChunks(List<DocumentChunkEntity> chunks, Long knowledgeBaseId) {
+    private ChunkStorageResult embedAndStoreWithChunks(List<DocumentChunkEntity> chunks, Long knowledgeBaseId) {
         // 先校验 chunk 和知识库上下文，避免无效数据进入模型调用。
         validateChunks(chunks, knowledgeBaseId);
 

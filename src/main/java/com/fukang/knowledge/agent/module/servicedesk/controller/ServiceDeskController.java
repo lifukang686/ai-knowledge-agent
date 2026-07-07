@@ -5,11 +5,10 @@ import com.fukang.knowledge.agent.module.servicedesk.model.dto.ServiceDeskFeedba
 import com.fukang.knowledge.agent.module.servicedesk.model.resp.ServiceDeskFeedbackResp;
 import com.fukang.knowledge.agent.module.servicedesk.model.resp.ServiceDeskResponseMapper;
 import com.fukang.knowledge.agent.module.servicedesk.model.resp.ServiceTicketResp;
-import com.fukang.knowledge.agent.module.servicedesk.service.impl.ServiceDeskSseHandler;
+import com.fukang.knowledge.agent.module.servicedesk.service.stream.ServiceDeskSseHandler;
 import com.fukang.knowledge.agent.module.servicedesk.service.ServiceDeskService;
 import com.fukang.knowledge.agent.module.servicedesk.service.TicketService;
 import com.fukang.knowledge.agent.module.servicedesk.model.dto.ServiceDeskAskCommand;
-import com.fukang.knowledge.agent.module.servicedesk.model.dto.SubmitFeedbackCommand;
 import com.fukang.knowledge.agent.module.servicedesk.model.vo.ServiceDeskFeedbackResult;
 import com.fukang.knowledge.agent.module.servicedesk.model.vo.ServiceTicketResult;
 import com.fukang.knowledge.agent.common.context.UserContextHolder;
@@ -126,7 +125,7 @@ public class ServiceDeskController {
             throw new BaseException(ErrorCodeEnum.BAD_REQUEST.getCode(), "反馈结果不能为空");
         }
         ServiceDeskFeedbackResult feedback = serviceDeskService.submitFeedback(
-                new SubmitFeedbackCommand(runId, currentUserId(), req.getResolved(), req.getComment()));
+                runId, currentUserId(), req.getResolved(), req.getComment());
         return Result.success(ServiceDeskResponseMapper.toFeedbackResp(feedback));
     }
 

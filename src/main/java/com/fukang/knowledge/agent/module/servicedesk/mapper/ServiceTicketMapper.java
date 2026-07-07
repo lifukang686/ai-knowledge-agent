@@ -15,12 +15,18 @@ import java.util.List;
  */
 public interface ServiceTicketMapper extends BaseMapper<ServiceTicketEntity> {
 
+    /**
+     * 按工单号查询当前用户可见的工单。
+     */
     default ServiceTicketEntity findByTicketNoAndCreatorId(String ticketNo, Long creatorId) {
         return selectOne(new LambdaQueryWrapper<ServiceTicketEntity>()
                 .eq(ServiceTicketEntity::getTicketNo, ticketNo)
                 .eq(ServiceTicketEntity::getCreatorId, creatorId));
     }
 
+    /**
+     * 分页查询当前用户工单，并按可选状态和服务类型过滤。
+     */
     default IPage<ServiceTicketEntity> pageByCreator(Long creatorId, long page, long pageSize,
                                                      TicketStatusEnum status, ServiceTypeEnum serviceType) {
         LambdaQueryWrapper<ServiceTicketEntity> wrapper = new LambdaQueryWrapper<>();
@@ -35,6 +41,9 @@ public interface ServiceTicketMapper extends BaseMapper<ServiceTicketEntity> {
         return selectPage(new Page<>(page, pageSize), wrapper);
     }
 
+    /**
+     * 查询当前用户最近创建的工单。
+     */
     default List<ServiceTicketEntity> findRecentByCreator(Long creatorId, int limit) {
         return selectList(new LambdaQueryWrapper<ServiceTicketEntity>()
                 .eq(ServiceTicketEntity::getCreatorId, creatorId)

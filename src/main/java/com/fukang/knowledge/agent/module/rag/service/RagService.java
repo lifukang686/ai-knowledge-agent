@@ -1,6 +1,6 @@
 package com.fukang.knowledge.agent.module.rag.service;
 
-import com.fukang.knowledge.agent.module.modelruntime.service.ChatCompletionClient;
+import com.fukang.knowledge.agent.module.modelruntime.service.client.ChatCompletionClient;
 import com.fukang.knowledge.agent.module.conversation.service.ConversationMemoryContext;
 import com.fukang.knowledge.agent.module.memory.service.UserMemoryContext;
 import com.fukang.knowledge.agent.module.knowledge.mapper.KnowledgeBaseMapper;
@@ -15,7 +15,7 @@ import com.fukang.knowledge.agent.module.rag.model.vo.SearchResult;
 import com.fukang.knowledge.agent.module.rag.service.AnswerGenerator;
 import com.fukang.knowledge.agent.module.rag.service.QueryRewriter;
 import com.fukang.knowledge.agent.module.rag.service.Reranker;
-import com.fukang.knowledge.agent.module.modelruntime.service.PromptTemplateManager;
+import com.fukang.knowledge.agent.module.modelruntime.service.manager.PromptTemplateManager;
 import com.fukang.knowledge.agent.module.rag.service.impl.LlmAnswerGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -219,7 +219,7 @@ public class RagService {
         log.info("流式问答检索为空，降级直接回答");
         handler.onStage("generate_start", "检索无结果，降级为直接回答");
         ragDirectAnswerService.streamDirectChat(
-                context.rewrittenQuery, context.rewrittenQuery, context.rewrittenQuery,
+                context.rewrittenQuery, context.question, context.rewrittenQuery,
                 context.memory, context.userMemory, handler);
         return true;
     }

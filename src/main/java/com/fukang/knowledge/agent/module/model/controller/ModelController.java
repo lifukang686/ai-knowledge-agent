@@ -3,12 +3,9 @@ package com.fukang.knowledge.agent.module.model.controller;
 import com.fukang.knowledge.agent.module.model.model.dto.ModelConfigReq;
 import com.fukang.knowledge.agent.module.model.model.dto.ModelConfigUpdateReq;
 import com.fukang.knowledge.agent.module.model.model.dto.ProviderReq;
+import com.fukang.knowledge.agent.module.model.model.resp.ModelConfigResp;
 import com.fukang.knowledge.agent.module.model.model.resp.ProviderResp;
 import com.fukang.knowledge.agent.module.model.model.dto.ProviderUpdateReq;
-import com.fukang.knowledge.agent.module.model.model.dto.ModelConfigCommand;
-import com.fukang.knowledge.agent.module.model.model.dto.ModelConfigUpdateCommand;
-import com.fukang.knowledge.agent.module.model.model.dto.ProviderCommand;
-import com.fukang.knowledge.agent.module.model.model.dto.ProviderUpdateCommand;
 import com.fukang.knowledge.agent.module.model.service.ModelService;
 import com.fukang.knowledge.agent.common.result.Result;
 import com.fukang.knowledge.agent.module.model.model.entity.ModelConfigEntity;
@@ -39,8 +36,7 @@ public class ModelController {
      */
     @PostMapping("/providers")
     public Result<Long> createProvider(@RequestBody @Validated ProviderReq req) {
-        return Result.success(modelService.createProvider(
-                new ProviderCommand(req.getName(), req.getApiBaseUrl(), req.getApiKey(), req.getDescription())));
+        return Result.success(modelService.createProvider(req));
     }
 
     /**
@@ -76,8 +72,7 @@ public class ModelController {
      */
     @PutMapping("/providers/{id}")
     public Result<Void> updateProvider(@PathVariable("id") Long id, @RequestBody @Validated ProviderUpdateReq req) {
-        modelService.updateProvider(id,
-                new ProviderUpdateCommand(req.getName(), req.getApiBaseUrl(), req.getApiKey(), req.getDescription()));
+        modelService.updateProvider(id, req);
         return Result.success();
     }
 
@@ -88,8 +83,7 @@ public class ModelController {
      */
     @PostMapping("/configs")
     public Result<Long> createModelConfig(@RequestBody @Validated ModelConfigReq req) {
-        return Result.success(modelService.createModelConfig(
-                new ModelConfigCommand(req.getProviderId(), req.getModelName(), req.getModelType(), req.getDefaultParams())));
+        return Result.success(modelService.createModelConfig(req));
     }
 
     /**
@@ -114,8 +108,7 @@ public class ModelController {
      */
     @PutMapping("/configs/{id}")
     public Result<Void> updateModelConfig(@PathVariable("id") Long id, @RequestBody @Validated ModelConfigUpdateReq req) {
-        modelService.updateModelConfig(id,
-                new ModelConfigUpdateCommand(req.getProviderId(), req.getModelName(), req.getModelType(), req.getDefaultParams()));
+        modelService.updateModelConfig(id, req);
         return Result.success();
     }
 
@@ -126,8 +119,8 @@ public class ModelController {
      * @return 该提供商下的模型配置列表
      */
     @GetMapping("/configs")
-    public Result<List<ModelConfigEntity>> listModelConfigs(@RequestParam("providerId") String providerId) {
-        return Result.success(modelService.listModelConfigs(Long.valueOf(providerId)));
+    public Result<List<ModelConfigResp>> listModelConfigs(@RequestParam("providerId") Long providerId) {
+        return Result.success(modelService.listModelConfigs(providerId).stream().map(this::toModelConfigResp).toList());
     }
 
     /**
@@ -162,6 +155,14 @@ public class ModelController {
         return new ProviderResp(provider.getId(), provider.getName(), provider.getApiBaseUrl(),
                 maskApiKey(provider.getApiKey()), provider.getDescription(), provider.getIsDefault(),
                 provider.getCreateTime(), provider.getUpdateTime());
+    }
+
+    /**
+     * 转换模型配置响应，避免接口层直接返回数据库实体。
+     */
+    private ModelConfigResp toModelConfigResp(ModelConfigEntity config) {
+        return new ModelConfigResp(config.getId(), config.getProviderId(), config.getModelName(),
+                config.getModelType(), config.getDefaultParams(), config.getCreateTime(), config.getUpdateTime());
     }
 
     /**

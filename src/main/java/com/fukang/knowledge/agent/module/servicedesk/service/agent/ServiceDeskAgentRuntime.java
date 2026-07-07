@@ -9,7 +9,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fukang.knowledge.agent.module.agent.service.runtime.AgentRuntimeOptions;
 import com.fukang.knowledge.agent.module.agent.service.runtime.PlanExecuteAgentRuntime;
 import com.fukang.knowledge.agent.module.agent.service.tool.impl.ScopedToolRegistry;
-import com.fukang.knowledge.agent.module.servicedesk.service.ServiceDeskStreamHandler;
+import com.fukang.knowledge.agent.module.servicedesk.service.stream.ServiceDeskStreamHandler;
 import com.fukang.knowledge.agent.module.servicedesk.model.dto.ServiceDeskAskCommand;
 import com.fukang.knowledge.agent.module.servicedesk.model.vo.ServiceDeskAnswerResult;
 import com.fukang.knowledge.agent.module.servicedesk.model.vo.ServiceTicketResult;
@@ -17,7 +17,7 @@ import com.fukang.knowledge.agent.module.agent.model.vo.AgentRunEvent;
 import com.fukang.knowledge.agent.module.agent.model.vo.AgentStep;
 import com.fukang.knowledge.agent.common.enums.ServiceTypeEnum;
 import com.fukang.knowledge.agent.common.enums.TicketStatusEnum;
-import com.fukang.knowledge.agent.module.modelruntime.service.PromptTemplateManager;
+import com.fukang.knowledge.agent.module.modelruntime.service.manager.PromptTemplateManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

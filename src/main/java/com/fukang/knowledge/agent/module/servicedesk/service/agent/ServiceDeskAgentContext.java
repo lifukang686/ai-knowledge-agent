@@ -4,7 +4,7 @@ package com.fukang.knowledge.agent.module.servicedesk.service.agent;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import com.fukang.knowledge.agent.module.servicedesk.service.ServiceDeskStreamHandler;
+import com.fukang.knowledge.agent.module.servicedesk.service.stream.ServiceDeskStreamHandler;
 import com.fukang.knowledge.agent.common.enums.ServiceTypeEnum;
 
 /**

@@ -1,7 +1,6 @@
 package com.fukang.knowledge.agent.module.knowledge.service;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.fukang.knowledge.agent.module.knowledge.mapper.DocumentChunkMapper;
 import com.fukang.knowledge.agent.module.knowledge.mapper.DocumentMapper;
 import com.fukang.knowledge.agent.module.knowledge.model.vo.DocumentDetailResult;
 import com.fukang.knowledge.agent.module.knowledge.model.vo.DocumentResult;
@@ -13,10 +12,11 @@ import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.common.result.PageResponse;
 import com.fukang.knowledge.agent.module.knowledge.model.event.DocumentUploadedEvent;
 import com.fukang.knowledge.agent.common.enums.DocumentStatusEnum;
-import com.fukang.knowledge.agent.module.modelruntime.service.EmbeddingIndexStorageService;
+import com.fukang.knowledge.agent.module.modelruntime.service.storage.EmbeddingIndexStorageService;
 import com.fukang.knowledge.agent.module.knowledge.model.entity.DocumentChunkEntity;
 import com.fukang.knowledge.agent.module.knowledge.model.entity.DocumentEntity;
 import com.fukang.knowledge.agent.module.knowledge.integration.MinioStorageService;
+import com.fukang.knowledge.agent.module.knowledge.service.storage.DocumentChunkStorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -44,7 +44,7 @@ public class DocumentService {
     private final DocumentMapper documentMapper;
     private final MinioStorageService minioStorageService;
     private final ApplicationEventPublisher eventPublisher;
-    private final DocumentChunkMapper documentChunkMapper;
+    private final DocumentChunkStorageService chunkStorageService;
     private final EmbeddingIndexStorageService embeddingIndexStorageService;
 
     /**
@@ -130,7 +130,7 @@ public class DocumentService {
      * 拼接已解析的文档块内容。
      */
     private String buildParsedContent(Long documentId) {
-        return documentChunkMapper.findByDocumentId(documentId).stream()
+        return chunkStorageService.findByDocumentId(documentId).stream()
                 .map(DocumentChunkEntity::getChunkText)
                 .filter(text -> text != null && !text.isBlank())
                 .collect(Collectors.joining("\n\n"));
@@ -151,14 +151,17 @@ public class DocumentService {
     public void deleteDocument(Long documentId) {
         DocumentEntity document = findDocumentById(documentId);
 
-        List<Long> chunkIds = documentChunkMapper.findIdsByDocumentId(documentId);
+        List<Long> chunkIds = chunkStorageService.findByDocumentId(documentId).stream()
+                .map(DocumentChunkEntity::getId)
+                .filter(id -> id != null)
+                .toList();
 
         if (!chunkIds.isEmpty()) {
             embeddingIndexStorageService.deleteByChunkIdsPgVector(chunkIds);
             log.info("文档关联向量索引已删除: documentId={}, chunkCount={}", documentId, chunkIds.size());
         }
 
-        long chunkCount = documentChunkMapper.deleteByDocumentId(documentId);
+        long chunkCount = chunkStorageService.deleteByDocumentId(documentId);
         log.info("文档关联块已删除: documentId={}, chunkCount={}", documentId, chunkCount);
 
         documentMapper.deleteById(documentId);

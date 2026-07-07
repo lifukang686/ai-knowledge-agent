@@ -3,8 +3,6 @@ package com.fukang.knowledge.agent.module.knowledge.controller.knowledgebase;
 import com.fukang.knowledge.agent.module.knowledge.model.dto.CreateKnowledgeBaseReq;
 import com.fukang.knowledge.agent.module.knowledge.model.resp.KnowledgeBaseResp;
 import com.fukang.knowledge.agent.module.knowledge.model.dto.UpdateKnowledgeBaseReq;
-import com.fukang.knowledge.agent.module.knowledge.model.dto.CreateKnowledgeBaseCommand;
-import com.fukang.knowledge.agent.module.knowledge.model.dto.UpdateKnowledgeBaseCommand;
 import com.fukang.knowledge.agent.module.knowledge.model.vo.KnowledgeBaseResult;
 import com.fukang.knowledge.agent.module.knowledge.service.KnowledgeBaseService;
 import com.fukang.knowledge.agent.common.result.PageResponse;
@@ -41,8 +39,7 @@ public class KnowledgeBaseController {
      */
     @PostMapping
     public Result<Long> createKnowledgeBase(@RequestBody @Validated CreateKnowledgeBaseReq req) {
-        return Result.success(knowledgeBaseService.createKnowledgeBase(
-                new CreateKnowledgeBaseCommand(req.getName(), req.getDescription())));
+        return Result.success(knowledgeBaseService.createKnowledgeBase(req));
     }
 
     /**
@@ -91,8 +88,7 @@ public class KnowledgeBaseController {
     public Result<Void> updateKnowledgeBase(
             @PathVariable("id") Long id,
             @RequestBody @Validated UpdateKnowledgeBaseReq req) {
-        knowledgeBaseService.updateKnowledgeBase(id,
-                new UpdateKnowledgeBaseCommand(req.getName(), req.getDescription()));
+        knowledgeBaseService.updateKnowledgeBase(id, req);
         return Result.success();
     }
 

@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Plus, Database, Edit, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { ModelConfig, ModelProvider, MODEL_TYPE_LABELS } from '@/types/modelProvider';
+import { ModelConfig, MODEL_TYPE_LABELS } from '@/types/modelProvider';
 import { modelProviderService } from '@/services/modelProvider';
 import { DataTable } from '@/components/common/DataTable';
 import { FormModal } from '@/components/common/FormModal';
@@ -177,7 +177,7 @@ const ModelList: React.FC = () => {
     {
       key: 'modelName',
       title: '模型名称',
-      render: (value: string, record: ModelConfig) => (
+      render: (value: string) => (
         <div className="flex items-center">
           <Database className="h-4 w-4 text-gray-400 mr-2" />
           <span className="font-medium text-gray-900">{value}</span>

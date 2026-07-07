@@ -26,8 +26,11 @@ public class ReasoningResult {
     public enum Decision {
         /** 继续执行下一个计划步骤 */
         CONTINUE,
+        /** 已可给出最终答案 */
         FINAL_ANSWER,
+        /** 重试最近一次工具调用 */
         RETRY,
+        /** 终止当前任务 */
         ABORT
     }
 

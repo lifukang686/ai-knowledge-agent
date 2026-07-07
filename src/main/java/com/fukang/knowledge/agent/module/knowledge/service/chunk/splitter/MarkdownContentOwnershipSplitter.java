@@ -209,9 +209,7 @@ public class MarkdownContentOwnershipSplitter implements DocumentSplitter {
     }
 
     @Data
-
     @NoArgsConstructor
-
     @AllArgsConstructor
     private static class Section {
         private String title;

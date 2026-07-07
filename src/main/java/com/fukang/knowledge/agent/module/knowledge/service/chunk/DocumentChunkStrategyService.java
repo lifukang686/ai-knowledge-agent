@@ -1,13 +1,12 @@
 package com.fukang.knowledge.agent.module.knowledge.service.chunk;
 
-import com.fukang.knowledge.agent.module.knowledge.model.dto.CreateChunkStrategyCommand;
-import com.fukang.knowledge.agent.module.knowledge.model.dto.UpdateChunkStrategyCommand;
+import com.fukang.knowledge.agent.module.knowledge.model.dto.ChunkStrategyReq;
+import com.fukang.knowledge.agent.module.knowledge.model.dto.ChunkStrategyUpdateReq;
 import com.fukang.knowledge.agent.module.knowledge.mapper.DocumentChunkStrategyMapper;
 import com.fukang.knowledge.agent.common.enums.ChunkTypeEnum;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.common.result.PageResponse;
-import com.fukang.knowledge.agent.module.knowledge.service.chunk.ChunkStrategy;
 import com.fukang.knowledge.agent.module.knowledge.service.chunk.impl.CharacterChunkStrategy;
 import com.fukang.knowledge.agent.module.knowledge.service.chunk.impl.ContentOwnershipChunkStrategy;
 import com.fukang.knowledge.agent.module.knowledge.service.chunk.impl.ParagraphChunkStrategy;
@@ -35,15 +34,15 @@ public class DocumentChunkStrategyService {
      * 创建分块策略。
      */
     @Transactional(rollbackFor = Exception.class)
-    public Long createStrategy(CreateChunkStrategyCommand command) {
-        validateChunkType(command.getChunkType());
-        validateSegmentSize(command.getMaxSegmentSize(), command.getOverlapSize());
+    public Long createStrategy(ChunkStrategyReq req) {
+        validateChunkType(req.getChunkType());
+        validateSegmentSize(req.getMaxSegmentSize(), req.getOverlapSize());
 
         DocumentChunkStrategyEntity strategy = new DocumentChunkStrategyEntity();
-        strategy.setStrategyName(command.getStrategyName());
-        strategy.setChunkType(command.getChunkType());
-        strategy.setMaxSegmentSize(command.getMaxSegmentSize());
-        strategy.setOverlapSize(command.getOverlapSize());
+        strategy.setStrategyName(req.getStrategyName());
+        strategy.setChunkType(req.getChunkType());
+        strategy.setMaxSegmentSize(req.getMaxSegmentSize());
+        strategy.setOverlapSize(req.getOverlapSize());
         strategy.setIsDefault(false);
         chunkStrategyMapper.insert(strategy);
         log.info("分块策略创建成功: id={}, name={}, type={}",
@@ -62,21 +61,20 @@ public class DocumentChunkStrategyService {
      * 更新分块策略。
      */
     @Transactional(rollbackFor = Exception.class)
-    public void updateStrategy(Long id, UpdateChunkStrategyCommand command) {
+    public void updateStrategy(Long id, ChunkStrategyUpdateReq req) {
         DocumentChunkStrategyEntity strategy = findStrategyById(id);
-        validateChunkType(strategy.getChunkType());
-        if (StringUtils.hasText(command.getStrategyName())) {
-            strategy.setStrategyName(command.getStrategyName());
+        if (StringUtils.hasText(req.getStrategyName())) {
+            strategy.setStrategyName(req.getStrategyName());
         }
-        if (StringUtils.hasText(command.getChunkType())) {
-            validateChunkType(command.getChunkType());
-            strategy.setChunkType(command.getChunkType());
+        if (StringUtils.hasText(req.getChunkType())) {
+            validateChunkType(req.getChunkType());
+            strategy.setChunkType(req.getChunkType());
         }
-        if (command.getMaxSegmentSize() != null) {
-            strategy.setMaxSegmentSize(command.getMaxSegmentSize());
+        if (req.getMaxSegmentSize() != null) {
+            strategy.setMaxSegmentSize(req.getMaxSegmentSize());
         }
-        if (command.getOverlapSize() != null) {
-            strategy.setOverlapSize(command.getOverlapSize());
+        if (req.getOverlapSize() != null) {
+            strategy.setOverlapSize(req.getOverlapSize());
         }
         validateSegmentSize(strategy.getMaxSegmentSize(), strategy.getOverlapSize());
         chunkStrategyMapper.updateById(strategy);

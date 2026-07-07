@@ -11,7 +11,7 @@ import com.fukang.knowledge.agent.module.agent.model.vo.AgentChatMessage;
 import com.fukang.knowledge.agent.module.agent.model.bo.AgentChatSession;
 import com.fukang.knowledge.agent.module.agent.model.vo.ToolInfo;
 import com.fukang.knowledge.agent.module.agent.model.vo.PlanStep;
-import com.fukang.knowledge.agent.module.modelruntime.service.PromptTemplateManager;
+import com.fukang.knowledge.agent.module.modelruntime.service.manager.PromptTemplateManager;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 

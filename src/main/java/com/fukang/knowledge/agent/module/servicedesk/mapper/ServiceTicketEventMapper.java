@@ -11,12 +11,18 @@ import java.util.List;
  */
 public interface ServiceTicketEventMapper extends BaseMapper<ServiceTicketEventEntity> {
 
+    /**
+     * 按时间顺序查询工单事件。
+     */
     default List<ServiceTicketEventEntity> findByTicketId(Long ticketId) {
         return selectList(new LambdaQueryWrapper<ServiceTicketEventEntity>()
                 .eq(ServiceTicketEventEntity::getTicketId, ticketId)
                 .orderByAsc(ServiceTicketEventEntity::getCreateTime));
     }
 
+    /**
+     * 统计工单事件数量。
+     */
     default Long countByTicketId(Long ticketId) {
         return selectCount(new LambdaQueryWrapper<ServiceTicketEventEntity>()
                 .eq(ServiceTicketEventEntity::getTicketId, ticketId));

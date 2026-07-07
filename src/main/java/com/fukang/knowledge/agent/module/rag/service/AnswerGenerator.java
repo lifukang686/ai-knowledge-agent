@@ -9,9 +9,6 @@ import java.util.List;
  */
 public interface AnswerGenerator {
 
-    /** 基于检索结果和查询生成回答。 */
-    String generateAnswer(List<SearchResult> results, String query);
-
     /** 基于检索结果、查询和会话记忆生成回答。 */
     String generateAnswer(List<SearchResult> results, String query, String conversationMemory);
 }

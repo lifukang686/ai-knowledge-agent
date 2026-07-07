@@ -11,7 +11,8 @@ import org.springframework.util.StringUtils;
 import java.util.List;
 
 /**
- * 鏂囨。鍒嗗潡绛栫暐 Mapper銆? */
+ * 文档分块策略 Mapper。
+ */
 public interface DocumentChunkStrategyMapper extends BaseMapper<DocumentChunkStrategyEntity> {
 
     default DocumentChunkStrategyEntity findDefault() {

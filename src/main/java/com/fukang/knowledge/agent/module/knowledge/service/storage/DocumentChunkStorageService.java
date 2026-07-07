@@ -5,7 +5,6 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.fukang.knowledge.agent.module.knowledge.model.vo.ChunkResult;
 import com.fukang.knowledge.agent.module.knowledge.model.vo.ChunkResult.ParsedChunk;
 import com.fukang.knowledge.agent.module.knowledge.model.vo.ChunkStorageResult;
-import com.fukang.knowledge.agent.module.knowledge.model.vo.ChunkStorageResult.FailedChunkDetail;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.module.rag.service.ChineseTextTokenizer;
@@ -19,17 +18,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 文档块批量存储服务
- * <p>负责文档块的批量持久化操作，提供事务管理、数据校验和结果反馈。
- * 继承 MyBatis-Plus ServiceImpl 以获得批量插入等能力。
- * 设计为基础设施层的存储服务，仅处理数据库写入逻辑，不包含业务编排</p>
- *
- * <p>提供三种存储模式：
- * <ul>
- *   <li>{@link #saveAllInTransaction} - 全事务模式，任意失败整体回滚</li>
- *   <li>{@link #saveAllWithPartialFailure} - 逐条模式，收集失败详情继续执行</li>
- *   <li>{@link #saveBatch} - 批量插入模式，利用 MyBatis-Plus 高效批量写入</li>
- * </ul>
+ * 文档块存储服务。
+ * <p>只封装 document_chunk 表的批量写入、查询、删除和实体转换，不承载文档处理流程编排。</p>
  */
 @Slf4j
 @Service
@@ -39,81 +29,6 @@ public class DocumentChunkStorageService extends ServiceImpl<DocumentChunkMapper
 
     public DocumentChunkStorageService(ChineseTextTokenizer chineseTextTokenizer) {
         this.chineseTextTokenizer = chineseTextTokenizer;
-    }
-
-    /**
-     * 事务批量保存文档块（全量成功或整体回滚）
-     * <p>在一个事务中循环插入所有块。任意一条插入返回非 1 时抛出异常，
-     * 触发事务回滚。适用于对数据一致性要求高的场景</p>
-     *
-     * @param chunks     待存储的文档块 DO 列表
-     * @param documentId 关联的文档ID
-     * @return 全部成功的存储结果
-     * @throws BaseException 任意块存储失败时抛出 CHUNK_STORAGE_FAILED
-     */
-    @Transactional(rollbackFor = Exception.class)
-    public ChunkStorageResult saveAllInTransaction(List<DocumentChunkEntity> chunks, Long documentId) {
-        if (chunks == null || chunks.isEmpty()) {
-            log.warn("待存储的文档块列表为空: documentId={}", documentId);
-            throw new BaseException(ErrorCodeEnum.CHUNK_DATA_EMPTY);
-        }
-
-        log.info("开始事务批量存储文档块: documentId={}, count={}", documentId, chunks.size());
-
-        for (DocumentChunkEntity chunk : chunks) {
-            int inserted = baseMapper.insert(chunk);
-            if (inserted != 1) {
-                log.error("文档块存储失败: documentId={}, chunkOrder={}", documentId, chunk.getChunkOrder());
-                throw new BaseException(ErrorCodeEnum.CHUNK_STORAGE_FAILED);
-            }
-        }
-
-        log.info("事务批量存储完成: documentId={}, count={}", documentId, chunks.size());
-        return ChunkStorageResult.allSuccess(documentId, chunks.size());
-    }
-
-    /**
-     * 逐条保存文档块（允许部分失败）
-     * <p>逐条插入每个块，单条失败不中断后续存储，收集所有失败信息后返回。
-     * 适用于对可用性要求高于一致性的场景</p>
-     *
-     * @param chunks     待存储的文档块 DO 列表
-     * @param documentId 关联的文档ID
-     * @return 包含成功/失败计数的存储结果
-     */
-    public ChunkStorageResult saveAllWithPartialFailure(List<DocumentChunkEntity> chunks, Long documentId) {
-        if (chunks == null || chunks.isEmpty()) {
-            log.warn("待存储的文档块列表为空: documentId={}", documentId);
-            throw new BaseException(ErrorCodeEnum.CHUNK_DATA_EMPTY);
-        }
-
-        log.info("开始逐条存储文档块: documentId={}, count={}", documentId, chunks.size());
-
-        int successCount = 0;
-        List<FailedChunkDetail> failedDetails = new ArrayList<>();
-
-        for (DocumentChunkEntity chunk : chunks) {
-            try {
-                int inserted = baseMapper.insert(chunk);
-                if (inserted == 1) {
-                    successCount++;
-                } else {
-                    failedDetails.add(new FailedChunkDetail(
-                            chunk.getChunkOrder(), "insert 返回结果异常: " + inserted));
-                }
-            } catch (Exception e) {
-                log.error("文档块存储异常: documentId={}, chunkOrder={}",
-                        documentId, chunk.getChunkOrder(), e);
-                failedDetails.add(new FailedChunkDetail(
-                        chunk.getChunkOrder(),
-                        e.getMessage() != null ? e.getMessage() : "未知错误"));
-            }
-        }
-
-        log.info("逐条存储完成: documentId={}, total={}, success={}, failed={}",
-                documentId, chunks.size(), successCount, failedDetails.size());
-
-        return ChunkStorageResult.withFailures(documentId, chunks.size(), successCount, failedDetails);
     }
 
     /**
@@ -178,19 +93,6 @@ public class DocumentChunkStorageService extends ServiceImpl<DocumentChunkMapper
         );
         log.info("已删除文档块: documentId={}, count={}", documentId, deleted);
         return deleted;
-    }
-
-    /**
-     * 统计文档的块数量
-     *
-     * @param documentId 文档ID
-     * @return 块数量
-     */
-    public long countByDocumentId(Long documentId) {
-        return baseMapper.selectCount(
-                new LambdaQueryWrapper<DocumentChunkEntity>()
-                        .eq(DocumentChunkEntity::getDocumentId, documentId)
-        );
     }
 
     /**

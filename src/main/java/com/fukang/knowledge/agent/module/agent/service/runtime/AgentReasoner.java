@@ -9,7 +9,7 @@ import com.fukang.knowledge.agent.module.agent.model.bo.AgentContext;
 import com.fukang.knowledge.agent.module.agent.model.vo.AgentStep;
 import com.fukang.knowledge.agent.module.agent.model.vo.PlanStep;
 import com.fukang.knowledge.agent.module.agent.model.vo.ReasoningResult;
-import com.fukang.knowledge.agent.module.modelruntime.service.PromptTemplateManager;
+import com.fukang.knowledge.agent.module.modelruntime.service.manager.PromptTemplateManager;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -68,9 +68,8 @@ public class AgentReasoner {
      * @return 推理结果
      */
     public ReasoningResult reason(AgentContext context) {
-        log.debug("开始推理: completedSteps={}/{}, totalSteps={}",
-                context.getCompletedStepCount(), context.getTotalStepCount(),
-                context.getTotalStepCount());
+        log.debug("开始推理: completedSteps={}, totalSteps={}",
+                context.getCompletedStepCount(), context.getTotalStepCount());
 
         AgentStep lastStep = context.getLastStep();
         String stepsHistory = formatStepsHistory(context.getSteps());

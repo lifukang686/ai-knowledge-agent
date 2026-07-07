@@ -66,21 +66,14 @@ public class DocumentEmbeddingTextService {
     }
 
     /**
-     * 构造单个 chunk 的 embedding 输入文本。
+     * 构造单个 chunk 的 embedding 输入文本，并补充邻近块短上下文。
      * <p>只做低风险清洗和上下文补充，不改写原文语义。</p>
      */
-    public String buildEmbeddingText(String documentTitle, DocumentChunkEntity chunk, int totalChunks) {
-        return buildEmbeddingText(documentTitle, chunk, totalChunks, null, null);
-    }
-
-    /**
-     * 构造单个 chunk 的 embedding 输入文本，并补充邻近块短上下文。
-     */
-    public String buildEmbeddingText(String documentTitle,
-                                     DocumentChunkEntity chunk,
-                                     int totalChunks,
-                                     DocumentChunkEntity previous,
-                                     DocumentChunkEntity next) {
+    private String buildEmbeddingText(String documentTitle,
+                                      DocumentChunkEntity chunk,
+                                      int totalChunks,
+                                      DocumentChunkEntity previous,
+                                      DocumentChunkEntity next) {
         String title = normalizeText(documentTitle);
         String chunkText = normalizeText(chunk.getChunkText());
         int chunkIndex = chunk.getChunkOrder() != null ? chunk.getChunkOrder() + 1 : 1;
@@ -99,7 +92,7 @@ public class DocumentEmbeddingTextService {
     /**
      * 统一换行并移除不可见控制字符，避免污染向量输入。
      */
-    public String normalizeText(String text) {
+    private String normalizeText(String text) {
         if (text == null) {
             return "";
         }

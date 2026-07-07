@@ -44,9 +44,4 @@ public class ServiceDeskAnswerResult {
                 conversationId, approvalRequired, pendingTicket, newEvents, feedbackSubmitted);
     }
 
-    public ServiceDeskAnswerResult withFeedbackSubmitted(Boolean submitted) {
-        return new ServiceDeskAnswerResult(answer, intent, serviceType, status, runId, ticketId, ticketNo,
-                conversationId, approvalRequired, pendingTicket, events, submitted);
-    }
-
 }

@@ -4,12 +4,10 @@ package com.fukang.knowledge.agent.module.conversation.service;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import com.fukang.knowledge.agent.module.conversation.model.entity.ConversationMessageEntity;
-
-import java.util.List;
 
 /**
  * 一次 RAG 问答可用的会话记忆上下文。
+ * <p>只暴露下游 Prompt 组装需要的摘要和历史文本，避免把消息实体泄漏到 RAG 编排层。</p>
  */
 @Data
 @NoArgsConstructor
@@ -19,15 +17,7 @@ public class ConversationMemoryContext {
 
     private String summary;
 
-    private List<ConversationMessageEntity> recentMessages;
-
     private String rewriteHistory;
 
     private String answerHistory;
-
-    public boolean hasMemory() {
-        return (summary != null && !summary.isBlank())
-                || (recentMessages != null && !recentMessages.isEmpty());
-    }
-
 }

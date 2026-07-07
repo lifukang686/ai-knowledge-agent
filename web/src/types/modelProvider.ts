@@ -66,5 +66,3 @@ export interface ModelProviderQuery {
   page?: number;
   pageSize?: number;
 }
-
-import { BaseEntity } from './common';

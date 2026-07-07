@@ -11,9 +11,18 @@ import java.util.List;
  */
 public interface AgentChatClient {
 
+    /**
+     * 创建指定窗口大小的 Agent 对话会话。
+     */
     AgentChatSession newSession(int maxMessages);
 
+    /**
+     * 创建默认窗口大小的 Agent 对话会话。
+     */
     AgentChatSession newDefaultSession();
 
+    /**
+     * 发送新消息并返回模型输出文本。
+     */
     String generate(AgentChatSession session, List<AgentChatMessage> newMessages);
 }

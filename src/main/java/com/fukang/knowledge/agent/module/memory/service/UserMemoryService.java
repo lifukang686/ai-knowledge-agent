@@ -6,10 +6,10 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fukang.knowledge.agent.module.modelruntime.service.impl.ChatModelClient;
+import com.fukang.knowledge.agent.module.modelruntime.service.client.impl.ChatModelClient;
 import com.fukang.knowledge.agent.module.memory.mapper.UserMemoryMapper;
 import com.fukang.knowledge.agent.common.context.UserContextHolder;
-import com.fukang.knowledge.agent.module.modelruntime.service.PromptTemplateManager;
+import com.fukang.knowledge.agent.module.modelruntime.service.manager.PromptTemplateManager;
 import com.fukang.knowledge.agent.module.memory.model.entity.UserMemoryEntity;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,7 +19,9 @@ import org.springframework.util.StringUtils;
 
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 用户级记忆服务，跨会话沉淀稳定偏好和事实。
@@ -48,7 +50,7 @@ public class UserMemoryService {
     /**
      * 允许保存的记忆类型。
      */
-    private static final List<String> ALLOWED_TYPES = List.of("profile", "preference", "fact", "goal");
+    private static final Set<String> ALLOWED_TYPES = Set.of("profile", "preference", "fact", "goal");
 
     private final UserMemoryMapper userMemoryMapper;
     private final ChatModelClient chatCompletionPort;
@@ -94,16 +96,21 @@ public class UserMemoryService {
         int inserted = 0;
         int updated = 0;
         for (MemoryCandidate candidate : candidates) {
-            if (!isValidCandidate(candidate)) {
+            String memoryType = normalizeMemoryType(candidate != null ? candidate.getType() : null);
+            String content = normalizeContent(candidate != null ? candidate.getContent() : null);
+            if (!isValidCandidate(memoryType, content)) {
                 continue;
             }
             UserMemoryEntity existing = userMemoryMapper.findActiveByContent(
-                    userId, candidate.getType(), candidate.getContent().trim());
+                    userId, memoryType, content);
             if (existing == null) {
-                userMemoryMapper.insert(toMemory(userId, conversationId, sourceMessageId, candidate));
+                userMemoryMapper.insert(toMemory(userId, conversationId, sourceMessageId,
+                        memoryType, content, candidate.getConfidence()));
                 inserted++;
             } else {
-                existing.setConfidence(Math.max(existing.getConfidence(), normalizeConfidence(candidate.getConfidence())));
+                existing.setConfidence(Math.max(
+                        normalizeConfidence(existing.getConfidence()),
+                        normalizeConfidence(candidate.getConfidence())));
                 existing.setSourceConversationId(conversationId);
                 existing.setSourceMessageId(sourceMessageId);
                 userMemoryMapper.updateById(existing);
@@ -170,13 +177,13 @@ public class UserMemoryService {
     /**
      * 校验候选记忆是否可保存。
      *
-     * @param candidate 候选记忆
+     * @param memoryType 归一化后的记忆类型
+     * @param content    归一化后的记忆内容
      */
-    private boolean isValidCandidate(MemoryCandidate candidate) {
-        return candidate != null
-                && ALLOWED_TYPES.contains(candidate.getType())
-                && StringUtils.hasText(candidate.getContent())
-                && candidate.getContent().length() <= CONTENT_MAX_LENGTH;
+    private boolean isValidCandidate(String memoryType, String content) {
+        return ALLOWED_TYPES.contains(memoryType)
+                && StringUtils.hasText(content)
+                && content.length() <= CONTENT_MAX_LENGTH;
     }
 
     /**
@@ -185,14 +192,17 @@ public class UserMemoryService {
      * @param userId          用户ID
      * @param conversationId  来源会话ID
      * @param sourceMessageId 来源消息ID
-     * @param candidate       候选记忆
+     * @param memoryType      记忆类型
+     * @param content         记忆内容
+     * @param confidence      记忆置信度
      */
-    private UserMemoryEntity toMemory(Long userId, Long conversationId, Long sourceMessageId, MemoryCandidate candidate) {
+    private UserMemoryEntity toMemory(Long userId, Long conversationId, Long sourceMessageId,
+                                      String memoryType, String content, Double confidence) {
         UserMemoryEntity memory = new UserMemoryEntity();
         memory.setUserId(userId);
-        memory.setMemoryType(candidate.getType());
-        memory.setContent(candidate.getContent().trim());
-        memory.setConfidence(normalizeConfidence(candidate.getConfidence()));
+        memory.setMemoryType(memoryType);
+        memory.setContent(content);
+        memory.setConfidence(normalizeConfidence(confidence));
         memory.setSourceConversationId(conversationId);
         memory.setSourceMessageId(sourceMessageId);
         memory.setStatus(STATUS_ACTIVE);
@@ -256,11 +266,24 @@ public class UserMemoryService {
     }
 
     /**
+     * 归一化记忆类型，兼容模型输出大小写或多余空格。
+     */
+    private String normalizeMemoryType(String type) {
+        return type == null ? "" : type.trim().toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * 归一化记忆内容，避免同一内容因首尾空格重复入库。
+     */
+    private String normalizeContent(String content) {
+        return content == null ? "" : content.trim();
+    }
+
+    /**
      * 获取当前用户 ID。
      */
     private Long currentUserId() {
-        Long userId = UserContextHolder.getUserId();
-        return userId;
+        return UserContextHolder.getUserId();
     }
 
     /**

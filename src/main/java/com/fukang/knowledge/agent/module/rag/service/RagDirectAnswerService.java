@@ -1,12 +1,12 @@
 package com.fukang.knowledge.agent.module.rag.service;
 
-import com.fukang.knowledge.agent.module.modelruntime.service.ChatCompletionClient;
+import com.fukang.knowledge.agent.module.modelruntime.service.client.ChatCompletionClient;
 import com.fukang.knowledge.agent.module.conversation.service.ConversationMemoryContext;
 import com.fukang.knowledge.agent.module.memory.service.UserMemoryContext;
 import com.fukang.knowledge.agent.module.rag.service.intent.QaIntent;
 import com.fukang.knowledge.agent.module.rag.model.vo.QaResult;
 import com.fukang.knowledge.agent.module.rag.service.stream.QaStreamHandler;
-import com.fukang.knowledge.agent.module.modelruntime.service.PromptTemplateManager;
+import com.fukang.knowledge.agent.module.modelruntime.service.manager.PromptTemplateManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

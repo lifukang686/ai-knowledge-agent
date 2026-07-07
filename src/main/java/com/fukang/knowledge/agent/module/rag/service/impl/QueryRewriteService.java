@@ -1,8 +1,8 @@
 package com.fukang.knowledge.agent.module.rag.service.impl;
 
 import com.fukang.knowledge.agent.module.rag.service.QueryRewriter;
-import com.fukang.knowledge.agent.module.modelruntime.service.DynamicModelManager;
-import com.fukang.knowledge.agent.module.modelruntime.service.PromptTemplateManager;
+import com.fukang.knowledge.agent.module.modelruntime.service.manager.DynamicModelManager;
+import com.fukang.knowledge.agent.module.modelruntime.service.manager.PromptTemplateManager;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
@@ -32,17 +32,9 @@ public class QueryRewriteService implements QueryRewriter {
      */
     private static final int MAX_RESULT_LENGTH = 500;
     /**
-     * 摘要式改写模板。
+     * 默认查询改写模板。
      */
-    private static final String ABSTRACTIVE_TEMPLATE = "rag/query-rewrite-abstractive.v1";
-    /**
-     * 抽取式改写模板。
-     */
-    private static final String EXTRACTIVE_TEMPLATE = "rag/query-rewrite-extractive.v1";
-    /**
-     * 混合改写模板。
-     */
-    private static final String HYBRID_TEMPLATE = "rag/query-rewrite-hybrid.v1";
+    private static final String REWRITE_TEMPLATE = "rag/query-rewrite-abstractive.v1";
     /**
      * 多轮历史改写模板。
      */
@@ -69,7 +61,7 @@ public class QueryRewriteService implements QueryRewriter {
             log.debug("查询过短，跳过改写");
             return originalQuery;
         }
-        return rewriteAbstractive(originalQuery.trim());
+        return doRewrite(originalQuery.trim(), REWRITE_TEMPLATE, "default");
     }
 
     /**
@@ -94,30 +86,6 @@ public class QueryRewriteService implements QueryRewriter {
                         "question", originalQuery != null ? originalQuery : ""
                 ))
         ));
-    }
-
-    /**
-     * 摘要式改写。
-     */
-    @Override
-    public String rewriteAbstractive(String originalQuery) {
-        return doRewrite(originalQuery, ABSTRACTIVE_TEMPLATE, "abstractive");
-    }
-
-    /**
-     * 抽取式改写。
-     */
-    @Override
-    public String rewriteExtractive(String originalQuery) {
-        return doRewrite(originalQuery, EXTRACTIVE_TEMPLATE, "extractive");
-    }
-
-    /**
-     * 混合式改写。
-     */
-    @Override
-    public String rewriteHybrid(String originalQuery) {
-        return doRewrite(originalQuery, HYBRID_TEMPLATE, "hybrid");
     }
 
     /**

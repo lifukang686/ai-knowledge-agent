@@ -2,9 +2,8 @@ package com.fukang.knowledge.agent.module.servicedesk.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fukang.knowledge.agent.module.servicedesk.service.agent.ServiceDeskAgentRuntime;
-import com.fukang.knowledge.agent.module.servicedesk.model.dto.ConfirmTicketCommand;
+import com.fukang.knowledge.agent.module.servicedesk.service.stream.ServiceDeskStreamHandler;
 import com.fukang.knowledge.agent.module.servicedesk.model.dto.ServiceDeskAskCommand;
-import com.fukang.knowledge.agent.module.servicedesk.model.dto.SubmitFeedbackCommand;
 import com.fukang.knowledge.agent.module.servicedesk.mapper.ServiceDeskFeedbackMapper;
 import com.fukang.knowledge.agent.module.servicedesk.mapper.ServiceDeskRunMapper;
 import com.fukang.knowledge.agent.module.servicedesk.model.vo.ServiceDeskAnswerResult;
@@ -42,7 +41,11 @@ public class ServiceDeskService {
      * 工单应用服务。
      */
     private final TicketService ticketService;
-    private final ServiceDeskIntentClassifier serviceDeskIntentClassifier;
+
+    /**
+     * 服务类型解析器。
+     */
+    private final ServiceDeskTypeResolver serviceDeskTypeResolver;
 
     /**
      * 服务台 Agent 运行时。
@@ -80,7 +83,7 @@ public class ServiceDeskService {
         ServiceDeskRunEntity run = null;
         RecordingStreamHandler recordingHandler = new RecordingStreamHandler(handler);
         try {
-            // 先做意图归类，再按最终服务类型创建运行记录。
+            // 先解析最终服务类型，再创建运行记录和受控工具作用域。
             ServiceDeskAskCommand resolvedCommand = resolveCommand(command);
             run = createRun(userId, resolvedCommand);
             stage(recordingHandler, "agent_start", "服务台 Agent 正在规划处理步骤");
@@ -105,10 +108,10 @@ public class ServiceDeskService {
     }
 
     private ServiceDeskAskCommand resolveCommand(ServiceDeskAskCommand command) {
-        // 规则和 LLM 一起决定最终意图，避免前端传错 serviceType 影响路由。
-        ServiceDeskDecision decision = serviceDeskIntentClassifier.classify(
+        // 只解析服务范围，具体意图和工具调用由 Plan-Execute Runtime 规划。
+        ServiceTypeEnum serviceType = serviceDeskTypeResolver.resolve(
                 command.getQuestion(), ServiceTypeEnum.from(command.getServiceType()));
-        return command.withServiceType(decision.getServiceType());
+        return command.withServiceType(serviceType);
     }
 
     /**
@@ -117,7 +120,7 @@ public class ServiceDeskService {
     @Transactional(rollbackFor = Exception.class)
     public ServiceTicketResult confirmTicket(Long ticketId) {
         Long userId = currentUserId();
-        ServiceTicketResult ticket = ticketService.confirmTicket(new ConfirmTicketCommand(ticketId, userId));
+        ServiceTicketResult ticket = ticketService.confirmTicket(ticketId, userId);
         // Agent 只创建草稿；用户确认后，运行记录才绑定正式打开的工单。
         if (ticket.getSourceRunId() != null) {
             ServiceDeskRunEntity run = serviceDeskRunMapper.selectById(ticket.getSourceRunId());
@@ -135,25 +138,25 @@ public class ServiceDeskService {
      * 提交服务台处理反馈，同一次运行同一用户只能提交一次。
      */
     @Transactional(rollbackFor = Exception.class)
-    public ServiceDeskFeedbackResult submitFeedback(SubmitFeedbackCommand command) {
-        if (command.getResolved() == null) {
+    public ServiceDeskFeedbackResult submitFeedback(Long runId, Long userId, Boolean resolved, String comment) {
+        if (resolved == null) {
             throw new BaseException(ErrorCodeEnum.BAD_REQUEST.getCode(), "反馈结果不能为空");
         }
-        ServiceDeskRunEntity run = serviceDeskRunMapper.selectById(command.getRunId());
-        if (run == null || !command.getUserId().equals(run.getUserId())) {
+        ServiceDeskRunEntity run = serviceDeskRunMapper.selectById(runId);
+        if (run == null || !userId.equals(run.getUserId())) {
             throw new BaseException(ErrorCodeEnum.NOT_FOUND.getCode(), "服务台运行记录不存在");
         }
-        ServiceDeskFeedbackEntity existing = findFeedback(command.getRunId(), command.getUserId());
+        ServiceDeskFeedbackEntity existing = findFeedback(runId, userId);
         if (existing != null) {
             throw new BaseException(ErrorCodeEnum.BAD_REQUEST.getCode(), "该次服务台处理已提交过反馈");
         }
 
         ServiceDeskFeedbackEntity feedback = new ServiceDeskFeedbackEntity();
-        feedback.setRunId(command.getRunId());
+        feedback.setRunId(runId);
         feedback.setTicketId(run.getTicketId());
-        feedback.setResolved(command.getResolved());
-        feedback.setComment(trimComment(command.getComment()));
-        feedback.setUserId(command.getUserId());
+        feedback.setResolved(resolved);
+        feedback.setComment(trimComment(comment));
+        feedback.setUserId(userId);
         serviceDeskFeedbackMapper.insert(feedback);
 
         run.setFeedbackId(feedback.getId());

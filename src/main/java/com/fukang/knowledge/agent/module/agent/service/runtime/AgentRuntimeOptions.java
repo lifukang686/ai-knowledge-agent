@@ -15,7 +15,7 @@ import java.util.function.Consumer;
  * @param maxSteps               最大工具执行步数
  * @param planningExtraPrompt    规划阶段额外业务约束
  * @param toolScope              本次运行可见工具集合
- * @param persistIntermediateRun 是否由调用方自行持久化运行记录
+ * @param eventListener       运行事件监听器，可用于 SSE 推送或外部审计
  */
 @Data
 @NoArgsConstructor
@@ -27,16 +27,14 @@ public class AgentRuntimeOptions {
 
     private ToolScope toolScope;
 
-    private boolean persistIntermediateRun;
-
     private Consumer<AgentRunEvent> eventListener;
 
     public static AgentRuntimeOptions of(int maxSteps, String planningExtraPrompt, ToolScope toolScope) {
-        return new AgentRuntimeOptions(maxSteps, planningExtraPrompt, toolScope, false, null);
+        return new AgentRuntimeOptions(maxSteps, planningExtraPrompt, toolScope, null);
     }
 
     public AgentRuntimeOptions withEventListener(Consumer<AgentRunEvent> listener) {
-        return new AgentRuntimeOptions(maxSteps, planningExtraPrompt, toolScope, persistIntermediateRun, listener);
+        return new AgentRuntimeOptions(maxSteps, planningExtraPrompt, toolScope, listener);
     }
 
 }

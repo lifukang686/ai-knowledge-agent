@@ -12,6 +12,8 @@ import org.springframework.context.ApplicationEvent;
 @Getter
 public class DocumentUploadedEvent extends ApplicationEvent {
 
+    /** 新创建的文档ID。 */
+    private final Long documentId;
     private final Long knowledgeBaseId;
     private final Long chunkStrategyId;
     private final String filePath;
@@ -30,7 +32,4 @@ public class DocumentUploadedEvent extends ApplicationEvent {
         this.fileName = fileName;
         this.documentId = documentId;
     }
-
-    /** 新创建的文档ID */
-    private final Long documentId;
 }

@@ -45,8 +45,4 @@ public interface DocumentMapper extends BaseMapper<DocumentEntity> {
     default List<DocumentEntity> findByStatus(String status) {
         return selectList(new LambdaQueryWrapper<DocumentEntity>().eq(DocumentEntity::getStatus, status));
     }
-
-    default void deleteByKnowledgeBase(Long knowledgeBaseId) {
-        delete(new LambdaQueryWrapper<DocumentEntity>().eq(DocumentEntity::getKnowledgeBaseId, knowledgeBaseId));
-    }
 }

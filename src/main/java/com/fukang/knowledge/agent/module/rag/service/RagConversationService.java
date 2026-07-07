@@ -73,13 +73,6 @@ public class RagConversationService {
     }
 
     /**
-     * 构造不带用户记忆的直接对话提示词。
-     */
-    public String buildDirectChatPrompt(String question, ConversationMemoryContext memory) {
-        return buildDirectChatPrompt(question, memory, null);
-    }
-
-    /**
      * 构造直接对话提示词。
      */
     public String buildDirectChatPrompt(String question, ConversationMemoryContext memory, UserMemoryContext userMemory) {
@@ -88,13 +81,6 @@ public class RagConversationService {
             return question;
         }
         return "【会话记忆】\n" + answerMemory + "\n\n【用户问题】\n" + question;
-    }
-
-    /**
-     * 拼装回答阶段使用的短期记忆文本。
-     */
-    public String buildAnswerMemory(ConversationMemoryContext memory) {
-        return buildAnswerMemory(memory, null);
     }
 
     /**

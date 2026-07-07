@@ -10,7 +10,7 @@ import java.util.List;
 /**
  * Agent 执行上下文
  * <p>管理单次 Agent 任务执行的全部状态信息。
- * 包括原始任务描述、执行计划、历史步骤、当前状态和 Token 消耗统计</p>
+ * 包括原始任务描述、执行计划、历史步骤、当前状态和推理对话窗口。</p>
  */
 @Data
 public class AgentContext {
@@ -26,9 +26,6 @@ public class AgentContext {
 
     /** 当前执行状态 */
     private AgentContextStatus status = AgentContextStatus.PLANNING;
-
-    /** 累计 Token 消耗 */
-    private int totalTokens;
 
     /** Agent 推理过程中的 LLM 对话窗口 */
     private AgentChatSession chatSession;
@@ -83,13 +80,6 @@ public class AgentContext {
     }
 
     /**
-     * 累加 Token 消耗
-     */
-    public void addTokenUsage(int tokens) {
-        this.totalTokens += tokens;
-    }
-
-    /**
      * Agent 上下文状态枚举
      */
     public enum AgentContextStatus {
@@ -100,8 +90,6 @@ public class AgentContext {
         // 已完成
         COMPLETED,
         // 已失败
-        FAILED,
-        // 已取消
-        CANCELLED
+        FAILED
     }
 }

@@ -2,7 +2,6 @@ package com.fukang.knowledge.agent.module.servicedesk.service;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fukang.knowledge.agent.module.servicedesk.model.dto.ConfirmTicketCommand;
 import com.fukang.knowledge.agent.module.servicedesk.model.dto.CreateTicketCommand;
 import com.fukang.knowledge.agent.module.servicedesk.mapper.ServiceTicketEventMapper;
 import com.fukang.knowledge.agent.module.servicedesk.mapper.ServiceTicketMapper;
@@ -90,17 +89,6 @@ public class TicketService {
     }
 
     /**
-     * 查询当前用户的单个工单详情。
-     */
-    public ServiceTicketResult getTicket(Long ticketId, Long userId) {
-        ServiceTicketEntity ticket = serviceTicketMapper.selectById(ticketId);
-        if (ticket == null || !userId.equals(ticket.getCreatorId())) {
-            throw new BaseException(ErrorCodeEnum.NOT_FOUND.getCode(), "工单不存在");
-        }
-        return toResult(ticket, true);
-    }
-
-    /**
      * 按工单号查询当前用户工单。
      */
     public ServiceTicketResult getTicketByNo(String ticketNo, Long userId) {
@@ -109,30 +97,15 @@ public class TicketService {
     }
 
     /**
-     * 绑定服务台运行记录。
-     */
-    @Transactional(rollbackFor = Exception.class)
-    public void attachRun(Long ticketId, Long runId) {
-        if (ticketId == null || runId == null) {
-            return;
-        }
-        ServiceTicketEntity ticket = serviceTicketMapper.selectById(ticketId);
-        if (ticket != null) {
-            ticket.setSourceRunId(runId);
-            serviceTicketMapper.updateById(ticket);
-        }
-    }
-
-    /**
      * 确认 Agent 生成的草稿工单，将状态从 DRAFT 推进到 OPEN。
      */
     @Transactional(rollbackFor = Exception.class)
-    public ServiceTicketResult confirmTicket(ConfirmTicketCommand command) {
-        if (command.getTicketId() == null || command.getUserId() == null) {
+    public ServiceTicketResult confirmTicket(Long ticketId, Long userId) {
+        if (ticketId == null || userId == null) {
             throw new BaseException(ErrorCodeEnum.BAD_REQUEST.getCode(), "确认工单参数不完整");
         }
-        ServiceTicketEntity ticket = serviceTicketMapper.selectById(command.getTicketId());
-        if (ticket == null || !command.getUserId().equals(ticket.getCreatorId())) {
+        ServiceTicketEntity ticket = serviceTicketMapper.selectById(ticketId);
+        if (ticket == null || !userId.equals(ticket.getCreatorId())) {
             throw new BaseException(ErrorCodeEnum.NOT_FOUND.getCode(), "工单不存在");
         }
         if (!TicketStatusEnum.DRAFT.name().equals(ticket.getStatus())) {
@@ -143,7 +116,7 @@ public class TicketService {
         ticket.setStatus(TicketStatusEnum.OPEN.name());
         serviceTicketMapper.updateById(ticket);
         writeEvent(ticket.getId(), TicketEventTypeEnum.CONFIRMED, fromStatus, TicketStatusEnum.OPEN,
-                command.getUserId(), "用户确认草稿，工单已正式打开", Map.of("ticketNo", ticket.getTicketNo()));
+                userId, "用户确认草稿，工单已正式打开", Map.of("ticketNo", ticket.getTicketNo()));
         return toResult(ticket, true);
     }
 

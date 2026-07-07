@@ -2,7 +2,6 @@ package com.fukang.knowledge.agent.module.conversation.service;
 
 import com.fukang.knowledge.agent.module.conversation.mapper.ConversationMapper;
 import com.fukang.knowledge.agent.module.conversation.mapper.ConversationMessageMapper;
-import com.fukang.knowledge.agent.module.conversation.mapper.ConversationSummaryMapper;
 import com.fukang.knowledge.agent.module.conversation.model.vo.ConversationListItemResult;
 import com.fukang.knowledge.agent.module.conversation.model.vo.ConversationMessageResult;
 import com.fukang.knowledge.agent.common.context.UserContextHolder;
@@ -36,7 +35,6 @@ public class ConversationService {
 
     private final ConversationMapper conversationMapper;
     private final ConversationMessageMapper conversationMessageMapper;
-    private final ConversationSummaryMapper conversationSummaryMapper;
 
     /**
      * 查询当前用户的 QA 会话列表。
@@ -85,7 +83,7 @@ public class ConversationService {
     /**
      * 校验会话属于当前用户。
      */
-    public ConversationEntity ensureOwnedConversation(Long conversationId) {
+    private ConversationEntity ensureOwnedConversation(Long conversationId) {
         ConversationEntity conversation = conversationMapper.selectById(conversationId);
         Long userId = currentUserId();
         if (conversation == null) {

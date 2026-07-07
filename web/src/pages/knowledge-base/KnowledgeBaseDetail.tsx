@@ -317,7 +317,7 @@ const KnowledgeBaseDetail: React.FC = () => {
           <span className="ml-1">{renderSortIcon('name')}</span>
         </button>
       ),
-      render: (value: string, record: Document) => (
+      render: (value: string) => (
         <div className="flex items-center">
           <FileText className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
           <span className="font-medium text-gray-900 truncate" title={value}>

@@ -1,14 +1,12 @@
 package com.fukang.knowledge.agent.module.knowledge.controller.chunkstrategy;
 
-import com.fukang.knowledge.agent.module.knowledge.model.dto.ChunkStrategyReq;
-import com.fukang.knowledge.agent.module.knowledge.model.resp.ChunkStrategyResp;
-import com.fukang.knowledge.agent.module.knowledge.model.dto.ChunkStrategyUpdateReq;
-import com.fukang.knowledge.agent.module.knowledge.service.chunk.DocumentChunkStrategyService;
-import com.fukang.knowledge.agent.module.knowledge.model.dto.CreateChunkStrategyCommand;
-import com.fukang.knowledge.agent.module.knowledge.model.dto.UpdateChunkStrategyCommand;
 import com.fukang.knowledge.agent.common.result.PageResponse;
 import com.fukang.knowledge.agent.common.result.Result;
+import com.fukang.knowledge.agent.module.knowledge.model.dto.ChunkStrategyReq;
+import com.fukang.knowledge.agent.module.knowledge.model.dto.ChunkStrategyUpdateReq;
 import com.fukang.knowledge.agent.module.knowledge.model.entity.DocumentChunkStrategyEntity;
+import com.fukang.knowledge.agent.module.knowledge.model.resp.ChunkStrategyResp;
+import com.fukang.knowledge.agent.module.knowledge.service.chunk.DocumentChunkStrategyService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -22,7 +20,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 鍒嗗潡绛栫暐绠＄悊鎺у埗鍣ㄣ€? */
+ * 分块策略管理控制器。
+ */
 @RestController
 @RequestMapping("/api/chunk-strategies")
 @RequiredArgsConstructor
@@ -31,33 +30,26 @@ public class ChunkStrategyController {
     private final DocumentChunkStrategyService chunkStrategyService;
 
     /**
-     * 鍒涘缓鍒嗗潡绛栫暐銆?     */
+     * 创建分块策略。
+     */
     @PostMapping
     public Result<Long> createStrategy(@RequestBody @Validated ChunkStrategyReq req) {
-        return Result.success(chunkStrategyService.createStrategy(
-                new CreateChunkStrategyCommand(
-                        req.getStrategyName(),
-                        req.getChunkType(),
-                        req.getMaxSegmentSize(),
-                        req.getOverlapSize())));
+        return Result.success(chunkStrategyService.createStrategy(req));
     }
 
     /**
-     * 鏇存柊鍒嗗潡绛栫暐銆?     */
+     * 更新分块策略。
+     */
     @PutMapping("/{id}")
     public Result<Void> updateStrategy(@PathVariable("id") Long id,
                                        @RequestBody @Validated ChunkStrategyUpdateReq req) {
-        chunkStrategyService.updateStrategy(id,
-                new UpdateChunkStrategyCommand(
-                        req.getStrategyName(),
-                        req.getChunkType(),
-                        req.getMaxSegmentSize(),
-                        req.getOverlapSize()));
+        chunkStrategyService.updateStrategy(id, req);
         return Result.success();
     }
 
     /**
-     * 鍒犻櫎鍒嗗潡绛栫暐銆?     */
+     * 删除分块策略。
+     */
     @DeleteMapping("/{id}")
     public Result<Void> deleteStrategy(@PathVariable("id") Long id) {
         chunkStrategyService.deleteStrategy(id);
@@ -65,7 +57,8 @@ public class ChunkStrategyController {
     }
 
     /**
-     * 鍒嗛〉鏌ヨ鍒嗗潡绛栫暐銆?     */
+     * 分页查询分块策略。
+     */
     @GetMapping
     public Result<PageResponse<ChunkStrategyResp>> listStrategies(
             @RequestParam(value = "page", defaultValue = "1") long page,
@@ -81,7 +74,8 @@ public class ChunkStrategyController {
     }
 
     /**
-     * 璁剧疆榛樿鍒嗗潡绛栫暐銆?     */
+     * 设置默认分块策略。
+     */
     @PutMapping("/{id}/default")
     public Result<Void> setDefaultStrategy(@PathVariable("id") Long id) {
         chunkStrategyService.setDefaultStrategy(id);
@@ -89,7 +83,8 @@ public class ChunkStrategyController {
     }
 
     /**
-     * 杞崲鍒嗗潡绛栫暐鍝嶅簲銆?     */
+     * 转换分块策略响应对象。
+     */
     private ChunkStrategyResp toResp(DocumentChunkStrategyEntity strategy) {
         return new ChunkStrategyResp(
                 strategy.getId(),

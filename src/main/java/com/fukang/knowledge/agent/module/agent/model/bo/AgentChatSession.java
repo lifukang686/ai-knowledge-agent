@@ -18,6 +18,9 @@ public class AgentChatSession {
         this.maxMessages = Math.max(maxMessages, 1);
     }
 
+    /**
+     * 追加一条消息，并按窗口大小裁剪历史。
+     */
     public void add(AgentChatMessage message) {
         if (message == null) {
             return;
@@ -26,10 +29,16 @@ public class AgentChatSession {
         trimToWindow();
     }
 
+    /**
+     * 返回当前对话窗口的只读快照。
+     */
     public List<AgentChatMessage> messages() {
         return List.copyOf(messages);
     }
 
+    /**
+     * 保留最近的消息，防止推理上下文无限增长。
+     */
     private void trimToWindow() {
         while (messages.size() > maxMessages) {
             messages.remove(0);

@@ -1,17 +1,9 @@
 package com.fukang.knowledge.agent.module.rag.service.impl;
 
-
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import com.fukang.knowledge.agent.module.modelruntime.service.RerankClient;
+import com.fukang.knowledge.agent.module.modelruntime.service.client.RerankClient;
 import com.fukang.knowledge.agent.module.rag.model.vo.SearchResult;
 import com.fukang.knowledge.agent.module.rag.service.Reranker;
 import com.huaban.analysis.jieba.JiebaSegmenter;
-import dev.langchain4j.rag.DefaultRetrievalAugmentor;
-import dev.langchain4j.rag.RetrievalAugmentor;
-import dev.langchain4j.rag.content.aggregator.DefaultContentAggregator;
-import dev.langchain4j.rag.content.retriever.ContentRetriever;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -74,55 +66,8 @@ public class RerankService implements Reranker {
         this.rerankModelPort = rerankModelPort;
     }
 
-    /**
-     * 本地规则重排的候选分数明细。
-     *
-     * @param candidate     原始检索候选
-     * @param finalScore    本地融合后的最终分
-     * @param vectorScore   向量相似度分
-     * @param rrfScore      RRF 融合分
-     * @param bm25Score     归一化后的 BM25 分
-     * @param termCoverage  查询关键词覆盖率
-     * @param phraseMatch   查询短语匹配度
-     * @param idfScore      重要关键词命中分
-     * @param positionScore 关键词位置分
-     */
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    private static class ScoredCandidate {
-        private SearchResult candidate;
-
-        private double finalScore;
-
-        private double vectorScore;
-
-        private double rrfScore;
-
-        private double bm25Score;
-
-        private double termCoverage;
-
-        private double phraseMatch;
-
-        private double idfScore;
-
-        private double positionScore;
-
-    }
-
-    /**
-     * 构建 LangChain4j 检索增强器，保留默认聚合能力。
-     *
-     * @param contentRetriever LangChain4j 内容检索器
-     * @param minScore         最低分阈值，仅用于日志观察
-     */
-    public RetrievalAugmentor buildReRankingAugmentor(ContentRetriever contentRetriever, Double minScore) {
-        log.info("构建 RAG 增强器: minScore={}, contentAggregator=DefaultContentAggregator", minScore);
-        return DefaultRetrievalAugmentor.builder()
-                .contentRetriever(contentRetriever)
-                .contentAggregator(new DefaultContentAggregator())
-                .build();
+    /** 本地规则重排后的候选项，只保留排序需要的候选和最终分。 */
+    private record ScoredCandidate(SearchResult candidate, double finalScore) {
     }
 
     /**
@@ -228,18 +173,17 @@ public class RerankService implements Reranker {
                     + WEIGHT_IDF * idfScore
                     + WEIGHT_POSITION * positionScore;
 
-            scoredResults.add(new ScoredCandidate(candidate, finalScore, vectorScore, rrfScore, bm25Score,
-                    termCoverage, phraseMatch, idfScore, positionScore));
+            scoredResults.add(new ScoredCandidate(candidate, finalScore));
         }
 
-        scoredResults.sort(Comparator.comparingDouble(ScoredCandidate::getFinalScore).reversed());
+        scoredResults.sort(Comparator.comparingDouble(ScoredCandidate::finalScore).reversed());
 
         List<SearchResult> result = scoredResults.stream()
-                .map(r -> r.getCandidate().withScores(
-                        r.getCandidate().getVectorScore(),
-                        r.getCandidate().getBm25Score(),
-                        r.getCandidate().getRrfScore(),
-                        r.getFinalScore()
+                .map(r -> r.candidate().withScores(
+                        r.candidate().getVectorScore(),
+                        r.candidate().getBm25Score(),
+                        r.candidate().getRrfScore(),
+                        r.finalScore()
                 ))
                 .collect(Collectors.toList());
 
