@@ -9,6 +9,7 @@ import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.chat.ChatLanguageModel;
 import dev.langchain4j.model.output.Response;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -21,6 +22,7 @@ import java.util.Map;
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class QueryRewriteService implements QueryRewriter {
 
     /**
@@ -42,15 +44,6 @@ public class QueryRewriteService implements QueryRewriter {
 
     private final DynamicModelManager dynamicModelManager;
     private final PromptTemplateManager promptTemplateManager;
-
-    /**
-     * 构造查询改写服务。
-     */
-    public QueryRewriteService(DynamicModelManager dynamicModelManager,
-                               PromptTemplateManager promptTemplateManager) {
-        this.dynamicModelManager = dynamicModelManager;
-        this.promptTemplateManager = promptTemplateManager;
-    }
 
     /**
      * 默认查询改写入口。

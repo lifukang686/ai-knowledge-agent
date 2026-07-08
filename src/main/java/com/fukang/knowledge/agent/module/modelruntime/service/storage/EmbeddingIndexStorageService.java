@@ -11,6 +11,7 @@ import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.data.document.Metadata;
 import dev.langchain4j.store.embedding.pgvector.PgVectorEmbeddingStore;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -24,13 +25,10 @@ import java.util.List;
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class EmbeddingIndexStorageService {
 
     private final EmbeddingStoreFactory storeFactory;
-
-    public EmbeddingIndexStorageService(EmbeddingStoreFactory storeFactory) {
-        this.storeFactory = storeFactory;
-    }
 
     /**
      * 将向量化结果批量写入 pgvector

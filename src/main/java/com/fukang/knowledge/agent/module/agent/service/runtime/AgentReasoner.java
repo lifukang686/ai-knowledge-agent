@@ -10,6 +10,7 @@ import com.fukang.knowledge.agent.module.agent.model.vo.AgentStep;
 import com.fukang.knowledge.agent.module.agent.model.vo.PlanStep;
 import com.fukang.knowledge.agent.module.agent.model.vo.ReasoningResult;
 import com.fukang.knowledge.agent.module.modelruntime.service.manager.PromptTemplateManager;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -31,6 +32,7 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class AgentReasoner {
 
     private static final String REASONING_SYSTEM_PROMPT = """
@@ -54,12 +56,6 @@ public class AgentReasoner {
     private final AgentChatClient agentChatClient;
     private final PromptTemplateManager promptTemplateManager;
     private final ObjectMapper objectMapper = new ObjectMapper();
-
-    public AgentReasoner(AgentChatClient agentChatClient,
-                         PromptTemplateManager promptTemplateManager) {
-        this.agentChatClient = agentChatClient;
-        this.promptTemplateManager = promptTemplateManager;
-    }
 
     /**
      * 根据 Agent 执行上下文进行推理决策

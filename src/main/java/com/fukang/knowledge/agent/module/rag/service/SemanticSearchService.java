@@ -13,6 +13,7 @@ import dev.langchain4j.store.embedding.EmbeddingSearchResult;
 import dev.langchain4j.store.embedding.filter.Filter;
 import dev.langchain4j.store.embedding.filter.MetadataFilterBuilder;
 import dev.langchain4j.store.embedding.pgvector.PgVectorEmbeddingStore;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -36,19 +37,12 @@ import java.util.List;
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class SemanticSearchService {
 
     private final EmbeddingService embeddingService;
     private final RetrievalProperties retrievalProperties;
     private final EmbeddingStoreFactory storeFactory;
-
-    public SemanticSearchService(EmbeddingService embeddingService,
-                                  RetrievalProperties retrievalProperties,
-                                  EmbeddingStoreFactory storeFactory) {
-        this.embeddingService = embeddingService;
-        this.retrievalProperties = retrievalProperties;
-        this.storeFactory = storeFactory;
-    }
 
     /**
      * 使用 pgvector 原生检索执行语义检索

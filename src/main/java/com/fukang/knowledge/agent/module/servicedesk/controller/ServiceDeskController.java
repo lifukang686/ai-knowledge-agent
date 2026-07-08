@@ -18,6 +18,7 @@ import com.fukang.knowledge.agent.common.result.PageResponse;
 import com.fukang.knowledge.agent.common.result.Result;
 import com.fukang.knowledge.agent.common.enums.ServiceTypeEnum;
 import com.fukang.knowledge.agent.common.enums.TicketStatusEnum;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
@@ -37,6 +38,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 @Slf4j
 @RestController
 @RequestMapping("/api/service-desk")
+@RequiredArgsConstructor
 public class ServiceDeskController {
 
     /**
@@ -46,18 +48,8 @@ public class ServiceDeskController {
 
     private final ServiceDeskService serviceDeskService;
     private final TicketService ticketService;
+    @Qualifier("aiStreamExecutor")
     private final ThreadPoolTaskExecutor aiStreamExecutor;
-
-    /**
-     * 创建服务台控制器。
-     */
-    public ServiceDeskController(ServiceDeskService serviceDeskService,
-                                 TicketService ticketService,
-                                 @Qualifier("aiStreamExecutor") ThreadPoolTaskExecutor aiStreamExecutor) {
-        this.serviceDeskService = serviceDeskService;
-        this.ticketService = ticketService;
-        this.aiStreamExecutor = aiStreamExecutor;
-    }
 
     /**
      * 流式提交服务台问题。

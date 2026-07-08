@@ -15,6 +15,7 @@ import dev.langchain4j.model.chat.StreamingChatLanguageModel;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.scoring.ScoringModel;
 import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -22,6 +23,7 @@ import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class DynamicModelManager {
 
     private final DynamicModelFactory modelFactory;
@@ -36,14 +38,6 @@ public class DynamicModelManager {
     /**
      * 负责按模型用途缓存 LangChain4j 模型实例，避免每次请求都重复构建底层 HTTP 客户端。
      */
-    public DynamicModelManager(DynamicModelFactory modelFactory,
-                               DynamicModelProperties properties,
-                               ModelResolutionService resolutionService) {
-        this.modelFactory = modelFactory;
-        this.properties = properties;
-        this.resolutionService = resolutionService;
-    }
-
     @PostConstruct
     void initCaches() {
         Caffeine<Object, Object> cacheBuilder = Caffeine.newBuilder()

@@ -10,6 +10,8 @@ import com.fukang.knowledge.agent.module.agent.model.vo.ToolDefinition;
 import com.fukang.knowledge.agent.module.agent.model.vo.ToolExecutionResult;
 import com.fukang.knowledge.agent.module.agent.service.ToolExecutor;
 import com.fukang.knowledge.agent.infrastructure.config.AgentProperties;
+import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -28,17 +30,19 @@ import java.util.Map;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class HttpToolExecutor implements ToolExecutor {
 
-    private final RestTemplate restTemplate;
-    private final ObjectMapper objectMapper;
+    private final AgentProperties agentProperties;
+    private final ObjectMapper objectMapper = new ObjectMapper();
+    private RestTemplate restTemplate;
 
-    public HttpToolExecutor(AgentProperties agentProperties) {
+    @PostConstruct
+    void initRestTemplate() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout((int) agentProperties.getToolTimeoutMs());
         factory.setReadTimeout((int) agentProperties.getToolTimeoutMs());
         this.restTemplate = new RestTemplate(factory);
-        this.objectMapper = new ObjectMapper();
     }
 
     @Override

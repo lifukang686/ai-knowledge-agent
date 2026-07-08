@@ -5,6 +5,7 @@ import com.fukang.knowledge.agent.module.modelruntime.service.client.RerankClien
 import com.fukang.knowledge.agent.module.rag.model.vo.SearchResult;
 import com.fukang.knowledge.agent.module.rag.service.Reranker;
 import com.huaban.analysis.jieba.JiebaSegmenter;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -25,6 +26,7 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class RerankService implements Reranker {
 
     /** 向量相似度权重，体现语义召回相关性。 */
@@ -63,10 +65,6 @@ public class RerankService implements Reranker {
      *
      * @param rerankModelPort 外部重排模型端口
      */
-    public RerankService(RerankClient rerankModelPort) {
-        this.rerankModelPort = rerankModelPort;
-    }
-
     /** 本地规则重排后的候选项，只保留排序需要的候选和最终分。 */
     private record ScoredCandidate(SearchResult candidate, double finalScore) {
     }

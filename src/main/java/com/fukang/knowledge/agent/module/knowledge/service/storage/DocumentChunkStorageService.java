@@ -10,6 +10,7 @@ import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.module.rag.service.ChineseTextTokenizer;
 import com.fukang.knowledge.agent.module.knowledge.model.entity.DocumentChunkEntity;
 import com.fukang.knowledge.agent.module.knowledge.mapper.DocumentChunkMapper;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,13 +24,10 @@ import java.util.List;
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class DocumentChunkStorageService extends ServiceImpl<DocumentChunkMapper, DocumentChunkEntity> {
 
     private final ChineseTextTokenizer chineseTextTokenizer;
-
-    public DocumentChunkStorageService(ChineseTextTokenizer chineseTextTokenizer) {
-        this.chineseTextTokenizer = chineseTextTokenizer;
-    }
 
     /**
      * 批量插入文档块（MyBatis-Plus saveBatch）

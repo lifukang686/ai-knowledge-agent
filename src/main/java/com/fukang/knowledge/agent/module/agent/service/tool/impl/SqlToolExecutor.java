@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fukang.knowledge.agent.module.agent.model.vo.ToolDefinition;
 import com.fukang.knowledge.agent.module.agent.model.vo.ToolExecutionResult;
 import com.fukang.knowledge.agent.module.agent.service.ToolExecutor;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
@@ -23,15 +24,11 @@ import java.util.Map;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class SqlToolExecutor implements ToolExecutor {
 
     private final JdbcTemplate jdbcTemplate;
-    private final ObjectMapper objectMapper;
-
-    public SqlToolExecutor(JdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
-        this.objectMapper = new ObjectMapper();
-    }
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     public ToolExecutionResult execute(ToolDefinition toolDefinition, Map<String, Object> parameters) {

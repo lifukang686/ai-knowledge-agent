@@ -12,6 +12,7 @@ import dev.langchain4j.model.openai.OpenAiChatModel;
 import dev.langchain4j.model.openai.OpenAiEmbeddingModel;
 import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
 import dev.langchain4j.model.scoring.ScoringModel;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -20,6 +21,7 @@ import java.util.Map;
 
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class DynamicModelFactory {
 
     private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(60);
@@ -27,10 +29,6 @@ public class DynamicModelFactory {
     private static final String DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1/";
 
     private final ObjectMapper objectMapper;
-
-    public DynamicModelFactory(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
-    }
 
     /**
      * 根据数据库中的提供商和模型配置创建非流式对话模型。

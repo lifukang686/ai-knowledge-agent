@@ -15,6 +15,7 @@ import com.fukang.knowledge.agent.common.context.UserContextHolder;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.common.result.Result;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
@@ -36,6 +37,7 @@ import java.util.List;
 @Slf4j
 @RestController
 @RequestMapping("/api/qa")
+@RequiredArgsConstructor
 public class QaController {
 
     /**
@@ -45,18 +47,8 @@ public class QaController {
 
     private final RagService ragService;
     private final ConversationService conversationService;
+    @Qualifier("aiStreamExecutor")
     private final ThreadPoolTaskExecutor aiStreamExecutor;
-
-    /**
-     * 创建 QA 控制器。
-     */
-    public QaController(RagService ragService,
-                        ConversationService conversationService,
-                        @Qualifier("aiStreamExecutor") ThreadPoolTaskExecutor aiStreamExecutor) {
-        this.ragService = ragService;
-        this.conversationService = conversationService;
-        this.aiStreamExecutor = aiStreamExecutor;
-    }
 
     /**
      * 查询当前用户会话列表。

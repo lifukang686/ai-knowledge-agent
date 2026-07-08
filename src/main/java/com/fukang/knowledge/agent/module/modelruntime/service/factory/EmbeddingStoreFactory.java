@@ -3,6 +3,7 @@ package com.fukang.knowledge.agent.module.modelruntime.service.factory;
 import com.fukang.knowledge.agent.infrastructure.config.VectorStoreProperties;
 import dev.langchain4j.store.embedding.pgvector.PgVectorEmbeddingStore;
 import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -19,16 +20,11 @@ import java.util.List;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class EmbeddingStoreFactory {
 
     private final DataSource dataSource;
     private final VectorStoreProperties vectorStoreProperties;
-
-    public EmbeddingStoreFactory(DataSource dataSource,
-                                            VectorStoreProperties vectorStoreProperties) {
-        this.dataSource = dataSource;
-        this.vectorStoreProperties = vectorStoreProperties;
-    }
 
     /**
      * 启动时初始化向量存储表

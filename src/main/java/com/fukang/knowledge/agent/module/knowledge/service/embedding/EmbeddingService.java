@@ -12,6 +12,7 @@ import com.fukang.knowledge.agent.module.knowledge.model.vo.EmbeddingVector;
 import com.fukang.knowledge.agent.module.modelruntime.model.vo.EmbeddingBatchResult;
 import com.fukang.knowledge.agent.module.model.model.entity.ModelConfigEntity;
 import com.fukang.knowledge.agent.module.model.model.entity.ModelProviderEntity;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -26,6 +27,7 @@ import java.util.Map;
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class EmbeddingService {
 
     /**
@@ -36,14 +38,6 @@ public class EmbeddingService {
     private final ModelService modelService;
     private final EmbeddingClient embeddingPort;
     private final ObjectMapper objectMapper;
-
-    public EmbeddingService(ModelService modelService,
-                            EmbeddingClient embeddingPort,
-                            ObjectMapper objectMapper) {
-        this.modelService = modelService;
-        this.embeddingPort = embeddingPort;
-        this.objectMapper = objectMapper;
-    }
 
     /**
      * 对文本列表执行向量嵌入计算。

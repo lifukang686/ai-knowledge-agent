@@ -12,6 +12,7 @@ import com.fukang.knowledge.agent.module.agent.model.bo.AgentChatSession;
 import com.fukang.knowledge.agent.module.agent.model.vo.ToolInfo;
 import com.fukang.knowledge.agent.module.agent.model.vo.PlanStep;
 import com.fukang.knowledge.agent.module.modelruntime.service.manager.PromptTemplateManager;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -27,17 +28,12 @@ import java.util.Map;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class AgentPlanner {
 
     private final AgentChatClient agentChatClient;
     private final PromptTemplateManager promptTemplateManager;
     private final ObjectMapper objectMapper = new ObjectMapper();
-
-    public AgentPlanner(AgentChatClient agentChatClient,
-                        PromptTemplateManager promptTemplateManager) {
-        this.agentChatClient = agentChatClient;
-        this.promptTemplateManager = promptTemplateManager;
-    }
 
     /**
      * 根据任务描述生成执行计划

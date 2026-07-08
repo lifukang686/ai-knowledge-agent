@@ -11,6 +11,7 @@ import dev.langchain4j.data.document.DocumentParser;
 import dev.langchain4j.data.document.parser.TextDocumentParser;
 import dev.langchain4j.data.document.parser.apache.pdfbox.ApachePdfBoxDocumentParser;
 import dev.langchain4j.data.document.parser.apache.poi.ApachePoiDocumentParser;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -27,18 +28,11 @@ import java.util.Map;
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class DocumentProcessingService {
 
-    private final Map<String, DocumentParser> parsersByExtension;
+    private final Map<String, DocumentParser> parsersByExtension = createLangchain4jParsers();
     private final DocumentChunkStrategyService chunkStrategyService;
-
-    /**
-     * 初始化文档解析服务。
-     */
-    public DocumentProcessingService(DocumentChunkStrategyService chunkStrategyService) {
-        this.parsersByExtension = createLangchain4jParsers();
-        this.chunkStrategyService = chunkStrategyService;
-    }
 
     /**
      * 解析上传文档。

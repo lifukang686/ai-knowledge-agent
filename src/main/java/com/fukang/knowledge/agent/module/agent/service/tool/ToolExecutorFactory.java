@@ -5,6 +5,7 @@ import com.fukang.knowledge.agent.module.agent.service.ToolExecutor;
 import com.fukang.knowledge.agent.module.agent.service.tool.impl.HttpToolExecutor;
 import com.fukang.knowledge.agent.module.agent.service.tool.impl.LocalMethodToolExecutor;
 import com.fukang.knowledge.agent.module.agent.service.tool.impl.SqlToolExecutor;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 /**
@@ -13,19 +14,12 @@ import org.springframework.stereotype.Component;
  * 使用策略模式，将执行器选择逻辑集中管理</p>
  */
 @Component
+@RequiredArgsConstructor
 public class ToolExecutorFactory {
 
     private final HttpToolExecutor httpExecutor;
     private final SqlToolExecutor sqlExecutor;
     private final LocalMethodToolExecutor localMethodToolExecutor;
-
-    public ToolExecutorFactory(HttpToolExecutor httpExecutor,
-                               SqlToolExecutor sqlExecutor,
-                               LocalMethodToolExecutor localMethodToolExecutor) {
-        this.httpExecutor = httpExecutor;
-        this.sqlExecutor = sqlExecutor;
-        this.localMethodToolExecutor = localMethodToolExecutor;
-    }
 
     /**
      * 根据执行器类型获取对应的执行器实例
