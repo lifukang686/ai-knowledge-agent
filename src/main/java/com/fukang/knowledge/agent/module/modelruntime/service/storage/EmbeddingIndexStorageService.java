@@ -2,7 +2,7 @@ package com.fukang.knowledge.agent.module.modelruntime.service.storage;
 
 import com.fukang.knowledge.agent.module.knowledge.model.vo.ChunkStorageResult;
 import com.fukang.knowledge.agent.module.knowledge.model.vo.EmbeddingResult;
-import com.fukang.knowledge.agent.module.knowledge.model.vo.EmbeddingResult.EmbeddingVector;
+import com.fukang.knowledge.agent.module.knowledge.model.vo.EmbeddingVector;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.module.knowledge.model.entity.DocumentChunkEntity;

@@ -1,11 +1,11 @@
 package com.fukang.knowledge.agent.module.knowledge.model.vo;
 
 
+import java.util.List;
+import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import java.util.List;
-import java.util.Map;
 
 /**
  * 文档分块结果
@@ -31,44 +31,5 @@ public class ChunkResult {
     private String strategyName;
 
     private Map<String, Object> chunkMetadata;
-
-    /**
-     * 单个文档块
-     * <p>表示文档分块后的一个文本片段，包含文本内容和块级别元数据</p>
-     *
-     * @param chunkOrder  块在文档中的顺序，从 0 开始
-     * @param chunkText   块文本内容
-     * @param tokenCount  块的 token 估算数量（基于字符数粗略估算）
-     * @param metadata    块级别元数据，如所在页码、段落位置等
-     */
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class ParsedChunk {
-        private int chunkOrder;
-
-        private String chunkText;
-
-        private int tokenCount;
-
-        private Map<String, String> metadata;
-
-        /**
-         * 基于字符数估算 token 数量
-         * <p>中英文混合场景下，按字符数的 70% 粗略估算 token 数，
-         * 后续集成实际分词器后可替换为精确计算</p>
-         *
-         * @param text 文本内容
-         * @return 估算的 token 数量
-         */
-        public static int estimateTokenCount(String text) {
-            if (text == null || text.isEmpty()) {
-                return 0;
-            }
-            return (int) Math.ceil(text.length() * 0.7);
-        }
-    
-
-    }
 
 }

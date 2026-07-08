@@ -5,7 +5,7 @@ import com.fukang.knowledge.agent.module.rag.model.vo.QaResult;
 import com.fukang.knowledge.agent.module.rag.service.stream.QaStreamHandler;
 import com.fukang.knowledge.agent.module.servicedesk.service.stream.ServiceDeskStreamHandler;
 import com.fukang.knowledge.agent.module.agent.service.tool.LocalMethodTool;
-import com.fukang.knowledge.agent.module.servicedesk.service.agent.ServiceDeskAgentContext;
+import com.fukang.knowledge.agent.module.servicedesk.model.bo.ServiceDeskAgentContext;
 import com.fukang.knowledge.agent.module.servicedesk.service.agent.ServiceDeskAgentContextHolder;
 import com.fukang.knowledge.agent.module.servicedesk.service.agent.ServiceDeskToolNames;
 import lombok.RequiredArgsConstructor;

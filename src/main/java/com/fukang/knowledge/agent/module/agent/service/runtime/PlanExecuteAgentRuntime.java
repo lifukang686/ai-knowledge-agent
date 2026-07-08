@@ -1,9 +1,6 @@
 package com.fukang.knowledge.agent.module.agent.service.runtime;
 
-
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import com.fukang.knowledge.agent.module.agent.model.vo.AgentRuntimeResult;
 import com.fukang.knowledge.agent.module.agent.service.tool.ToolScope;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.module.agent.model.bo.AgentContext;
@@ -35,7 +32,7 @@ public class PlanExecuteAgentRuntime {
     /**
      * 执行一次 Plan-Execute Agent 任务。
      */
-    public RuntimeResult runTask(String task, AgentRuntimeOptions options) {
+    public AgentRuntimeResult runTask(String task, AgentRuntimeOptions options) {
         // 未传配置时使用保守默认值，保证 Runtime 可独立复用。
         AgentRuntimeOptions runtimeOptions = options != null ? options : AgentRuntimeOptions.of(5, "", null);
         // AgentContext 保存计划、已执行步骤和当前状态，是整轮运行的内存态。
@@ -72,15 +69,15 @@ public class PlanExecuteAgentRuntime {
     /**
      * 按计划循环执行工具，并根据推理结果决定收敛、重试或失败。
      */
-    private RuntimeResult executeLoop(AgentContext context, AgentRuntimeOptions options,
-                                      List<AgentRunEvent> events, long startTime) {
+    private AgentRuntimeResult executeLoop(AgentContext context, AgentRuntimeOptions options,
+                                           List<AgentRunEvent> events, long startTime) {
         int stepCount = 0;
         while (stepCount < options.getMaxSteps()) {
             // 每轮先让 Reasoner 根据上下文判断继续、重试、终止还是直接回答。
             ReasoningResult reasoning = agentReasoner.reason(context);
             recordReasoning(events, options, reasoning, "推理决策");
 
-            RuntimeResult terminal = tryTerminalDecision(context, options, events, reasoning, startTime);
+            AgentRuntimeResult terminal = tryTerminalDecision(context, options, events, reasoning, startTime);
             if (terminal != null) {
                 return terminal;
             }
@@ -91,7 +88,7 @@ public class PlanExecuteAgentRuntime {
             }
             if (context.getRemainingSteps().isEmpty()) {
                 // 计划步骤执行完后再推理一次，争取生成最终答案。
-                RuntimeResult finalResult = tryFinalReasoning(context, options, events, startTime);
+                AgentRuntimeResult finalResult = tryFinalReasoning(context, options, events, startTime);
                 if (finalResult != null) {
                     return finalResult;
                 }
@@ -109,9 +106,9 @@ public class PlanExecuteAgentRuntime {
     /**
      * 处理可立即结束运行的推理决策。
      */
-    private RuntimeResult tryTerminalDecision(AgentContext context, AgentRuntimeOptions options,
-                                              List<AgentRunEvent> events, ReasoningResult reasoning,
-                                              long startTime) {
+    private AgentRuntimeResult tryTerminalDecision(AgentContext context, AgentRuntimeOptions options,
+                                                   List<AgentRunEvent> events, ReasoningResult reasoning,
+                                                   long startTime) {
         if (reasoning.getDecision() == ReasoningResult.Decision.FINAL_ANSWER) {
             // Reasoner 已能给出答案时，直接收敛。
             return complete(context, options, events, reasoning.getContent(), startTime);
@@ -141,8 +138,8 @@ public class PlanExecuteAgentRuntime {
     /**
      * 计划执行完后再尝试生成最终答案。
      */
-    private RuntimeResult tryFinalReasoning(AgentContext context, AgentRuntimeOptions options,
-                                            List<AgentRunEvent> events, long startTime) {
+    private AgentRuntimeResult tryFinalReasoning(AgentContext context, AgentRuntimeOptions options,
+                                                 List<AgentRunEvent> events, long startTime) {
         ReasoningResult finalReason = agentReasoner.reason(context);
         recordReasoning(events, options, finalReason, "最终推理决策");
         if (finalReason.getDecision() == ReasoningResult.Decision.FINAL_ANSWER) {
@@ -179,26 +176,26 @@ public class PlanExecuteAgentRuntime {
     /**
      * 标记运行成功并返回最终结果。
      */
-    private RuntimeResult complete(AgentContext context, AgentRuntimeOptions options, List<AgentRunEvent> events,
-                                   String answer, long startTime) {
+    private AgentRuntimeResult complete(AgentContext context, AgentRuntimeOptions options, List<AgentRunEvent> events,
+                                        String answer, long startTime) {
         context.setStatus(AgentContext.AgentContextStatus.COMPLETED);
         // 成功收尾时补最终答案事件，调用方可直接持久化完整轨迹。
         recordEvent(events, options, event(AgentRunEvent.EventType.FINAL_ANSWER, null, null,
                 Map.of("answer", answer != null ? answer : ""), true, null, "最终答案"));
-        return new RuntimeResult(answer, "COMPLETED", context.getSteps(),
+        return new AgentRuntimeResult(answer, "COMPLETED", context.getSteps(),
                 List.copyOf(events), System.currentTimeMillis() - startTime);
     }
 
     /**
      * 标记运行失败并返回失败结果。
      */
-    private RuntimeResult fail(AgentContext context, AgentRuntimeOptions options, List<AgentRunEvent> events,
-                               String message, long startTime, String reason) {
+    private AgentRuntimeResult fail(AgentContext context, AgentRuntimeOptions options, List<AgentRunEvent> events,
+                                    String message, long startTime, String reason) {
         context.setStatus(AgentContext.AgentContextStatus.FAILED);
         // 失败也走统一事件格式，便于调用方展示和审计。
         recordEvent(events, options, event(AgentRunEvent.EventType.ERROR, null, null,
                 Map.of("reason", reason != null ? reason : ""), false, null, message));
-        return new RuntimeResult(message, "FAILED", context.getSteps(),
+        return new AgentRuntimeResult(message, "FAILED", context.getSteps(),
                 List.copyOf(events), System.currentTimeMillis() - startTime);
     }
 
@@ -231,22 +228,4 @@ public class PlanExecuteAgentRuntime {
         return AgentRunEvent.of(type, stepOrder, toolName, payload, success, durationMs, message);
     }
 
-    /**
-     * Agent 运行结果。
-     */
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class RuntimeResult {
-        private String answer;
-
-        private String status;
-
-        private List<AgentStep> steps;
-
-        private List<AgentRunEvent> events;
-
-        private long totalDurationMs;
-
-    }
 }

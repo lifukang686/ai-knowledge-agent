@@ -8,7 +8,8 @@ import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.enums.ModelTypeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.module.knowledge.model.vo.EmbeddingResult;
-import com.fukang.knowledge.agent.module.knowledge.model.vo.EmbeddingResult.EmbeddingVector;
+import com.fukang.knowledge.agent.module.knowledge.model.vo.EmbeddingVector;
+import com.fukang.knowledge.agent.module.modelruntime.model.vo.EmbeddingBatchResult;
 import com.fukang.knowledge.agent.module.model.model.entity.ModelConfigEntity;
 import com.fukang.knowledge.agent.module.model.model.entity.ModelProviderEntity;
 import lombok.extern.slf4j.Slf4j;
@@ -75,7 +76,7 @@ public class EmbeddingService {
                         batchIndex + 1, batches.size(), embeddingModel.getModelName(), batch.size(), batchOffset);
 
                 // batchOffset 用于把批次内序号还原为文档 chunkOrder。
-                EmbeddingClient.BatchResult batchResult = embeddingPort.embedBatch(embeddingModel, batch, batchOffset);
+                EmbeddingBatchResult batchResult = embeddingPort.embedBatch(embeddingModel, batch, batchOffset);
                 allVectors.addAll(batchResult.getVectors());
                 totalTokens += batchResult.getTotalTokens();
             }

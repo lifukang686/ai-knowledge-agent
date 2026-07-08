@@ -3,7 +3,7 @@ package com.fukang.knowledge.agent.module.knowledge.service.storage;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.fukang.knowledge.agent.module.knowledge.model.vo.ChunkResult;
-import com.fukang.knowledge.agent.module.knowledge.model.vo.ChunkResult.ParsedChunk;
+import com.fukang.knowledge.agent.module.knowledge.model.vo.ParsedChunk;
 import com.fukang.knowledge.agent.module.knowledge.model.vo.ChunkStorageResult;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;

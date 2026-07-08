@@ -6,10 +6,12 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fukang.knowledge.agent.module.agent.model.vo.AgentRuntimeResult;
 import com.fukang.knowledge.agent.module.agent.service.runtime.AgentRuntimeOptions;
 import com.fukang.knowledge.agent.module.agent.service.runtime.PlanExecuteAgentRuntime;
 import com.fukang.knowledge.agent.module.agent.service.tool.impl.ScopedToolRegistry;
 import com.fukang.knowledge.agent.module.servicedesk.service.stream.ServiceDeskStreamHandler;
+import com.fukang.knowledge.agent.module.servicedesk.model.bo.ServiceDeskAgentContext;
 import com.fukang.knowledge.agent.module.servicedesk.model.dto.ServiceDeskAskCommand;
 import com.fukang.knowledge.agent.module.servicedesk.model.vo.ServiceDeskAnswerResult;
 import com.fukang.knowledge.agent.module.servicedesk.model.vo.ServiceTicketResult;
@@ -86,7 +88,7 @@ public class ServiceDeskAgentRuntime {
             AgentRuntimeOptions options = AgentRuntimeOptions.of(MAX_STEPS, planningPrompt, toolScope)
                     .withEventListener(handler != null ? handler::onAgentEvent : null);
             // 交给通用 Plan-Execute Runtime 规划并执行工具链。
-            PlanExecuteAgentRuntime.RuntimeResult result = planExecuteAgentRuntime.runTask(command.getQuestion(), options);
+            AgentRuntimeResult result = planExecuteAgentRuntime.runTask(command.getQuestion(), options);
             return toAnswerResult(result, runId, serviceType.name());
         } finally {
             ServiceDeskAgentContextHolder.clear();
@@ -96,7 +98,7 @@ public class ServiceDeskAgentRuntime {
     /**
      * 转换服务台回答结果。
      */
-    private ServiceDeskAnswerResult toAnswerResult(PlanExecuteAgentRuntime.RuntimeResult result,
+    private ServiceDeskAnswerResult toAnswerResult(AgentRuntimeResult result,
                                                    Long runId, String serviceType) {
         // 从执行步骤中提取业务结果，覆盖模型可能不准确的最终话术。
         ToolOutcome outcome = extractOutcome(result.getSteps());

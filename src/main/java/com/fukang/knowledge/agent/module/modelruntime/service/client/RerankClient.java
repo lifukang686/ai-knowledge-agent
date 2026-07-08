@@ -1,9 +1,6 @@
 package com.fukang.knowledge.agent.module.modelruntime.service.client;
 
-
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import com.fukang.knowledge.agent.module.modelruntime.model.vo.RerankScore;
 import com.fukang.knowledge.agent.module.rag.model.vo.SearchResult;
 
 import java.util.List;
@@ -19,19 +16,4 @@ public interface RerankClient {
      * 对候选片段重排序。
      */
     Optional<List<RerankScore>> rerank(String query, List<SearchResult> candidates);
-
-    /**
-     * 单条重排序得分。
-     */
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    static class RerankScore {
-        private int index;
-
-        private Long chunkId;
-
-        private double score;
-
-    }
 }

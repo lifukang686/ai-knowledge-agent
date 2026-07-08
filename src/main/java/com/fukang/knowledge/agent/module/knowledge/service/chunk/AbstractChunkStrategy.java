@@ -3,7 +3,7 @@ package com.fukang.knowledge.agent.module.knowledge.service.chunk;
 import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.module.knowledge.model.vo.ChunkResult;
-import com.fukang.knowledge.agent.module.knowledge.model.vo.ChunkResult.ParsedChunk;
+import com.fukang.knowledge.agent.module.knowledge.model.vo.ParsedChunk;
 import com.fukang.knowledge.agent.module.knowledge.model.vo.DocumentParseResult;
 import dev.langchain4j.data.document.Document;
 import dev.langchain4j.data.document.DocumentSplitter;

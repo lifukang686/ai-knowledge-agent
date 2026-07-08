@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fukang.knowledge.agent.module.modelruntime.model.vo.ChatMessage;
 import com.fukang.knowledge.agent.module.modelruntime.service.client.impl.ChatModelClient;
 import com.fukang.knowledge.agent.module.memory.mapper.UserMemoryMapper;
 import com.fukang.knowledge.agent.common.context.UserContextHolder;
@@ -130,8 +131,8 @@ public class UserMemoryService {
     private List<MemoryCandidate> extractCandidates(String question, String answer) {
         try {
             String response = chatCompletionPort.complete(List.of(
-                    ChatModelClient.Message.system("你是用户记忆提取助手，只输出 JSON 数组。"),
-                    ChatModelClient.Message.user(buildExtractPrompt(question, answer))
+                    ChatMessage.system("你是用户记忆提取助手，只输出 JSON 数组。"),
+                    ChatMessage.user(buildExtractPrompt(question, answer))
             ));
             String json = extractJsonArray(response);
             if (!StringUtils.hasText(json)) {

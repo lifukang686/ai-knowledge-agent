@@ -6,7 +6,7 @@ import com.fukang.knowledge.agent.module.servicedesk.model.vo.ServiceTicketResul
 import com.fukang.knowledge.agent.common.enums.TicketPriorityEnum;
 import com.fukang.knowledge.agent.common.enums.TicketStatusEnum;
 import com.fukang.knowledge.agent.module.agent.service.tool.LocalMethodTool;
-import com.fukang.knowledge.agent.module.servicedesk.service.agent.ServiceDeskAgentContext;
+import com.fukang.knowledge.agent.module.servicedesk.model.bo.ServiceDeskAgentContext;
 import com.fukang.knowledge.agent.module.servicedesk.service.agent.ServiceDeskAgentContextHolder;
 import com.fukang.knowledge.agent.module.servicedesk.service.agent.ServiceDeskToolNames;
 import lombok.RequiredArgsConstructor;

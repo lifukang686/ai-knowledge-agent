@@ -1,6 +1,7 @@
 package com.fukang.knowledge.agent.module.modelruntime.service.client.impl;
 
 import com.fukang.knowledge.agent.common.exception.BaseException;
+import com.fukang.knowledge.agent.module.modelruntime.model.vo.RerankScore;
 import com.fukang.knowledge.agent.module.modelruntime.service.manager.DynamicModelManager;
 import com.fukang.knowledge.agent.module.modelruntime.service.client.RerankClient;
 import com.fukang.knowledge.agent.module.rag.model.vo.SearchResult;

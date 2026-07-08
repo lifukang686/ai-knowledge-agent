@@ -4,7 +4,7 @@ import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.module.knowledge.model.entity.DocumentChunkEntity;
 import com.fukang.knowledge.agent.module.knowledge.model.vo.ChunkResult;
-import com.fukang.knowledge.agent.module.knowledge.model.vo.ChunkResult.ParsedChunk;
+import com.fukang.knowledge.agent.module.knowledge.model.vo.ParsedChunk;
 import com.fukang.knowledge.agent.module.knowledge.model.vo.ChunkStorageResult;
 import com.fukang.knowledge.agent.module.knowledge.service.storage.DocumentChunkStorageService;
 import com.fukang.knowledge.agent.module.modelruntime.service.storage.EmbeddingIndexStorageService;

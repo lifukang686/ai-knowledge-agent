@@ -1,6 +1,7 @@
 package com.fukang.knowledge.agent.module.conversation.service;
 
 import com.fukang.knowledge.agent.module.modelruntime.service.client.impl.ChatModelClient;
+import com.fukang.knowledge.agent.module.modelruntime.model.vo.ChatMessage;
 import com.fukang.knowledge.agent.module.conversation.mapper.ConversationMapper;
 import com.fukang.knowledge.agent.module.conversation.mapper.ConversationMessageMapper;
 import com.fukang.knowledge.agent.module.conversation.mapper.ConversationSummaryMapper;
@@ -286,8 +287,8 @@ public class ConversationMemoryService {
                     "history", history
             ));
             return chatCompletionPort.complete(List.of(
-                    ChatModelClient.Message.system("你是会话摘要助手，只保留对后续问答有用的上下文。"),
-                    ChatModelClient.Message.user(userPrompt)
+                    ChatMessage.system("你是会话摘要助手，只保留对后续问答有用的上下文。"),
+                    ChatMessage.user(userPrompt)
             ));
         } catch (Exception e) {
             log.warn("会话摘要生成失败，保留旧摘要且不推进摘要覆盖位置: {}", e.getMessage());

@@ -1,5 +1,7 @@
 package com.fukang.knowledge.agent.module.servicedesk.service.agent;
 
+import com.fukang.knowledge.agent.module.servicedesk.model.bo.ServiceDeskAgentContext;
+
 /**
  * 服务台 Agent 当前运行上下文持有器。
  */

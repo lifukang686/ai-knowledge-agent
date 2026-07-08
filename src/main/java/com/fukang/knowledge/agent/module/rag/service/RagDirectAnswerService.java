@@ -1,8 +1,9 @@
 package com.fukang.knowledge.agent.module.rag.service;
 
-import com.fukang.knowledge.agent.module.modelruntime.service.client.ChatCompletionClient;
 import com.fukang.knowledge.agent.module.conversation.service.ConversationMemoryContext;
 import com.fukang.knowledge.agent.module.memory.service.UserMemoryContext;
+import com.fukang.knowledge.agent.module.modelruntime.model.vo.ChatMessage;
+import com.fukang.knowledge.agent.module.modelruntime.service.client.ChatCompletionClient;
 import com.fukang.knowledge.agent.module.rag.service.intent.QaIntent;
 import com.fukang.knowledge.agent.module.rag.model.vo.QaResult;
 import com.fukang.knowledge.agent.module.rag.service.stream.QaStreamHandler;
@@ -117,8 +118,8 @@ public class RagDirectAnswerService {
                                  UserMemoryContext userMemory,
                                  QaStreamHandler handler) {
         ragStreamingService.stream(List.of(
-                ChatCompletionClient.Message.system(promptTemplateManager.renderText(CHITCHAT_SYSTEM_TEMPLATE, null)),
-                ChatCompletionClient.Message.user(ragConversationService.buildDirectChatPrompt(questionForAnswer, memory, userMemory))
+                ChatMessage.system(promptTemplateManager.renderText(CHITCHAT_SYSTEM_TEMPLATE, null)),
+                ChatMessage.user(ragConversationService.buildDirectChatPrompt(questionForAnswer, memory, userMemory))
         ), originalQuestion, rewrittenQuery, "success", memory.getConversationId(), handler);
     }
 
@@ -132,8 +133,8 @@ public class RagDirectAnswerService {
     private String directChat(String question, ConversationMemoryContext memory, UserMemoryContext userMemory) {
         try {
             String answer = chatCompletionPort.complete(List.of(
-                    ChatCompletionClient.Message.system(promptTemplateManager.renderText(CHITCHAT_SYSTEM_TEMPLATE, null)),
-                    ChatCompletionClient.Message.user(ragConversationService.buildDirectChatPrompt(question, memory, userMemory))
+                    ChatMessage.system(promptTemplateManager.renderText(CHITCHAT_SYSTEM_TEMPLATE, null)),
+                    ChatMessage.user(ragConversationService.buildDirectChatPrompt(question, memory, userMemory))
             ));
             return answer == null || answer.isBlank() ? DEFAULT_DIRECT_ANSWER : answer;
         } catch (Exception e) {

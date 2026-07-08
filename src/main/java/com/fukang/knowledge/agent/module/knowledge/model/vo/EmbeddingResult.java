@@ -1,12 +1,12 @@
 package com.fukang.knowledge.agent.module.knowledge.model.vo;
 
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 /**
  * 向量化结果
@@ -68,26 +68,6 @@ public class EmbeddingResult {
     public String modelVersion() {
         Object value = metadata != null ? metadata.get("modelVersion") : null;
         return value != null ? String.valueOf(value) : modelName;
-    }
-
-    /**
-     * 单个向量嵌入数据
-     * <p>映射 chunkOrder → vector 的对应关系</p>
-     *
-     * @param chunkOrder 块在文档中的顺序号，从 0 开始
-     * @param vector     向量数据，float 数组表示
-     * @param dimension  向量维度
-     */
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class EmbeddingVector {
-        private int chunkOrder;
-
-        private float[] vector;
-
-        private int dimension;
-
     }
 
     /**

@@ -1,5 +1,6 @@
 package com.fukang.knowledge.agent.module.rag.service.impl;
 
+import com.fukang.knowledge.agent.module.modelruntime.model.vo.RerankScore;
 import com.fukang.knowledge.agent.module.modelruntime.service.client.RerankClient;
 import com.fukang.knowledge.agent.module.rag.model.vo.SearchResult;
 import com.fukang.knowledge.agent.module.rag.service.Reranker;
@@ -100,14 +101,14 @@ public class RerankService implements Reranker {
      * @param startTime  重排开始时间，用于统计耗时
      */
     private Optional<List<SearchResult>> rerankByModel(List<SearchResult> candidates, String query, long startTime) {
-        Optional<List<RerankClient.RerankScore>> scoreResult = rerankModelPort.rerank(query, candidates);
+        Optional<List<RerankScore>> scoreResult = rerankModelPort.rerank(query, candidates);
         if (scoreResult.isEmpty()) {
             return Optional.empty();
         }
 
         Map<Integer, Double> scoresByIndex = scoreResult.get().stream()
-                .collect(Collectors.toMap(RerankClient.RerankScore::getIndex,
-                        RerankClient.RerankScore::getScore,
+                .collect(Collectors.toMap(RerankScore::getIndex,
+                        RerankScore::getScore,
                         (left, right) -> left,
                         LinkedHashMap::new));
 

@@ -2,6 +2,7 @@ package com.fukang.knowledge.agent.module.rag.service.intent.impl;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fukang.knowledge.agent.module.modelruntime.model.vo.ChatMessage;
 import com.fukang.knowledge.agent.module.modelruntime.service.client.ChatCompletionClient;
 import com.fukang.knowledge.agent.module.modelruntime.service.manager.PromptTemplateManager;
 import com.fukang.knowledge.agent.module.rag.service.intent.QaIntent;
@@ -41,8 +42,8 @@ public class LlmQaIntentClassifier {
                     "question", question != null ? question : ""
             ));
             String raw = chatCompletionPort.complete(List.of(
-                    ChatCompletionClient.Message.system("你是一个严格的问答意图分类器，只输出 JSON。"),
-                    ChatCompletionClient.Message.user(userPrompt)
+                    ChatMessage.system("你是一个严格的问答意图分类器，只输出 JSON。"),
+                    ChatMessage.user(userPrompt)
             ));
             return parse(raw);
         } catch (Exception e) {

@@ -1,9 +1,10 @@
 package com.fukang.knowledge.agent.module.rag.service;
 
-import com.fukang.knowledge.agent.module.modelruntime.service.client.ChatCompletionClient;
 import com.fukang.knowledge.agent.module.conversation.service.ConversationMemoryContext;
 import com.fukang.knowledge.agent.module.memory.service.UserMemoryContext;
+import com.fukang.knowledge.agent.module.modelruntime.model.vo.ChatMessage;
 import com.fukang.knowledge.agent.module.knowledge.mapper.KnowledgeBaseMapper;
+import com.fukang.knowledge.agent.module.rag.model.bo.RagStreamContext;
 import com.fukang.knowledge.agent.module.rag.service.intent.QaIntent;
 import com.fukang.knowledge.agent.module.rag.service.intent.QaIntentClassifier;
 import com.fukang.knowledge.agent.module.rag.model.vo.QaResult;
@@ -170,20 +171,21 @@ public class RagService {
      * 识别问题意图。
      */
     private void recognizeStreamIntent(RagStreamContext context) {
-        context.intent = qaIntentClassifier.classify(context.question);
-        log.info("流式问答意图识别完成: intent={}", context.intent);
+        context.setIntent(qaIntentClassifier.classify(context.getQuestion()));
+        log.info("流式问答意图识别完成: intent={}", context.getIntent());
     }
 
     /**
      * 尝试直接回答。
      */
     private boolean tryStreamDirectAnswer(RagStreamContext context, QaStreamHandler handler) {
-        if (!shouldBypassRetrieval(context.question, context.intent)) {
+        if (!shouldBypassRetrieval(context.getQuestion(), context.getIntent())) {
             return false;
         }
-        log.info("流式问答走直接回答: intent={}", context.intent);
+        log.info("流式问答走直接回答: intent={}", context.getIntent());
         handler.onStage("generate_start", "检测到非知识库问题，正在直接回答");
-        ragDirectAnswerService.streamByIntent(context.question, context.memory, context.userMemory, context.intent, handler);
+        ragDirectAnswerService.streamByIntent(
+                context.getQuestion(), context.getMemory(), context.getUserMemory(), context.getIntent(), handler);
         return true;
     }
 
@@ -192,8 +194,9 @@ public class RagService {
      */
     private void rewriteStreamQuery(RagStreamContext context, QaStreamHandler handler) {
         handler.onStage("rewrite_start", "正在结合会话历史改写查询");
-        context.rewrittenQuery = queryRewriter.rewriteWithHistory(
-                context.question, context.memory.getSummary(), context.memory.getRewriteHistory(), context.userMemory.getPromptText());
+        context.setRewrittenQuery(queryRewriter.rewriteWithHistory(
+                context.getQuestion(), context.getMemory().getSummary(),
+                context.getMemory().getRewriteHistory(), context.getUserMemory().getPromptText()));
         log.info("流式问答查询改写完成");
         handler.onStage("rewrite_done", "查询改写完成");
     }
@@ -203,24 +206,24 @@ public class RagService {
      */
     private void retrieveStreamKnowledge(RagStreamContext context, QaStreamHandler handler) {
         handler.onStage("retrieve_start", "正在检索知识库");
-        context.retrieved = ragRetrievalService.retrieveWithFallback(
-                context.rewrittenQuery, context.question, context.knowledgeBaseId);
-        log.info("流式问答检索完成: candidateCount={}", context.retrieved.size());
-        handler.onStage("retrieve_done", "检索完成，找到 " + context.retrieved.size() + " 个候选片段");
+        context.setRetrieved(ragRetrievalService.retrieveWithFallback(
+                context.getRewrittenQuery(), context.getQuestion(), context.getKnowledgeBaseId()));
+        log.info("流式问答检索完成: candidateCount={}", context.getRetrieved().size());
+        handler.onStage("retrieve_done", "检索完成，找到 " + context.getRetrieved().size() + " 个候选片段");
     }
 
     /**
      * 检索为空时降级直接回答。
      */
     private boolean tryFallbackToStreamDirectChat(RagStreamContext context, QaStreamHandler handler) {
-        if (!context.retrieved.isEmpty() || !isChitchat(context.rewrittenQuery)) {
+        if (!context.getRetrieved().isEmpty() || !isChitchat(context.getRewrittenQuery())) {
             return false;
         }
         log.info("流式问答检索为空，降级直接回答");
         handler.onStage("generate_start", "检索无结果，降级为直接回答");
         ragDirectAnswerService.streamDirectChat(
-                context.rewrittenQuery, context.question, context.rewrittenQuery,
-                context.memory, context.userMemory, handler);
+                context.getRewrittenQuery(), context.getQuestion(), context.getRewrittenQuery(),
+                context.getMemory(), context.getUserMemory(), handler);
         return true;
     }
 
@@ -229,24 +232,25 @@ public class RagService {
      */
     private void rerankStreamResults(RagStreamContext context, QaStreamHandler handler) {
         handler.onStage("rerank_start", "正在对检索结果重排序");
-        context.reranked = reranker.rerank(context.retrieved, context.question);
-        log.info("流式问答重排序完成: keptCount={}", context.reranked.size());
-        handler.onStage("rerank_done", "重排序完成，保留 " + context.reranked.size() + " 个候选片段");
+        context.setReranked(reranker.rerank(context.getRetrieved(), context.getQuestion()));
+        log.info("流式问答重排序完成: keptCount={}", context.getReranked().size());
+        handler.onStage("rerank_done", "重排序完成，保留 " + context.getReranked().size() + " 个候选片段");
     }
 
     /**
      * 无召回结果时返回兜底回答。
      */
     private boolean tryStreamNoResultAnswer(RagStreamContext context, QaStreamHandler handler) {
-        if (!context.reranked.isEmpty()) {
+        if (!context.getReranked().isEmpty()) {
             return false;
         }
         log.info("流式问答无可用片段，返回无结果回答");
         ragConversationService.saveTurn(
-                context.memory.getConversationId(), context.question, context.rewrittenQuery, NO_RESULT_ANSWER, STATUS_NO_RESULTS);
+                context.getMemory().getConversationId(), context.getQuestion(),
+                context.getRewrittenQuery(), NO_RESULT_ANSWER, STATUS_NO_RESULTS);
         handler.onToken(NO_RESULT_ANSWER);
         handler.onDone(new QaResult(
-                NO_RESULT_ANSWER, context.rewrittenQuery, STATUS_NO_RESULTS, context.memory.getConversationId()));
+                NO_RESULT_ANSWER, context.getRewrittenQuery(), STATUS_NO_RESULTS, context.getMemory().getConversationId()));
         return true;
     }
 
@@ -255,14 +259,15 @@ public class RagService {
      */
     private void streamAnswer(RagStreamContext context, QaStreamHandler handler) {
         handler.onStage("generate_start", "正在生成回答");
-        log.info("流式问答开始生成回答: chunkCount={}", context.reranked.size());
+        log.info("流式问答开始生成回答: chunkCount={}", context.getReranked().size());
         String systemPrompt = promptTemplateManager.renderText("rag/answer-system.v1", null);
-        String userPrompt = llmAnswerGenerator.buildRagUserPrompt(context.reranked, context.rewrittenQuery,
-                ragConversationService.buildAnswerMemory(context.memory, context.userMemory));
+        String userPrompt = llmAnswerGenerator.buildRagUserPrompt(context.getReranked(), context.getRewrittenQuery(),
+                ragConversationService.buildAnswerMemory(context.getMemory(), context.getUserMemory()));
         ragStreamingService.stream(List.of(
-                ChatCompletionClient.Message.system(systemPrompt),
-                ChatCompletionClient.Message.user(userPrompt)
-        ), context.question, context.rewrittenQuery, STATUS_SUCCESS, context.memory.getConversationId(), handler);
+                ChatMessage.system(systemPrompt),
+                ChatMessage.user(userPrompt)
+        ), context.getQuestion(), context.getRewrittenQuery(),
+                STATUS_SUCCESS, context.getMemory().getConversationId(), handler);
     }
 
     /**
@@ -292,62 +297,4 @@ public class RagService {
         return text.trim().length() <= 30 && CHITCHAT_PATTERN.matcher(text).find();
     }
 
-    /**
-     * 流式 RAG 处理上下文。
-     */
-    private static class RagStreamContext {
-
-        /**
-         * 用户原始问题。
-         */
-        private final String question;
-
-        /**
-         * 知识库 ID。
-         */
-        private final Long knowledgeBaseId;
-
-        /**
-         * 会话记忆上下文。
-         */
-        private final ConversationMemoryContext memory;
-
-        /**
-         * 用户长期记忆上下文。
-         */
-        private final UserMemoryContext userMemory;
-
-        /**
-         * 问题意图。
-         */
-        private QaIntent intent;
-
-        /**
-         * 改写后的检索查询。
-         */
-        private String rewrittenQuery;
-
-        /**
-         * 原始召回结果。
-         */
-        private List<SearchResult> retrieved = List.of();
-
-        /**
-         * 重排后的结果。
-         */
-        private List<SearchResult> reranked = List.of();
-
-        /**
-         * 创建流式 RAG 上下文。
-         */
-        private RagStreamContext(String question,
-                                 Long knowledgeBaseId,
-                                 ConversationMemoryContext memory,
-                                 UserMemoryContext userMemory) {
-            this.question = question;
-            this.knowledgeBaseId = knowledgeBaseId;
-            this.memory = memory;
-            this.userMemory = userMemory;
-        }
-    }
 }

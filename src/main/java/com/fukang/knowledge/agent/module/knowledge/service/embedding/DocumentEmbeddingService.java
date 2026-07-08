@@ -5,6 +5,7 @@ import com.fukang.knowledge.agent.common.enums.ErrorCodeEnum;
 import com.fukang.knowledge.agent.common.exception.BaseException;
 import com.fukang.knowledge.agent.module.knowledge.model.vo.ChunkStorageResult;
 import com.fukang.knowledge.agent.module.knowledge.model.vo.EmbeddingResult;
+import com.fukang.knowledge.agent.module.knowledge.model.vo.EmbeddingVector;
 import com.fukang.knowledge.agent.module.modelruntime.service.storage.EmbeddingIndexStorageService;
 import com.fukang.knowledge.agent.module.knowledge.service.storage.DocumentChunkStorageService;
 import com.fukang.knowledge.agent.module.knowledge.model.entity.DocumentChunkEntity;
@@ -114,7 +115,7 @@ public class DocumentEmbeddingService {
         }
 
         Set<Integer> seenOrders = new HashSet<>();
-        for (EmbeddingResult.EmbeddingVector vector : embeddingResult.getEmbeddings()) {
+        for (EmbeddingVector vector : embeddingResult.getEmbeddings()) {
             int chunkOrder = vector.getChunkOrder();
             if (chunkOrder < 0 || chunkOrder >= expectedChunks || !seenOrders.add(chunkOrder)) {
                 log.warn("向量化结果 chunkOrder 非法: chunkOrder={}, expectedChunks={}", chunkOrder, expectedChunks);

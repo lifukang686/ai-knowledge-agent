@@ -2,6 +2,7 @@ package com.fukang.knowledge.agent.module.servicedesk.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fukang.knowledge.agent.module.servicedesk.service.agent.ServiceDeskAgentRuntime;
+import com.fukang.knowledge.agent.module.servicedesk.service.stream.RecordingServiceDeskStreamHandler;
 import com.fukang.knowledge.agent.module.servicedesk.service.stream.ServiceDeskStreamHandler;
 import com.fukang.knowledge.agent.module.servicedesk.model.dto.ServiceDeskAskCommand;
 import com.fukang.knowledge.agent.module.servicedesk.mapper.ServiceDeskFeedbackMapper;
@@ -26,7 +27,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * 企业服务台 Agent 应用服务。
@@ -81,7 +81,7 @@ public class ServiceDeskService {
         }
 
         ServiceDeskRunEntity run = null;
-        RecordingStreamHandler recordingHandler = new RecordingStreamHandler(handler);
+        RecordingServiceDeskStreamHandler recordingHandler = new RecordingServiceDeskStreamHandler(handler);
         try {
             // 先解析最终服务类型，再创建运行记录和受控工具作用域。
             ServiceDeskAskCommand resolvedCommand = resolveCommand(command);
@@ -333,65 +333,6 @@ public class ServiceDeskService {
         if (handler != null && text != null) {
             // 最终答案也按 token 事件补一遍，兼容非流式工具结果。
             handler.onToken(text);
-        }
-    }
-
-    /**
-     * 记录 Agent 事件并转发给真实 SSE 处理器。
-     */
-    private static class RecordingStreamHandler implements ServiceDeskStreamHandler {
-
-        private final ServiceDeskStreamHandler delegate;
-        private final List<AgentRunEvent> events = new CopyOnWriteArrayList<>();
-
-        /**
-         * 创建记录型流处理器。
-         */
-        private RecordingStreamHandler(ServiceDeskStreamHandler delegate) {
-            this.delegate = delegate;
-        }
-
-        /**
-         * 返回已记录事件。
-         */
-        private List<AgentRunEvent> events() {
-            return List.copyOf(events);
-        }
-
-        @Override
-        public void onStage(String stage, String message) {
-            if (delegate != null) {
-                delegate.onStage(stage, message);
-            }
-        }
-
-        @Override
-        public void onToken(String token) {
-            if (delegate != null) {
-                delegate.onToken(token);
-            }
-        }
-
-        @Override
-        public void onAgentEvent(AgentRunEvent event) {
-            events.add(event);
-            if (delegate != null) {
-                delegate.onAgentEvent(event);
-            }
-        }
-
-        @Override
-        public void onDone(ServiceDeskAnswerResult result) {
-            if (delegate != null) {
-                delegate.onDone(result);
-            }
-        }
-
-        @Override
-        public void onError(String message, Throwable error) {
-            if (delegate != null) {
-                delegate.onError(message, error);
-            }
         }
     }
 

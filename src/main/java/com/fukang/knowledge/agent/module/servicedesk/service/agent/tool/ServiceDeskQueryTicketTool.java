@@ -3,7 +3,7 @@ package com.fukang.knowledge.agent.module.servicedesk.service.agent.tool;
 import com.fukang.knowledge.agent.module.servicedesk.service.TicketService;
 import com.fukang.knowledge.agent.module.servicedesk.model.vo.ServiceTicketResult;
 import com.fukang.knowledge.agent.module.agent.service.tool.LocalMethodTool;
-import com.fukang.knowledge.agent.module.servicedesk.service.agent.ServiceDeskAgentContext;
+import com.fukang.knowledge.agent.module.servicedesk.model.bo.ServiceDeskAgentContext;
 import com.fukang.knowledge.agent.module.servicedesk.service.agent.ServiceDeskAgentContextHolder;
 import com.fukang.knowledge.agent.module.servicedesk.service.agent.ServiceDeskToolNames;
 import lombok.RequiredArgsConstructor;

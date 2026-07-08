@@ -2,8 +2,9 @@ package com.fukang.knowledge.agent.module.modelruntime.service.client.impl;
 
 import com.fukang.knowledge.agent.module.modelruntime.service.client.EmbeddingClient;
 import com.fukang.knowledge.agent.module.modelruntime.service.manager.DynamicModelManager;
-import com.fukang.knowledge.agent.module.knowledge.model.vo.EmbeddingResult.EmbeddingVector;
+import com.fukang.knowledge.agent.module.knowledge.model.vo.EmbeddingVector;
 import com.fukang.knowledge.agent.module.model.model.entity.ModelConfigEntity;
+import com.fukang.knowledge.agent.module.modelruntime.model.vo.EmbeddingBatchResult;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
@@ -15,7 +16,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * LangChain4j Embedding 妯″瀷閫傞厤鍣ㄣ€? */
+ * LangChain4j Embedding 模型适配器。
+ */
 @Component
 @RequiredArgsConstructor
 public class EmbeddingModelClient implements EmbeddingClient {
@@ -23,14 +25,14 @@ public class EmbeddingModelClient implements EmbeddingClient {
     private final DynamicModelManager modelManager;
 
     @Override
-    public BatchResult embedBatch(ModelConfigEntity modelConfig, List<String> texts, int chunkOrderOffset) {
+    public EmbeddingBatchResult embedBatch(ModelConfigEntity modelConfig, List<String> texts, int chunkOrderOffset) {
         EmbeddingModel embeddingClient = modelManager.getEmbeddingModel(modelConfig);
         List<TextSegment> segments = texts.stream().map(TextSegment::from).toList();
         Response<List<Embedding>> response = embeddingClient.embedAll(segments);
 
         List<EmbeddingVector> vectors = extractVectors(response.content(), chunkOrderOffset);
         int totalTokens = response.tokenUsage() != null ? response.tokenUsage().totalTokenCount() : 0;
-        return new BatchResult(vectors, totalTokens);
+        return new EmbeddingBatchResult(vectors, totalTokens);
     }
 
     private List<EmbeddingVector> extractVectors(List<Embedding> embeddings, int chunkOrderOffset) {

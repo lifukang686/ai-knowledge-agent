@@ -1,7 +1,8 @@
 package com.fukang.knowledge.agent.module.rag.service;
 
-import com.fukang.knowledge.agent.module.modelruntime.service.client.ChatCompletionClient;
+import com.fukang.knowledge.agent.module.modelruntime.model.vo.ChatMessage;
 import com.fukang.knowledge.agent.module.modelruntime.service.client.StreamingChatCompletionClient;
+import com.fukang.knowledge.agent.module.modelruntime.service.client.StreamingChatHandler;
 import com.fukang.knowledge.agent.module.rag.model.vo.QaResult;
 import com.fukang.knowledge.agent.module.rag.service.stream.QaStreamHandler;
 import com.fukang.knowledge.agent.common.context.UserContextHolder;
@@ -23,7 +24,7 @@ public class RagStreamingService {
     /**
      * 执行流式模型调用，并在完成或失败时写入会话记忆。
      */
-    public void stream(List<ChatCompletionClient.Message> messages,
+    public void stream(List<ChatMessage> messages,
                        String originalQuestion,
                        String rewrittenQuery,
                        String status,
@@ -31,7 +32,7 @@ public class RagStreamingService {
                        QaStreamHandler handler) {
         StringBuilder answer = new StringBuilder();
         Long userId = UserContextHolder.getUserId();
-        streamingChatCompletionClient.completeStream(messages, new StreamingChatCompletionClient.StreamHandler() {
+        streamingChatCompletionClient.completeStream(messages, new StreamingChatHandler() {
             @Override
             public void onToken(String token) {
                 // 同步累积 token，兜底处理模型未返回 fullText 的情况。

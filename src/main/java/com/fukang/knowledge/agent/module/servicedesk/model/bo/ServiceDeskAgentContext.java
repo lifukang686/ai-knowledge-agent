@@ -1,11 +1,10 @@
-package com.fukang.knowledge.agent.module.servicedesk.service.agent;
+package com.fukang.knowledge.agent.module.servicedesk.model.bo;
 
-
+import com.fukang.knowledge.agent.common.enums.ServiceTypeEnum;
+import com.fukang.knowledge.agent.module.servicedesk.service.stream.ServiceDeskStreamHandler;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import com.fukang.knowledge.agent.module.servicedesk.service.stream.ServiceDeskStreamHandler;
-import com.fukang.knowledge.agent.common.enums.ServiceTypeEnum;
 
 /**
  * 服务台 Agent 工具调用上下文。
