@@ -13,22 +13,49 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ServiceTicketEventResult {
+    /**
+     * 工单事件 ID。
+     */
     private Long id;
 
+    /**
+     * 关联工单 ID。
+     */
     private Long ticketId;
 
+    /**
+     * 工单事件类型。
+     */
     private String eventType;
 
+    /**
+     * 事件发生前的工单状态。
+     */
     private String fromStatus;
 
+    /**
+     * 事件发生后的工单状态。
+     */
     private String toStatus;
 
+    /**
+     * 操作人用户 ID。
+     */
     private Long operatorId;
 
+    /**
+     * 事件展示文案。
+     */
     private String message;
 
+    /**
+     * 事件扩展载荷 JSON。
+     */
     private String payload;
 
+    /**
+     * 事件创建时间。
+     */
     private LocalDateTime createTime;
 
 }

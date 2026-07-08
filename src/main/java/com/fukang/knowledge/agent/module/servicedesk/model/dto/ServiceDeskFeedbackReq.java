@@ -12,8 +12,14 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ServiceDeskFeedbackReq {
+    /**
+     * 用户反馈问题是否已经解决。
+     */
     private Boolean resolved;
 
+    /**
+     * 用户反馈备注。
+     */
     private String comment;
 
 }
