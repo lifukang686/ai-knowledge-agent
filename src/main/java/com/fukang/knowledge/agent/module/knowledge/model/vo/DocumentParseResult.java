@@ -11,25 +11,24 @@ import java.util.Map;
  * 文档解析结果
  * <p>封装文档解析后提取的纯文本内容和相关元数据，
  * 作为解析阶段与分块阶段之间的数据传递对象</p>
- *
- * @param content       文档解析后的纯文本内容
- * @param title         文档标题（原始文件名）
- * @param fileExtension 文件扩展名（小写），如 pdf、docx、txt
- * @param metadata      文档级元数据，包含文件大小、页数、作者等信息
- * @param parseTime     解析完成时间
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class DocumentParseResult {
+    /** 文档解析后的纯文本内容 */
     private String content;
 
+    /** 文档标题（原始文件名） */
     private String title;
 
+    /** 文件扩展名（小写），如 pdf、docx、txt */
     private String fileExtension;
 
+    /** 文档级元数据，包含文件大小、页数、作者等信息 */
     private Map<String, String> metadata;
 
+    /** 解析完成时间 */
     private LocalDateTime parseTime;
 
     /**

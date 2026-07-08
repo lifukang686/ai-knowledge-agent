@@ -7,19 +7,18 @@ import lombok.NoArgsConstructor;
 
 /**
  * QA 意图识别结果。
- *
- * @param intent     意图分类
- * @param confidence 置信度，0-1
- * @param reason     简短原因，便于排查路由行为
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class QaIntentResult {
+    /** 意图分类 */
     private QaIntent intent;
 
+    /** 置信度，0-1 */
     private double confidence;
 
+    /** 简短原因，便于排查路由行为 */
     private String reason;
 
     /**

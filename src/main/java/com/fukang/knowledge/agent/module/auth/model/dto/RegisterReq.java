@@ -9,23 +9,22 @@ import jakarta.validation.constraints.Size;
 
 /**
  * 注册请求 DTO。
- *
- * @param username        用户名
- * @param password        密码
- * @param confirmPassword 确认密码
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class RegisterReq {
+    /** 用户名 */
     @NotBlank(message = "用户名不能为空")
     @Size(min = 3, max = 64, message = "用户名长度为3-64位")
     private String username;
 
+    /** 密码 */
     @NotBlank(message = "密码不能为空")
     @Size(min = 6, max = 64, message = "密码长度为6-64位")
     private String password;
 
+    /** 确认密码 */
     @NotBlank(message = "确认密码不能为空")
     private String confirmPassword;
 

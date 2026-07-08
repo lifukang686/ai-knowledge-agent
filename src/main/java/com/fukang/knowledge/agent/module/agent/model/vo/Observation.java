@@ -9,31 +9,30 @@ import java.util.Map;
 /**
  * 观察结果值对象
  * <p>封装单个步骤执行后的完整信息，供 AgentReasoner 推理使用</p>
- *
- * @param stepOrder    步骤序号
- * @param toolName     工具名称
- * @param parameters   调用参数
- * @param result       执行输出（成功时）
- * @param success      是否执行成功
- * @param durationMs   执行耗时（毫秒）
- * @param errorMessage 错误信息（失败时）
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class Observation {
+    /** 步骤序号 */
     private Integer stepOrder;
 
+    /** 工具名称 */
     private String toolName;
 
+    /** 调用参数 */
     private Map<String, Object> parameters;
 
+    /** 执行输出（成功时） */
     private String result;
 
+    /** 是否执行成功 */
     private Boolean success;
 
+    /** 执行耗时（毫秒） */
     private Long durationMs;
 
+    /** 错误信息（失败时） */
     private String errorMessage;
 
     /**

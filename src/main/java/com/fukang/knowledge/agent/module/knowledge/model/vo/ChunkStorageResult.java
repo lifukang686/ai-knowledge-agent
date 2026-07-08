@@ -9,22 +9,21 @@ import java.time.LocalDateTime;
 /**
  * 文档块存储结果。
  * <p>当前管道采用整体事务写入，结果只记录总数、成功数和完成时间。</p>
- *
- * @param documentId     关联的文档ID
- * @param totalCount     待存储的块总数
- * @param successCount   成功存储的块数量
- * @param storageTime    存储完成时间
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class ChunkStorageResult {
+    /** 关联的文档ID */
     private Long documentId;
 
+    /** 待存储的块总数 */
     private int totalCount;
 
+    /** 成功存储的块数量 */
     private int successCount;
 
+    /** 存储完成时间 */
     private LocalDateTime storageTime;
 
     /**

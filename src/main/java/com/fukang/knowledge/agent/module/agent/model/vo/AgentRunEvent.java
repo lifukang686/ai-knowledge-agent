@@ -10,34 +10,33 @@ import java.util.Map;
 /**
  * Agent 运行事件。
  * <p>Plan-Execute 与 AiServices 两条链路统一写入该结构，前端运行详情页可按 type 渲染。</p>
- *
- * @param type       事件类型：plan/tool_call/observation/reasoning/final_answer/error
- * @param stepOrder  关联计划步骤序号，非步骤事件可为空
- * @param toolName   关联工具名称，仅工具调用/观察事件需要
- * @param payload    事件结构化载荷，如计划步骤、工具参数、工具输出等
- * @param success    执行是否成功；不适用时为空
- * @param durationMs 工具调用耗时；不适用时为空
- * @param message    给前端展示的简短说明
- * @param timestamp  事件产生时间
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class AgentRunEvent {
+    /** 事件类型：plan/tool_call/observation/reasoning/final_answer/error */
     private String type;
 
+    /** 关联计划步骤序号，非步骤事件可为空 */
     private Integer stepOrder;
 
+    /** 关联工具名称，仅工具调用/观察事件需要 */
     private String toolName;
 
+    /** 事件结构化载荷，如计划步骤、工具参数、工具输出等 */
     private Map<String, Object> payload;
 
+    /** 执行是否成功；不适用时为空 */
     private Boolean success;
 
+    /** 工具调用耗时；不适用时为空 */
     private Long durationMs;
 
+    /** 给前端展示的简短说明 */
     private String message;
 
+    /** 事件产生时间 */
     private LocalDateTime timestamp;
 
     /** 统一事件创建入口，避免调用方忘记补 timestamp。 */

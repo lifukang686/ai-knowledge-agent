@@ -7,34 +7,33 @@ import lombok.NoArgsConstructor;
 
 /**
  * RAG 检索候选结果。
- *
- * @param chunkId     文档块 ID
- * @param chunkText   文档块文本
- * @param similarity  当前排序分数，兼容旧字段
- * @param metadata    来源元数据
- * @param vectorScore 原始向量相似度分数
- * @param bm25Score   原始全文检索分数
- * @param rrfScore    RRF 融合分数
- * @param rerankScore 最终重排分数
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class SearchResult {
+    /** 文档块 ID */
     private Long chunkId;
 
+    /** 文档块文本 */
     private String chunkText;
 
+    /** 当前排序分数，兼容旧字段 */
     private double similarity;
 
+    /** 来源元数据 */
     private String metadata;
 
+    /** 原始向量相似度分数 */
     private Double vectorScore;
 
+    /** 原始全文检索分数 */
     private Double bm25Score;
 
+    /** RRF 融合分数 */
     private Double rrfScore;
 
+    /** 最终重排分数 */
     private Double rerankScore;
 
     /**

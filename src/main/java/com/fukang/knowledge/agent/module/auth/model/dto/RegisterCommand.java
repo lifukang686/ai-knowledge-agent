@@ -7,19 +7,18 @@ import lombok.NoArgsConstructor;
 
 /**
  * 注册命令。
- *
- * @param username        用户名
- * @param password        密码
- * @param confirmPassword 确认密码
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class RegisterCommand {
+    /** 用户名 */
     private String username;
 
+    /** 密码 */
     private String password;
 
+    /** 确认密码 */
     private String confirmPassword;
 
 }
