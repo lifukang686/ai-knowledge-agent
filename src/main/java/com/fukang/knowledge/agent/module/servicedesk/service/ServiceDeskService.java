@@ -86,14 +86,14 @@ public class ServiceDeskService {
             // 先解析最终服务类型，再创建运行记录和受控工具作用域。
             ServiceDeskAskCommand resolvedCommand = resolveCommand(command);
             run = createRun(userId, resolvedCommand);
-            stage(recordingHandler, "agent_start", "服务台 Agent 正在规划处理步骤");
+            recordingHandler.onStage("agent_start", "服务台 Agent 正在规划处理步骤");
             ServiceDeskAnswerResult result = serviceDeskAgentRuntime.run(
                     resolvedCommand, userId, run.getId(), recordingHandler);
             // 运行结束后统一落库事件和结果，保证 SSE 与数据库一致。
             List<AgentRunEvent> events = completeRun(run, result, result.getEvents());
             if (!hasStreamedTokens(result.getEvents())) {
                 // 没有流式输出时，补发最终答案。
-                token(recordingHandler, result.getAnswer());
+                recordingHandler.onToken(result.getAnswer());
             }
             recordingHandler.onDone(result.withEvents(List.copyOf(events)));
         } catch (Exception e) {
@@ -315,25 +315,4 @@ public class ServiceDeskService {
         }
         return userId;
     }
-
-    /**
-     * 发送阶段消息。
-     */
-    private void stage(ServiceDeskStreamHandler handler, String stage, String message) {
-        if (handler != null) {
-            // 阶段消息用于前端展示当前处理进度。
-            handler.onStage(stage, message);
-        }
-    }
-
-    /**
-     * 发送文本片段。
-     */
-    private void token(ServiceDeskStreamHandler handler, String text) {
-        if (handler != null && text != null) {
-            // 最终答案也按 token 事件补一遍，兼容非流式工具结果。
-            handler.onToken(text);
-        }
-    }
-
 }
